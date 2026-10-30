@@ -1,4 +1,4 @@
-import { type IFD } from 'utif2'
+import type { IFD } from 'utif2'
 
 type TiffLib = {
   decode(buffer: ArrayBuffer): IFD[]
@@ -81,13 +81,14 @@ function rgbaToPngBlob(rgba: Uint8Array, width: number, height: number): Blob | 
   return new Blob([bytes], { type: 'image/png' })
 }
 
-function dataUrlToBytes(dataUrl: string): Uint8Array | null {
+function dataUrlToBytes(dataUrl: string): ArrayBuffer | null {
   const marker = dataUrl.indexOf(',')
   if (marker === -1) return null
   const binary = atob(dataUrl.slice(marker + 1))
-  const bytes = new Uint8Array(binary.length)
+  const buffer = new ArrayBuffer(binary.length)
+  const bytes = new Uint8Array(buffer)
   for (let index = 0; index < binary.length; index += 1) {
     bytes[index] = binary.charCodeAt(index)
   }
-  return bytes
+  return buffer
 }

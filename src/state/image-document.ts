@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { isTiffFile, tiffToPngBlob } from './tiff.ts'
 
 export type ImageProblem = 'not-a-picture' | 'cannot-decode'
 
@@ -12,7 +13,7 @@ export type ImageDocumentState =
   | {
       status: 'loading'
       fileName: string
-      objectUrl: string
+      objectUrl: string | null
       problem: null
     }
   | {
@@ -29,9 +30,9 @@ export type ImageDocumentState =
     }
 
 export const IMAGE_FILE_ACCEPT =
-  'image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/svg+xml,.png,.jpg,.jpeg,.gif,.webp,.avif,.bmp,.svg'
+  'image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/tiff,image/svg+xml,.png,.jpg,.jpeg,.gif,.webp,.avif,.bmp,.tif,.tiff,.svg'
 
-const IMAGE_NAME = /\.(apng|avif|bmp|gif|jpe?g|png|svg|webp)$/i
+const IMAGE_NAME = /\.(apng|avif|bmp|gif|jpe?g|png|svg|tiff?|webp)$/i
 
 const emptyDocument: ImageDocumentState = {
   status: 'empty',
@@ -71,6 +72,18 @@ export function openImageFile(file: File): void {
     return
   }
 
+  if (isTiffFile(file)) {
+    releaseActiveUrl()
+    imageDocumentStore.setState(() => ({
+      status: 'loading',
+      fileName: file.name,
+      objectUrl: null,
+      problem: null,
+    }))
+    void placeTiff(file, id)
+    return
+  }
+
   releaseActiveUrl()
   const objectUrl = URL.createObjectURL(file)
   activeUrl = objectUrl
@@ -105,6 +118,35 @@ export function openImageFile(file: File): void {
     }))
   }
   probe.src = objectUrl
+}
+
+async function placeTiff(file: File, id: number): Promise<void> {
+  try {
+    const blob = await tiffToPngBlob(file)
+    if (id !== requestId) return
+    const objectUrl = URL.createObjectURL(blob)
+    if (id !== requestId) {
+      URL.revokeObjectURL(objectUrl)
+      return
+    }
+    releaseActiveUrl()
+    activeUrl = objectUrl
+    imageDocumentStore.setState(() => ({
+      status: 'ready',
+      fileName: file.name,
+      objectUrl,
+      problem: null,
+    }))
+  } catch {
+    if (id !== requestId) return
+    releaseActiveUrl()
+    imageDocumentStore.setState(() => ({
+      status: 'error',
+      fileName: file.name,
+      objectUrl: null,
+      problem: 'cannot-decode',
+    }))
+  }
 }
 
 function isLikelyImageFile(file: File): boolean {

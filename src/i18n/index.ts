@@ -5,7 +5,7 @@ export type { AppLocale }
 
 export const locale: AppLocale = resolveLocale(readNavigatorLanguages())
 
-const imageFormatNames = ['PNG', 'JPEG', 'GIF', 'WebP', 'AVIF', 'BMP', 'SVG']
+const imageFormatNames = ['PNG', 'JPEG', 'GIF', 'WebP', 'AVIF', 'BMP', 'TIFF', 'SVG']
 
 export function imageFormats(): string {
   return new Intl.ListFormat(locale, {

@@ -21,7 +21,7 @@ bun run build
 
 The production build is written to `dist/`.
 
-Use **File → Open…** or the **Open** button, or press Ctrl+O (Command+O on macOS). Accepted files are PNG, JPEG, GIF, WebP, AVIF, BMP, and SVG. Labels follow the browser language: Portuguese (Portugal) or English (United States).
+Use **File → Open…** or the **Open** button, or press Ctrl+O (Command+O on macOS). Accepted files are PNG, JPEG, GIF, WebP, AVIF, BMP, TIFF, and SVG. Labels follow the browser language: Portuguese (Portugal) or English (United States).
 
 ## Stack
 
