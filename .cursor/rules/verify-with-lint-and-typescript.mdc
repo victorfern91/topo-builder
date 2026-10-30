@@ -1,0 +1,15 @@
+---
+description: Verify changes with lint and TypeScript, not browser actions
+alwaysApply: true
+---
+
+# Verification
+
+Do not verify changes with browser actions or browser tools. Do not open the app, click through flows, or take screenshots.
+
+After code changes, run both and report the results:
+
+- `bun run lint`
+- `bun ./node_modules/typescript/lib/tsc.js -b --pretty false`
+
+`bunx tsc` fails here because no Node version is set. Run the TypeScript compiler through Bun as above.

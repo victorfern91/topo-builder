@@ -1,0 +1,406 @@
+import * as stylex from '@stylexjs/stylex'
+import { Button } from '@base-ui/react/button'
+import { useSelector } from '@tanstack/react-store'
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
+import { t } from '../i18n/index.ts'
+import { imageDocumentStore } from '../state/image-document.ts'
+import { a11y } from '../styles/a11y.ts'
+import { navigator } from '../styles/stage.ts'
+import { useViewport, useViewportSelector } from '../state/use-viewport.ts'
+import {
+  formatZoomPercent,
+  minimapLayout,
+  minimapToContent,
+  pointInFrame,
+  sliderToZoom,
+  zoomToSlider,
+  type MinimapLayout,
+} from '../state/viewport.ts'
+
+const DRAG_SLOP = 3
+
+export function NavigatorPanel() {
+  const helpId = useId()
+  const panelRef = useRef<HTMLElement>(null)
+  const dragRef = useRef<{
+    id: number
+    x: number
+    y: number
+    panelX: number
+    panelY: number
+    moved: boolean
+  } | null>(null)
+  const { actions, keys, getState } = useViewport()
+  const viewport = useViewportSelector((state) => state)
+  const dragging = viewport.userAction === 'panel'
+
+  useLayoutEffect(() => {
+    const panel = panelRef.current
+    if (!panel) return
+    const publish = () => {
+      actions.resizePanel(panel.offsetWidth, panel.offsetHeight)
+    }
+    publish()
+    const observer = new ResizeObserver(publish)
+    observer.observe(panel)
+    return () => observer.disconnect()
+  }, [actions])
+
+  const endDrag = (pointerId: number) => {
+    const drag = dragRef.current
+    if (!drag || drag.id !== pointerId) return
+    dragRef.current = null
+    if (drag.moved) actions.dropPanel()
+    if (getState().userAction === 'panel') actions.setUserAction('idle')
+  }
+
+  const onHeaderPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    dragRef.current = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      panelX: getState().panelX,
+      panelY: getState().panelY,
+      moved: false,
+    }
+  }
+
+  const onHeaderPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.id !== event.pointerId) return
+    const dx = event.clientX - drag.x
+    const dy = event.clientY - drag.y
+    if (!drag.moved && Math.hypot(dx, dy) < DRAG_SLOP) return
+    drag.moved = true
+    if (getState().userAction !== 'panel') actions.setUserAction('panel')
+    actions.movePanel(drag.panelX + dx, drag.panelY + dy)
+  }
+
+  const onHeaderKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? 24 : 8
+    const state = getState()
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      actions.movePanel(state.panelX - step, state.panelY)
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      actions.movePanel(state.panelX + step, state.panelY)
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      actions.movePanel(state.panelX, state.panelY - step)
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      actions.movePanel(state.panelX, state.panelY + step)
+    }
+  }
+
+  const panel = stylex.props(navigator.panel)
+  const placed = viewport.viewWidth > 0
+
+  return (
+    <aside
+      {...panel}
+      ref={panelRef}
+      data-navigator=""
+      data-dragging={dragging ? '' : undefined}
+      aria-label={t('navigator')}
+      aria-describedby={helpId}
+      style={{
+        ...panel.style,
+        transform: `translate3d(${viewport.panelX}px, ${viewport.panelY}px, 0)`,
+        visibility: placed ? 'visible' : 'hidden',
+      }}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <div
+        {...stylex.props(navigator.header, navigator.focusable)}
+        data-dragging={dragging ? '' : undefined}
+        role="application"
+        tabIndex={0}
+        aria-label={t('dragNavigator')}
+        aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"
+        onPointerDown={onHeaderPointerDown}
+        onPointerMove={onHeaderPointerMove}
+        onPointerUp={(event) => endDrag(event.pointerId)}
+        onPointerCancel={(event) => endDrag(event.pointerId)}
+        onLostPointerCapture={(event) => endDrag(event.pointerId)}
+        onKeyDown={onHeaderKeyDown}
+      >
+        <span {...stylex.props(navigator.grip)} aria-hidden="true" />
+        <span {...stylex.props(navigator.title)}>{t('navigator')}</span>
+      </div>
+      <p {...stylex.props(a11y.visuallyHidden)} id={helpId}>
+        {t('navigatorHelp', { pan: keys.pan, zoomIn: keys['zoom-in'], zoomOut: keys['zoom-out'] })}
+      </p>
+      <Minimap />
+      <div {...stylex.props(navigator.controls)}>
+        <div {...stylex.props(navigator.zoomRow)}>
+          <Button
+            {...stylex.props(navigator.step, navigator.focusable)}
+            type="button"
+            aria-label={t('zoomOut')}
+            title={`${t('zoomOut')} (${keys['zoom-out']})`}
+            onClick={() => actions.zoomOut()}
+          >
+            −
+          </Button>
+          <input
+            {...stylex.props(navigator.slider, navigator.focusable)}
+            type="range"
+            min={0}
+            max={1000}
+            step={1}
+            value={zoomToSlider(viewport.zoom)}
+            aria-label={t('zoomPercent')}
+            aria-valuetext={formatZoomPercent(viewport.zoom)}
+            onChange={(event) => actions.zoomTo(sliderToZoom(Number(event.target.value)))}
+          />
+          <Button
+            {...stylex.props(navigator.step, navigator.focusable)}
+            type="button"
+            aria-label={t('zoomIn')}
+            title={`${t('zoomIn')} (${keys['zoom-in']})`}
+            onClick={() => actions.zoomIn()}
+          >
+            +
+          </Button>
+        </div>
+        <div {...stylex.props(navigator.commandRow)}>
+          <ZoomField />
+          <Button
+            {...stylex.props(navigator.command, navigator.focusable)}
+            type="button"
+            aria-label={t('fitWindow')}
+            title={`${t('fitWindow')} (${keys.fit})`}
+            onClick={() => actions.fit()}
+          >
+            {t('fitShort')}
+          </Button>
+          <Button
+            {...stylex.props(navigator.command, navigator.focusable)}
+            type="button"
+            aria-label={t('actualSize')}
+            title={`${t('actualSize')} (${keys['actual-size']})`}
+            onClick={() => actions.actualSize()}
+          >
+            1:1
+          </Button>
+        </div>
+      </div>
+    </aside>
+  )
+}
+
+function Minimap() {
+  const mapRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<{ id: number; x: number; y: number; scale: number; zoom: number } | null>(null)
+  const [mapSize, setMapSize] = useState({ width: 0, height: 0 })
+  const { actions, keys, getState } = useViewport()
+  const viewport = useViewportSelector((state) => state)
+  const imageUrl = useSelector(imageDocumentStore, (state) =>
+    state.status === 'ready' ? state.objectUrl : null,
+  )
+  const layout = minimapLayout(viewport, mapSize.width, mapSize.height)
+  const panning = viewport.userAction === 'minimap'
+
+  useLayoutEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const publish = () => {
+      setMapSize({ width: map.clientWidth, height: map.clientHeight })
+    }
+    publish()
+    const observer = new ResizeObserver(publish)
+    observer.observe(map)
+    return () => observer.disconnect()
+  }, [])
+
+  const endDrag = (pointerId: number) => {
+    if (!dragRef.current || dragRef.current.id !== pointerId) return
+    dragRef.current = null
+    if (getState().userAction === 'minimap') actions.setUserAction('idle')
+  }
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    const localX = event.clientX - rect.left
+    const localY = event.clientY - rect.top
+    const frame = minimapLayout(getState(), rect.width, rect.height)
+    if (!frame) return
+    event.preventDefault()
+    event.currentTarget.focus({ preventScroll: true })
+    event.currentTarget.setPointerCapture(event.pointerId)
+    if (!pointInFrame(frame, localX, localY)) {
+      const content = minimapToContent(frame, localX, localY)
+      actions.centerOn(content.x, content.y)
+    }
+    const state = getState()
+    dragRef.current = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      scale: frame.scale,
+      zoom: state.zoom,
+    }
+    actions.setUserAction('minimap')
+  }
+
+  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.id !== event.pointerId || drag.scale === 0) return
+    const dx = event.clientX - drag.x
+    const dy = event.clientY - drag.y
+    drag.x = event.clientX
+    drag.y = event.clientY
+    actions.panBy((-dx / drag.scale) * drag.zoom, (-dy / drag.scale) * drag.zoom)
+  }
+
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? 80 : 40
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      actions.panBy(step, 0)
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      actions.panBy(-step, 0)
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      actions.panBy(0, step)
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      actions.panBy(0, -step)
+    } else if (event.key === '+' || event.key === '=') {
+      event.preventDefault()
+      actions.zoomIn()
+    } else if (event.key === '-' || event.key === '_') {
+      event.preventDefault()
+      actions.zoomOut()
+    }
+  }
+
+  return (
+    <div
+      {...stylex.props(navigator.map, navigator.focusable)}
+      ref={mapRef}
+      data-grabbing={panning ? '' : undefined}
+      role="application"
+      tabIndex={0}
+      aria-label={t('minimap')}
+      aria-keyshortcuts={`${keys.pan} ArrowUp ArrowDown ArrowLeft ArrowRight`}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={(event) => endDrag(event.pointerId)}
+      onPointerCancel={(event) => endDrag(event.pointerId)}
+      onLostPointerCapture={(event) => endDrag(event.pointerId)}
+      onKeyDown={onKeyDown}
+    >
+      {layout ? <MapPicture layout={layout} imageUrl={imageUrl} /> : null}
+    </div>
+  )
+}
+
+function MapPicture({ layout, imageUrl }: { layout: MinimapLayout; imageUrl: string | null }) {
+  const picture = {
+    left: layout.contentX,
+    top: layout.contentY,
+    width: layout.contentW,
+    height: layout.contentH,
+  }
+  const frame = stylex.props(navigator.frame)
+  const thumb = stylex.props(imageUrl ? navigator.thumb : navigator.swatch)
+  return (
+    <>
+      {imageUrl ? (
+        <img
+          className={thumb.className}
+          style={{ ...thumb.style, ...picture }}
+          src={imageUrl}
+          alt=""
+          draggable={false}
+        />
+      ) : (
+        <div className={thumb.className} style={{ ...thumb.style, ...picture }} />
+      )}
+      <div
+        className={frame.className}
+        style={{
+          ...frame.style,
+          left: layout.frameX,
+          top: layout.frameY,
+          width: Math.max(layout.frameW, 2),
+          height: Math.max(layout.frameH, 2),
+        }}
+      />
+    </>
+  )
+}
+
+function ZoomField() {
+  const zoom = useViewportSelector((state) => state.zoom)
+  const { actions } = useViewport()
+  const [draft, setDraft] = useState<string | null>(null)
+  const skipCommit = useRef(false)
+  const dirty = useRef(false)
+  const shown = draft ?? formatZoomPercent(zoom)
+
+  const commit = (raw: string | null) => {
+    if (raw == null) return
+    const value = Number(raw.replace('%', '').replace(',', '.').trim())
+    if (!Number.isFinite(value) || value <= 0) return
+    actions.zoomTo(value / 100)
+  }
+
+  return (
+    <input
+      {...stylex.props(navigator.percent, navigator.focusable)}
+      value={shown}
+      inputMode="decimal"
+      autoComplete="off"
+      spellCheck={false}
+      aria-label={t('zoomPercent')}
+      onFocus={(event) => {
+        const input = event.currentTarget
+        dirty.current = false
+        setDraft(formatZoomPercent(zoom).replace('%', ''))
+        requestAnimationFrame(() => input.select())
+      }}
+      onChange={(event) => {
+        dirty.current = true
+        setDraft(event.target.value)
+      }}
+      onBlur={() => {
+        if (skipCommit.current) {
+          skipCommit.current = false
+          dirty.current = false
+          setDraft(null)
+          return
+        }
+        if (dirty.current) commit(draft)
+        dirty.current = false
+        setDraft(null)
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          event.currentTarget.blur()
+        } else if (event.key === 'Escape') {
+          event.preventDefault()
+          skipCommit.current = true
+          setDraft(null)
+          event.currentTarget.blur()
+        }
+      }}
+    />
+  )
+}

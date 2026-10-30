@@ -1,0 +1,3 @@
+[run]
+# Run package scripts with Bun so `#!/usr/bin/env node` does not hit an asdf/mise shim.
+bun = true
