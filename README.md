@@ -6,7 +6,7 @@ The workspace is dark. Nothing is on the board until you open a file. While the 
 
 ## Run locally
 
-Install [Bun](https://bun.sh) and Node.js 22.22.2 or newer (Node 24 is fine). Octane's compiler runs on Node; Bun installs dependencies and starts Vite.
+Install [Bun](https://bun.sh). Package scripts run on Bun, so this repo does not need a selected Node.js version.
 
 ```sh
 bun install
@@ -21,7 +21,7 @@ bun run build
 
 The production build is written to `dist/`.
 
-Use **File → Open…** or the **Open** button, or press Ctrl+O (Command+O on macOS). Accepted files are PNG, JPEG, GIF, WebP, AVIF, BMP, and SVG.
+Use **File → Open…** or the **Open** button, or press Ctrl+O (Command+O on macOS). Accepted files are PNG, JPEG, GIF, WebP, AVIF, BMP, and SVG. Labels follow the browser language: Portuguese (Portugal) or English (United States).
 
 ## Stack
 
@@ -29,7 +29,7 @@ Use **File → Open…** or the **Open** button, or press Ctrl+O (Command+O on m
 - [Base UI](https://base-ui.com/) (`@base-ui/react`) for the File menu and buttons
 - TanStack Store (`@tanstack/store`, `@tanstack/react-store`) for the open document
 - TanStack Router (`@tanstack/react-router`) for the workspace route; the artboard view is lazy-loaded
-- [Octane](https://octanejs.dev/) (`octane`, `@octanejs/vite-plugin`) renders the placed image inside the React artboard
+- [StyleX](https://stylexjs.com/) for the workspace styles
 
 ## GitHub Pages
 

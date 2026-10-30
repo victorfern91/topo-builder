@@ -1,13 +1,32 @@
 import { Store } from '@tanstack/store'
 
-export type ImageDocumentStatus = 'empty' | 'loading' | 'ready' | 'error'
+export type ImageProblem = 'not-a-picture' | 'cannot-decode'
 
-export type ImageDocumentState = {
-  status: ImageDocumentStatus
-  fileName: string | null
-  objectUrl: string | null
-  message: string | null
-}
+export type ImageDocumentState =
+  | {
+      status: 'empty'
+      fileName: null
+      objectUrl: null
+      problem: null
+    }
+  | {
+      status: 'loading'
+      fileName: string
+      objectUrl: string
+      problem: null
+    }
+  | {
+      status: 'ready'
+      fileName: string
+      objectUrl: string
+      problem: null
+    }
+  | {
+      status: 'error'
+      fileName: string
+      objectUrl: null
+      problem: ImageProblem
+    }
 
 export const IMAGE_FILE_ACCEPT =
   'image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/svg+xml,.png,.jpg,.jpeg,.gif,.webp,.avif,.bmp,.svg'
@@ -18,7 +37,7 @@ const emptyDocument: ImageDocumentState = {
   status: 'empty',
   fileName: null,
   objectUrl: null,
-  message: null,
+  problem: null,
 }
 
 export const imageDocumentStore = new Store<ImageDocumentState>(emptyDocument)
@@ -47,7 +66,7 @@ export function openImageFile(file: File): void {
       status: 'error',
       fileName: file.name,
       objectUrl: null,
-      message: `"${file.name}" isn't a picture Topo can place. Choose a PNG, JPEG, GIF, WebP, AVIF, BMP, or SVG.`,
+      problem: 'not-a-picture',
     }))
     return
   }
@@ -59,7 +78,7 @@ export function openImageFile(file: File): void {
     status: 'loading',
     fileName: file.name,
     objectUrl,
-    message: null,
+    problem: null,
   }))
 
   const probe = new Image()
@@ -69,7 +88,7 @@ export function openImageFile(file: File): void {
       status: 'ready',
       fileName: file.name,
       objectUrl,
-      message: null,
+      problem: null,
     }))
   }
   probe.onerror = () => {
@@ -82,7 +101,7 @@ export function openImageFile(file: File): void {
       status: 'error',
       fileName: file.name,
       objectUrl: null,
-      message: `Topo couldn't show "${file.name}". The file may be damaged, or this browser can't decode that format.`,
+      problem: 'cannot-decode',
     }))
   }
   probe.src = objectUrl

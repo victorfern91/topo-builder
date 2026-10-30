@@ -1,5 +1,5 @@
 import react from '@vitejs/plugin-react'
-import { octane } from '@octanejs/vite-plugin'
+import { unplugin as stylex } from '@stylexjs/unplugin'
 import { defineConfig } from 'vite'
 
 // Project Pages site: https://victorfern91.github.io/topo-builder/
@@ -8,7 +8,12 @@ const base = normalizeBase(process.env.VITE_BASE_PATH)
 
 export default defineConfig({
   base,
-  plugins: [octane({ requireDirective: true }), react()],
+  plugins: [
+    stylex.vite({
+      useCSSLayers: { before: ['base'] },
+    }),
+    react(),
+  ],
   server: {
     host: '0.0.0.0',
     port: 24680,

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-US">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -82,6 +82,39 @@
         </div>
       </div>
     </div>
+    <script>
+      (function () {
+        var tags =
+          navigator.languages && navigator.languages.length
+            ? navigator.languages
+            : [navigator.language || 'en-US']
+        var locale = 'en-US'
+        for (var i = 0; i < tags.length; i++) {
+          var language = ''
+          try {
+            language = new Intl.Locale(tags[i]).language
+          } catch {
+            continue
+          }
+          if (language === 'pt') {
+            locale = 'pt-PT'
+            break
+          }
+          if (language === 'en') {
+            locale = 'en-US'
+            break
+          }
+        }
+        document.documentElement.lang = locale
+        var boot = document.querySelector('.boot')
+        if (boot) {
+          boot.setAttribute(
+            'aria-label',
+            locale === 'pt-PT' ? 'A carregar o Topo' : 'Loading Topo',
+          )
+        }
+      })()
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
