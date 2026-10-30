@@ -1,13 +1,14 @@
 import { Store } from '@tanstack/store'
+import { flushPreferences, preferencesStore, saveNavigator, saveTools } from './preferences.ts'
 
 export const MIN_ZOOM = 0.01
 export const MAX_ZOOM = 64
-const ZOOM_STEP = 1.25
+export const ZOOM_STEP = 1.25
 const PANEL_MARGIN = 12
 const VIEW_MARGIN = 32
 const DOCK_SNAP = 28
 
-export type UserAction = 'idle' | 'pan' | 'minimap' | 'panel'
+export type UserAction = 'idle' | 'pan' | 'minimap' | 'panel' | 'tools'
 
 export type ContentPlacement = 'fit' | 'center'
 
@@ -35,6 +36,11 @@ export type ViewportState = {
   panelWidth: number
   panelHeight: number
   panelCustom: boolean
+  toolX: number
+  toolY: number
+  toolWidth: number
+  toolHeight: number
+  toolCustom: boolean
 }
 
 export type MinimapLayout = {
@@ -67,6 +73,11 @@ const initialViewport: ViewportState = {
   panelWidth: 216,
   panelHeight: 248,
   panelCustom: false,
+  toolX: PANEL_MARGIN,
+  toolY: PANEL_MARGIN,
+  toolWidth: 48,
+  toolHeight: 120,
+  toolCustom: false,
 }
 
 export const viewportStore = new Store(initialViewport, (store) => ({
@@ -120,7 +131,11 @@ export const viewportStore = new Store(initialViewport, (store) => ({
     })
   },
   movePanel(x: number, y: number) {
-    store.setState((state) => clampPanel({ ...state, panelX: x, panelY: y, panelCustom: true }))
+    store.setState((state) => {
+      const next = clampPanel({ ...state, panelX: x, panelY: y, panelCustom: true })
+      rememberPanel(next)
+      return next
+    })
   },
   dropPanel() {
     store.setState((state) => {
@@ -128,8 +143,36 @@ export const viewportStore = new Store(initialViewport, (store) => ({
       const docked = dockedPanelPosition(state)
       const near = Math.abs(state.panelX - docked.x) <= DOCK_SNAP && Math.abs(state.panelY - docked.y) <= DOCK_SNAP
       if (!near) return state
-      return clampPanel({ ...state, panelCustom: false })
+      const next = clampPanel({ ...state, panelCustom: false })
+      rememberPanel(next)
+      return next
     })
+    flushPreferences()
+  },
+  resizeTool(width: number, height: number) {
+    store.setState((state) => {
+      if (state.toolWidth === width && state.toolHeight === height) return state
+      return clampTool({ ...state, toolWidth: width, toolHeight: height })
+    })
+  },
+  moveTool(x: number, y: number) {
+    store.setState((state) => {
+      const next = clampTool({ ...state, toolX: x, toolY: y, toolCustom: true })
+      rememberTool(next)
+      return next
+    })
+  },
+  dropTool() {
+    store.setState((state) => {
+      if (!state.toolCustom) return state
+      const docked = dockedToolPosition()
+      const near = Math.abs(state.toolX - docked.x) <= DOCK_SNAP && Math.abs(state.toolY - docked.y) <= DOCK_SNAP
+      if (!near) return state
+      const next = clampTool({ ...state, toolCustom: false })
+      rememberTool(next)
+      return next
+    })
+    flushPreferences()
   },
 }))
 
@@ -275,15 +318,16 @@ function placeCentered(state: ViewportState): ViewportState {
 }
 
 function placeInView(state: ViewportState, zoomCap: number): ViewportState {
+  const reserveLeft = state.toolCustom ? 0 : state.toolWidth + PANEL_MARGIN
   const reserveRight = state.panelCustom ? 0 : state.panelWidth + PANEL_MARGIN
-  const availW = Math.max(1, state.viewWidth - reserveRight - VIEW_MARGIN * 2)
+  const availW = Math.max(1, state.viewWidth - reserveLeft - reserveRight - VIEW_MARGIN * 2)
   const availH = Math.max(1, state.viewHeight - VIEW_MARGIN * 2)
   const zoom = clampZoom(Math.min(zoomCap, availW / state.contentWidth, availH / state.contentHeight))
-  const usedW = state.viewWidth - reserveRight
+  const usedW = state.viewWidth - reserveLeft - reserveRight
   const next = {
     ...state,
     zoom,
-    panX: (usedW - state.contentWidth * zoom) / 2,
+    panX: reserveLeft + (usedW - state.contentWidth * zoom) / 2,
     panY: (state.viewHeight - state.contentHeight * zoom) / 2,
   }
   if (next.zoom === state.zoom && next.panX === state.panX && next.panY === state.panY) return state
@@ -292,7 +336,7 @@ function placeInView(state: ViewportState, zoomCap: number): ViewportState {
 
 function resizeView(state: ViewportState, width: number, height: number): ViewportState {
   if (width === state.viewWidth && height === state.viewHeight) return state
-  const next = clampPanel({ ...state, viewWidth: width, viewHeight: height })
+  const next = clampTool(clampPanel({ ...state, viewWidth: width, viewHeight: height }))
   if (next.fittedKey === next.contentKey) return next
   return tryPlace(next)
 }
@@ -330,6 +374,44 @@ function tryPlace(state: ViewportState): ViewportState {
   const placed = state.placement === 'fit' ? placeFitted(state) : placeCentered(state)
   if (placed === state) return { ...state, fittedKey: state.contentKey }
   return { ...placed, fittedKey: state.contentKey }
+}
+
+function rememberPanel(state: ViewportState): void {
+  saveNavigator({ x: state.panelX, y: state.panelY, custom: state.panelCustom })
+}
+
+function rememberTool(state: ViewportState): void {
+  saveTools({ x: state.toolX, y: state.toolY, custom: state.toolCustom })
+}
+
+function hydratePlacement(): void {
+  const saved = preferencesStore.get()
+  if (!saved.navigator.custom && !saved.tools.custom) return
+  viewportStore.setState((state) => ({
+    ...state,
+    panelX: saved.navigator.custom ? saved.navigator.x : state.panelX,
+    panelY: saved.navigator.custom ? saved.navigator.y : state.panelY,
+    panelCustom: saved.navigator.custom,
+    toolX: saved.tools.custom ? saved.tools.x : state.toolX,
+    toolY: saved.tools.custom ? saved.tools.y : state.toolY,
+    toolCustom: saved.tools.custom,
+  }))
+}
+
+hydratePlacement()
+
+function dockedToolPosition(): { x: number; y: number } {
+  return { x: PANEL_MARGIN, y: PANEL_MARGIN }
+}
+
+function clampTool(state: ViewportState): ViewportState {
+  const docked = dockedToolPosition()
+  const x = state.toolCustom ? state.toolX : docked.x
+  const y = state.toolCustom ? state.toolY : docked.y
+  const toolX = clamp(x, PANEL_MARGIN, Math.max(PANEL_MARGIN, state.viewWidth - state.toolWidth - PANEL_MARGIN))
+  const toolY = clamp(y, PANEL_MARGIN, Math.max(PANEL_MARGIN, state.viewHeight - state.toolHeight - PANEL_MARGIN))
+  if (toolX === state.toolX && toolY === state.toolY) return state
+  return { ...state, toolX, toolY }
 }
 
 function dockedPanelPosition(state: ViewportState): { x: number; y: number } {

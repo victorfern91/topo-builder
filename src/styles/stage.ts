@@ -17,12 +17,16 @@ export const stage = stylex.create({
     overscrollBehavior: 'none',
     cursor: {
       default: 'default',
-      '[data-grab]': 'grab',
+      '[data-cursor="grab"]': 'grab',
+      '[data-cursor="zoom-in"]': 'zoom-in',
+      '[data-cursor="zoom-out"]': 'zoom-out',
       '[data-grabbing]': 'grabbing',
     },
     userSelect: {
       default: 'auto',
-      '[data-grab]': 'none',
+      '[data-cursor="grab"]': 'none',
+      '[data-cursor="zoom-in"]': 'none',
+      '[data-cursor="zoom-out"]': 'none',
       '[data-grabbing]': 'none',
     },
   },
@@ -133,8 +137,8 @@ export const navigator = stylex.create({
   },
   frame: {
     position: 'absolute',
-    boxShadow: '0 0 0 1px #ff4d4f, 0 0 0 2px rgba(0, 0, 0, 0.7)',
-    backgroundColor: 'rgba(255, 77, 79, 0.16)',
+    boxShadow: '0 0 0 1px #1473e6, 0 0 0 2px rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(20, 115, 230, 0.22)',
     pointerEvents: 'none',
   },
   controls: {

@@ -22,9 +22,11 @@ const enUS = {
   notAPicture: '"{fileName}" isn’t a picture Topo can place. Choose a {formats}.',
   cannotDecode:
     'Topo couldn’t show "{fileName}". The file may be damaged, or this browser can’t decode that format.',
+  tools: 'Tools',
   artboard: 'Artboard',
   navigator: 'Navigator',
   dragNavigator: 'Drag to move the navigator',
+  dragTools: 'Drag to move the tools',
   minimap: 'Mini map',
   zoomIn: 'Zoom in',
   zoomOut: 'Zoom out',
@@ -32,9 +34,15 @@ const enUS = {
   fitShort: 'Fit',
   actualSize: 'Actual pixels',
   zoomPercent: 'Zoom',
+  zoomOptions: 'Zoom options',
+  moveView: 'Move',
   spaceKey: 'Space',
   navigatorHelp:
-    'Drag the title bar to move this panel. Drop it at the top-right to dock it. Drag in the mini map to pan, or click to recenter. Scroll to pan. Hold Ctrl, Command, or Alt and scroll to zoom toward the pointer. Hold {pan} and drag to pan. {zoomIn} zooms in and {zoomOut} zooms out.',
+    'Drag the title bar to move this panel. Drop it at the top-right to dock it. Drag in the mini map to pan, or click to recenter. Drag on the artboard to use the selected tool. Hold {pan} and drag to move the view. Scroll to pan. Hold Ctrl, Command, or Alt and scroll to zoom toward the pointer. {zoomIn} zooms in and {zoomOut} zooms out.',
+  notifications: 'Notifications',
+  settingsResetTitle: 'New version',
+  settingsResetBody: 'This is a new version. All of your settings were lost.',
+  dismiss: 'Dismiss',
 } as const
 
 const ptPT = {
@@ -60,9 +68,11 @@ const ptPT = {
     '"{fileName}" não é uma imagem que o Topo consiga colocar. Escolha um {formats}.',
   cannotDecode:
     'O Topo não conseguiu mostrar "{fileName}". O ficheiro pode estar danificado, ou este navegador não consegue descodificar esse formato.',
+  tools: 'Ferramentas',
   artboard: 'Prancheta',
   navigator: 'Navegador',
   dragNavigator: 'Arrastar para mover o navegador',
+  dragTools: 'Arrastar para mover as ferramentas',
   minimap: 'Mini mapa',
   zoomIn: 'Ampliar',
   zoomOut: 'Reduzir',
@@ -70,9 +80,15 @@ const ptPT = {
   fitShort: 'Ajustar',
   actualSize: 'Pixéis reais',
   zoomPercent: 'Ampliação',
+  zoomOptions: 'Opções de ampliação',
+  moveView: 'Mover',
   spaceKey: 'Espaço',
   navigatorHelp:
-    'Arraste a barra de título para mover este painel. Largue-o no canto superior direito para o ancorar. Arraste no mini mapa para deslocar a vista, ou clique para recentrar. Role para deslocar. Mantenha Ctrl, Command ou Alt e role para ampliar em direção ao ponteiro. Mantenha {pan} premido e arraste para deslocar. {zoomIn} amplia e {zoomOut} reduz.',
+    'Arraste a barra de título para mover este painel. Largue-o no canto superior direito para o ancorar. Arraste no mini mapa para deslocar a vista, ou clique para recentrar. Arraste na prancheta para usar a ferramenta selecionada. Mantenha {pan} premido e arraste para mover a vista. Role para deslocar. Mantenha Ctrl, Command ou Alt e role para ampliar em direção ao ponteiro. {zoomIn} amplia e {zoomOut} reduz.',
+  notifications: 'Notificações',
+  settingsResetTitle: 'Nova versão',
+  settingsResetBody: 'Esta é uma nova versão. Todas as suas definições foram perdidas.',
+  dismiss: 'Fechar',
 } as const satisfies Record<keyof typeof enUS, string>
 
 const catalogs = {

@@ -1,9 +1,11 @@
+export const appLocales = ['pt-PT', 'en-US'] as const
+
+export type AppLocale = (typeof appLocales)[number]
+
 const localeByLanguage = {
   pt: 'pt-PT',
   en: 'en-US',
-} as const
-
-export type AppLocale = (typeof localeByLanguage)[keyof typeof localeByLanguage]
+} as const satisfies Record<string, AppLocale>
 
 export function resolveLocale(tags: readonly string[]): AppLocale {
   for (const tag of tags) {
