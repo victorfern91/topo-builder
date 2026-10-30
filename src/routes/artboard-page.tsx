@@ -1,6 +1,7 @@
 import * as stylex from '@stylexjs/stylex'
 import { Button } from '@base-ui/react/button'
 import { useSelector } from '@tanstack/react-store'
+import { useEffect } from 'react'
 import { ArtboardStage } from '../components/artboard-stage.tsx'
 import { formatPercent, imageFormats, t } from '../i18n/index.ts'
 import { useViewport } from '../state/use-viewport.ts'
@@ -11,6 +12,7 @@ import {
   requestImageFilePicker,
   type ImageProblem,
 } from '../state/image-document.ts'
+import { clearLines } from '../state/lines.ts'
 
 export default function ArtboardPage() {
   const opened = useSelector(imageDocumentStore, (state) => state)
@@ -101,6 +103,11 @@ function TiffConversion({ fileName, progress }: { fileName: string; progress: nu
 
 function ReadyImage({ fileName, objectUrl }: { fileName: string; objectUrl: string }) {
   const { actions } = useViewport()
+  useEffect(() => {
+    return () => {
+      clearLines()
+    }
+  }, [objectUrl])
   return (
     <ArtboardStage contentKey={objectUrl} placement="fit" navigator>
       <div {...stylex.props(board.artboard, board.imageFrame)}>

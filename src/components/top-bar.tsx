@@ -2,10 +2,18 @@ import * as stylex from '@stylexjs/stylex'
 import { Button } from '@base-ui/react/button'
 import { Menu } from '@base-ui/react/menu'
 import { useSelector } from '@tanstack/react-store'
-import { useEffect, useRef, type ChangeEvent } from 'react'
-import { formatPixelSize, t } from '../i18n/index.ts'
+import { useEffect, useRef, type ChangeEvent, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { formatPixelSize, formatScale, t } from '../i18n/index.ts'
 import { a11y } from '../styles/a11y.ts'
 import { color, media } from '../styles/tokens.stylex.ts'
+import {
+  DRAW_SCALE_MAX,
+  DRAW_SCALE_MIN,
+  drawScaleFromRatio,
+  drawScaleRatio,
+  lineStore,
+  setDrawScale,
+} from '../state/lines.ts'
 import {
   IMAGE_FILE_ACCEPT,
   imageDocumentStore,
@@ -19,6 +27,8 @@ export function TopBar() {
   const fileName = useSelector(imageDocumentStore, (state) => state.fileName)
   const size = useSelector(imageDocumentStore, (state) => state.size)
   const shortcutLabel = applePlatform() ? '⌘O' : 'Ctrl+O'
+  const imageReady = useSelector(imageDocumentStore, (state) => state.status === 'ready')
+  const scale = useSelector(lineStore, (state) => state.scale)
 
   useEffect(() => {
     document.title = fileName ? t('documentTitle', { fileName }) : t('appTitle')
@@ -78,6 +88,7 @@ export function TopBar() {
           </Menu.Positioner>
         </Menu.Portal>
       </Menu.Root>
+      {imageReady ? <ScaleBar scale={scale} /> : null}
       <p {...stylex.props(styles.docTitle)} title={fileName ?? undefined}>
         {fileName ?? t('noDocument')}
       </p>
@@ -97,6 +108,75 @@ export function TopBar() {
         onChange={onFileChange}
       />
     </header>
+  )
+}
+
+function ScaleBar({ scale }: { scale: number }) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const fill = stylex.props(styles.scaleFill)
+  const ratio = drawScaleRatio(scale)
+
+  const setFromClientX = (clientX: number) => {
+    const track = trackRef.current
+    if (!track) return
+    const rect = track.getBoundingClientRect()
+    if (rect.width <= 0) return
+    setDrawScale(drawScaleFromRatio((clientX - rect.left) / rect.width))
+  }
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setFromClientX(event.clientX)
+  }
+
+  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+    setFromClientX(event.clientX)
+  }
+
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? 0.1 : 0.02
+    if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      setDrawScale(drawScaleFromRatio(ratio + step))
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+      event.preventDefault()
+      setDrawScale(drawScaleFromRatio(ratio - step))
+    } else if (event.key === 'Home') {
+      event.preventDefault()
+      setDrawScale(DRAW_SCALE_MIN)
+    } else if (event.key === 'End') {
+      event.preventDefault()
+      setDrawScale(DRAW_SCALE_MAX)
+    }
+  }
+
+  return (
+    <div {...stylex.props(styles.scaleControl)}>
+      <span {...stylex.props(styles.scaleLabel)}>{t('scale')}</span>
+      <div
+        {...stylex.props(styles.scaleTrack)}
+        ref={trackRef}
+        role="slider"
+        tabIndex={0}
+        aria-label={t('scale')}
+        aria-orientation="horizontal"
+        aria-valuemin={Math.round(DRAW_SCALE_MIN * 100)}
+        aria-valuemax={Math.round(DRAW_SCALE_MAX * 100)}
+        aria-valuenow={Math.round(scale * 100)}
+        aria-valuetext={formatScale(scale)}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onKeyDown={onKeyDown}
+      >
+        <span {...stylex.props(styles.scaleGroove)} aria-hidden="true">
+          <span className={fill.className} style={{ ...fill.style, width: `${ratio * 100}%` }} />
+        </span>
+      </div>
+      <span {...stylex.props(styles.scaleReadout)}>{formatScale(scale)}</span>
+    </div>
   )
 }
 
@@ -313,5 +393,60 @@ const styles = stylex.create({
       default: color.kbd,
       [stylex.when.ancestor('[data-highlighted]')]: 'inherit',
     },
+  },
+  scaleControl: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 8,
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  scaleLabel: {
+    fontSize: 13,
+    color: color.kbd,
+  },
+  scaleTrack: {
+    display: 'flex',
+    alignItems: 'center',
+    width: 120,
+    height: 22,
+    cursor: 'pointer',
+    touchAction: 'none',
+    outlineWidth: {
+      default: 0,
+      ':focus-visible': 2,
+    },
+    outlineStyle: {
+      default: 'none',
+      ':focus-visible': 'solid',
+    },
+    outlineColor: {
+      default: 'transparent',
+      ':focus-visible': color.focus,
+    },
+    outlineOffset: 2,
+  },
+  scaleGroove: {
+    display: 'block',
+    width: '100%',
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    backgroundColor: '#1a1a1a',
+    pointerEvents: 'none',
+  },
+  scaleFill: {
+    display: 'block',
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: color.primary,
+  },
+  scaleReadout: {
+    width: 42,
+    fontSize: 13,
+    fontVariantNumeric: 'tabular-nums',
+    color: color.kbd,
+    textAlign: 'end',
   },
 })
