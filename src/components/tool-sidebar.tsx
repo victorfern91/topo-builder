@@ -13,13 +13,17 @@ import {
 import { t } from '../i18n/index.ts'
 import type { MessageId } from '../i18n/messages.ts'
 import { imageDocumentStore } from '../state/image-document.ts'
+import { beginLine, ensureLine } from '../state/lines.ts'
 import {
   applyToolClick,
+  CREATE_TOOLS,
+  selectCreate,
   selectGroup,
   selectZoom,
   toolStore,
   ZOOM_COMMANDS,
   ZOOM_TOOLS,
+  type CreateToolId,
   type ZoomCommandId,
   type ZoomToolId,
 } from '../state/tools.ts'
@@ -37,12 +41,20 @@ const ZOOM_COMMAND_OPTIONS: { id: ZoomCommandId; label: MessageId; shortcut: Vie
   { id: 'actual-size', label: 'actualSize', shortcut: 'actual-size' },
 ]
 
+const CREATE_TOOL_OPTIONS: { id: CreateToolId; label: MessageId }[] = [
+  { id: 'route', label: 'createRoute' },
+  { id: 'boulder', label: 'createBoulder' },
+]
+
+type ToolFlyout = 'zoom' | 'create'
+
 const DRAG_SLOP = 3
 
 export function ToolSidebar() {
   const ready = useSelector(imageDocumentStore, (state) => state.status === 'ready')
   const group = useSelector(toolStore, (state) => state.group)
   const zoom = useSelector(toolStore, (state) => state.zoom)
+  const create = useSelector(toolStore, (state) => state.create)
   const { actions, keys, getState } = useViewport()
   const placement = useViewportSelector(
     (state) => ({
@@ -53,9 +65,10 @@ export function ToolSidebar() {
     }),
     { compare: shallow },
   )
-  const [open, setOpen] = useState(false)
+  const [flyout, setFlyout] = useState<ToolFlyout | null>(null)
   const railRef = useRef<HTMLDivElement>(null)
-  const slotRef = useRef<HTMLDivElement>(null)
+  const zoomSlotRef = useRef<HTMLDivElement>(null)
+  const createSlotRef = useRef<HTMLDivElement>(null)
   const closeTimer = useRef<number | null>(null)
   const dragRef = useRef<{
     id: number
@@ -67,6 +80,7 @@ export function ToolSidebar() {
   } | null>(null)
   const menuId = useId()
   const zoomOption = ZOOM_TOOL_OPTIONS.find((item) => item.id === zoom) ?? ZOOM_TOOL_OPTIONS[0]
+  const createOption = CREATE_TOOL_OPTIONS.find((item) => item.id === create) ?? CREATE_TOOL_OPTIONS[0]
 
   useEffect(() => {
     return () => {
@@ -87,14 +101,14 @@ export function ToolSidebar() {
   }, [actions, ready])
 
   useEffect(() => {
-    if (!open) return
+    if (flyout == null) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key === 'Escape') setFlyout(null)
     }
     const onPointerDown = (event: PointerEvent) => {
-      const slot = slotRef.current
+      const slot = flyout === 'zoom' ? zoomSlotRef.current : createSlotRef.current
       if (!slot || !(event.target instanceof Node) || slot.contains(event.target)) return
-      setOpen(false)
+      setFlyout(null)
     }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('pointerdown', onPointerDown)
@@ -102,7 +116,7 @@ export function ToolSidebar() {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('pointerdown', onPointerDown)
     }
-  }, [open])
+  }, [flyout])
 
   if (!ready) return null
 
@@ -113,11 +127,11 @@ export function ToolSidebar() {
 
   const scheduleClose = () => {
     cancelClose()
-    closeTimer.current = window.setTimeout(() => setOpen(false), 160)
+    closeTimer.current = window.setTimeout(() => setFlyout(null), 160)
   }
 
   const runCommand = (id: ZoomCommandId) => {
-    setOpen(false)
+    setFlyout(null)
     applyToolClick(id, actions, 'center')
   }
 
@@ -215,7 +229,7 @@ export function ToolSidebar() {
           data-pressed={group === 'move' ? '' : undefined}
           title={`${t('moveView')} (${keys.pan})`}
           onClick={() => {
-            setOpen(false)
+            setFlyout(null)
             selectGroup('move')
           }}
         >
@@ -223,7 +237,87 @@ export function ToolSidebar() {
         </button>
         <div
           {...stylex.props(styles.slot)}
-          ref={slotRef}
+          ref={createSlotRef}
+          onMouseLeave={scheduleClose}
+          onMouseEnter={cancelClose}
+        >
+          <button
+            {...stylex.props(styles.tool)}
+            type="button"
+            aria-label={t(createOption.label)}
+            aria-pressed={group === 'create'}
+            data-pressed={group === 'create' ? '' : undefined}
+            title={t(createOption.label)}
+            onClick={() => {
+              setFlyout(null)
+              const drawing = group === 'create'
+              selectGroup('create')
+              if (drawing) beginLine(create)
+              else ensureLine(create)
+            }}
+          >
+            <CreateToolIcon id={create} />
+          </button>
+          <button
+            {...stylex.props(styles.triangle)}
+            type="button"
+            aria-label={t('createOptions')}
+            aria-haspopup="menu"
+            aria-expanded={flyout === 'create'}
+            aria-controls={`${menuId}-create`}
+            onMouseEnter={() => {
+              cancelClose()
+              setFlyout('create')
+            }}
+            onClick={(event) => {
+              event.preventDefault()
+              cancelClose()
+              setFlyout('create')
+            }}
+          >
+            <span {...stylex.props(styles.triangleMark)} />
+          </button>
+          {flyout === 'create' ? (
+            <div
+              {...stylex.props(styles.menu)}
+              id={`${menuId}-create`}
+              role="menu"
+              aria-label={t('createOptions')}
+            >
+              <div {...stylex.props(styles.popup)}>
+                {CREATE_TOOLS.map((id) => (
+                  <CreateChoice
+                    key={id}
+                    id={id}
+                    checked={id === create}
+                    onSelect={() => {
+                      selectCreate(id)
+                      beginLine(id)
+                      setFlyout(null)
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+        <button
+          {...stylex.props(styles.tool)}
+          type="button"
+          aria-label={t('editRoute')}
+          aria-pressed={group === 'edit'}
+          data-pressed={group === 'edit' ? '' : undefined}
+          title={t('editRoute')}
+          onClick={() => {
+            setFlyout(null)
+            selectGroup('edit')
+          }}
+        >
+          <EditRouteIcon />
+        </button>
+        <div
+          {...stylex.props(styles.slot)}
+          ref={zoomSlotRef}
           onMouseLeave={scheduleClose}
           onMouseEnter={cancelClose}
         >
@@ -235,7 +329,7 @@ export function ToolSidebar() {
             data-pressed={group === 'zoom' ? '' : undefined}
             title={`${t(zoomOption.label)} (${keys[zoomOption.shortcut]})`}
             onClick={() => {
-              setOpen(false)
+              setFlyout(null)
               selectGroup('zoom')
               applyToolClick(zoom, actions, 'center')
             }}
@@ -247,22 +341,27 @@ export function ToolSidebar() {
             type="button"
             aria-label={t('zoomOptions')}
             aria-haspopup="menu"
-            aria-expanded={open}
-            aria-controls={menuId}
+            aria-expanded={flyout === 'zoom'}
+            aria-controls={`${menuId}-zoom`}
             onMouseEnter={() => {
               cancelClose()
-              setOpen(true)
+              setFlyout('zoom')
             }}
             onClick={(event) => {
               event.preventDefault()
               cancelClose()
-              setOpen(true)
+              setFlyout('zoom')
             }}
           >
             <span {...stylex.props(styles.triangleMark)} />
           </button>
-          {open ? (
-            <div {...stylex.props(styles.menu)} id={menuId} role="menu" aria-label={t('zoomOptions')}>
+          {flyout === 'zoom' ? (
+            <div
+              {...stylex.props(styles.menu)}
+              id={`${menuId}-zoom`}
+              role="menu"
+              aria-label={t('zoomOptions')}
+            >
               <div {...stylex.props(styles.popup)}>
                 {ZOOM_TOOLS.map((id) => (
                   <ZoomChoice
@@ -272,7 +371,7 @@ export function ToolSidebar() {
                     checked={id === zoom}
                     onSelect={() => {
                       selectZoom(id)
-                      setOpen(false)
+                      setFlyout(null)
                     }}
                   />
                 ))}
@@ -341,9 +440,42 @@ function CommandChoice({
   )
 }
 
+function CreateChoice({
+  id,
+  checked,
+  onSelect,
+}: {
+  id: CreateToolId
+  checked: boolean
+  onSelect: () => void
+}) {
+  const option = CREATE_TOOL_OPTIONS.find((item) => item.id === id)
+  if (!option) return null
+  return (
+    <button
+      {...stylex.props(styles.item)}
+      type="button"
+      role="option"
+      aria-selected={checked}
+      data-checked={checked ? '' : undefined}
+      onClick={onSelect}
+    >
+      <span {...stylex.props(styles.itemIcon)}>
+        <CreateToolIcon id={id} />
+      </span>
+      <span {...stylex.props(styles.itemLabel)}>{t(option.label)}</span>
+    </button>
+  )
+}
+
 function ZoomToolIcon({ id }: { id: ZoomToolId }) {
   if (id === 'zoom-out') return <ZoomOutIcon />
   return <ZoomInIcon />
+}
+
+function CreateToolIcon({ id }: { id: CreateToolId }) {
+  if (id === 'boulder') return <BoulderIcon />
+  return <RouteIcon />
 }
 
 function CommandIcon({ id }: { id: ZoomCommandId }) {
@@ -375,6 +507,35 @@ function FitIcon() {
   return (
     <svg {...iconProps}>
       <path d="M4.25 8V4.25H8M12 4.25h3.75V8M15.75 12v3.75H12M8 15.75H4.25V12" />
+    </svg>
+  )
+}
+
+function RouteIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M6.2 16.2 9.1 11.5 12 8.2 14.6 4.4" />
+      <circle cx="6.2" cy="16.2" r="1.15" />
+      <circle cx="9.1" cy="11.5" r="1.15" />
+      <circle cx="12" cy="8.2" r="1.15" />
+      <circle cx="14.6" cy="4.4" r="1.15" />
+    </svg>
+  )
+}
+
+function BoulderIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M3.6 15.2c.8-3.4 2.6-5.6 5-6.4 1.5-.5 2.2-2 3.8-2.4 2-.6 3.6.6 4.4 2.1.7 1.3 1.5 2 1 4.2" />
+      <path d="M7.2 13.8c1.5-1.7 2.4-1.9 3.6-3 .8-.7 1.9-.4 2.7.5" />
+    </svg>
+  )
+}
+
+function EditRouteIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M3.4 2.5v12.1l3.7-3.7 4.4 6.3 2.7-1.8-4.4-6.3h6.4z" />
     </svg>
   )
 }

@@ -1,4 +1,5 @@
 import { preferencesStore } from '../state/preferences.ts'
+import { formatZoomPercent } from '../state/viewport.ts'
 import type { AppLocale } from './locale.ts'
 import { message, type MessageId } from './messages.ts'
 
@@ -50,6 +51,10 @@ export function formatPixelSize(width: number, height: number): string {
 export function formatPercent(ratio: number): string {
   const clamped = Math.min(1, Math.max(0, ratio))
   return percentFormat(activeLocale()).format(Math.round(clamped * 100) / 100)
+}
+
+export function formatScale(scale: number): string {
+  return formatZoomPercent(scale)
 }
 
 export function t(id: MessageId, values?: Record<string, string>): string {
