@@ -9,6 +9,7 @@ const enUS = {
   appTitle: 'Topo',
   documentTitle: '{fileName} — Topo',
   opening: 'Opening {fileName}',
+  converting: 'Converting {fileName}',
   cannotShowFile: 'Can’t show this file',
   chooseAnotherFile: 'Choose another file',
   openedImage: 'Opened image',
@@ -21,6 +22,19 @@ const enUS = {
   notAPicture: '"{fileName}" isn’t a picture Topo can place. Choose a {formats}.',
   cannotDecode:
     'Topo couldn’t show "{fileName}". The file may be damaged, or this browser can’t decode that format.',
+  artboard: 'Artboard',
+  navigator: 'Navigator',
+  dragNavigator: 'Drag to move the navigator',
+  minimap: 'Mini map',
+  zoomIn: 'Zoom in',
+  zoomOut: 'Zoom out',
+  fitWindow: 'Fit on screen',
+  fitShort: 'Fit',
+  actualSize: 'Actual pixels',
+  zoomPercent: 'Zoom',
+  spaceKey: 'Space',
+  navigatorHelp:
+    'Drag the title bar to move this panel. Drop it at the top-right to dock it. Drag in the mini map to pan, or click to recenter. Scroll to pan. Hold Ctrl, Command, or Alt and scroll to zoom toward the pointer. Hold {pan} and drag to pan. {zoomIn} zooms in and {zoomOut} zooms out.',
 } as const
 
 const ptPT = {
@@ -32,6 +46,7 @@ const ptPT = {
   appTitle: 'Topo',
   documentTitle: '{fileName} — Topo',
   opening: 'A abrir {fileName}',
+  converting: 'A converter {fileName}',
   cannotShowFile: 'Não é possível mostrar este ficheiro',
   chooseAnotherFile: 'Escolher outro ficheiro',
   openedImage: 'Imagem aberta',
@@ -45,6 +60,19 @@ const ptPT = {
     '"{fileName}" não é uma imagem que o Topo consiga colocar. Escolha um {formats}.',
   cannotDecode:
     'O Topo não conseguiu mostrar "{fileName}". O ficheiro pode estar danificado, ou este navegador não consegue descodificar esse formato.',
+  artboard: 'Prancheta',
+  navigator: 'Navegador',
+  dragNavigator: 'Arrastar para mover o navegador',
+  minimap: 'Mini mapa',
+  zoomIn: 'Ampliar',
+  zoomOut: 'Reduzir',
+  fitWindow: 'Ajustar ao ecrã',
+  fitShort: 'Ajustar',
+  actualSize: 'Pixéis reais',
+  zoomPercent: 'Ampliação',
+  spaceKey: 'Espaço',
+  navigatorHelp:
+    'Arraste a barra de título para mover este painel. Largue-o no canto superior direito para o ancorar. Arraste no mini mapa para deslocar a vista, ou clique para recentrar. Role para deslocar. Mantenha Ctrl, Command ou Alt e role para ampliar em direção ao ponteiro. Mantenha {pan} premido e arraste para deslocar. {zoomIn} amplia e {zoomOut} reduz.',
 } as const satisfies Record<keyof typeof enUS, string>
 
 const catalogs = {

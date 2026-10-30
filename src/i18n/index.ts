@@ -14,6 +14,21 @@ export function imageFormats(): string {
   }).format(imageFormatNames)
 }
 
+export function formatPixelSize(width: number, height: number): string {
+  const format = new Intl.NumberFormat(locale)
+  return `${format.format(width)} × ${format.format(height)}`
+}
+
+const percentFormat = new Intl.NumberFormat(locale, {
+  style: 'percent',
+  maximumFractionDigits: 0,
+})
+
+export function formatPercent(ratio: number): string {
+  const clamped = Math.min(1, Math.max(0, ratio))
+  return percentFormat.format(Math.round(clamped * 100) / 100)
+}
+
 export function t(id: MessageId, values?: Record<string, string>): string {
   const template = message(locale, id)
   if (!values) return template

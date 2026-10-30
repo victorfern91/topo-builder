@@ -81,6 +81,40 @@ export const board = stylex.create({
     fontSize: 13,
     color: color.muted,
   },
+  progressBlock: {
+    display: 'grid',
+    gap: 10,
+    width: '100%',
+  },
+  progressMeta: {
+    display: 'flex',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  progressName: {
+    minWidth: 0,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  percent: {
+    flexGrow: 0,
+    flexShrink: 0,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  progressTrack: {
+    width: '100%',
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    backgroundColor: '#e4e4e4',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: color.primary,
+  },
   button: {
     appearance: 'none',
     borderWidth: 0,
@@ -137,14 +171,6 @@ export const board = stylex.create({
   },
   image: {
     display: 'block',
-    maxWidth: {
-      default: 'min(920px, calc(100vw - 48px))',
-      [media.narrow]: 'calc(100vw - 24px)',
-    },
-    maxHeight: {
-      default: 'calc(100vh - 140px)',
-      [media.narrow]: 'calc(100vh - 168px)',
-    },
     width: 'auto',
     height: 'auto',
     backgroundColor: color.board,

@@ -3,7 +3,7 @@ import { Button } from '@base-ui/react/button'
 import { Menu } from '@base-ui/react/menu'
 import { useSelector } from '@tanstack/react-store'
 import { useEffect, useRef, type ChangeEvent } from 'react'
-import { t } from '../i18n/index.ts'
+import { formatPixelSize, t } from '../i18n/index.ts'
 import { a11y } from '../styles/a11y.ts'
 import { color, media } from '../styles/tokens.stylex.ts'
 import {
@@ -17,6 +17,7 @@ import {
 export function TopBar() {
   const inputRef = useRef<HTMLInputElement>(null)
   const fileName = useSelector(imageDocumentStore, (state) => state.fileName)
+  const size = useSelector(imageDocumentStore, (state) => state.size)
   const shortcutLabel = applePlatform() ? '⌘O' : 'Ctrl+O'
 
   useEffect(() => {
@@ -81,6 +82,9 @@ export function TopBar() {
         {fileName ?? t('noDocument')}
       </p>
       <div {...stylex.props(styles.spacer)} />
+      {size ? (
+        <p {...stylex.props(styles.dimensions)}>{formatPixelSize(size.width, size.height)}</p>
+      ) : null}
       <Button {...stylex.props(styles.barButton, styles.primary)} onClick={requestImageFilePicker}>
         {t('open')}
       </Button>
@@ -259,6 +263,14 @@ const styles = stylex.create({
       default: 'block',
       [media.narrow]: 'none',
     },
+  },
+  dimensions: {
+    margin: 0,
+    paddingInline: 8,
+    fontSize: 13,
+    fontVariantNumeric: 'tabular-nums',
+    color: color.kbd,
+    whiteSpace: 'nowrap',
   },
   positioner: {
     zIndex: 30,
