@@ -206,13 +206,24 @@ export function shortcutChords(panLabel: string): ViewportKeys {
 
 export function matchViewportKey(event: KeyboardEvent): Exclude<ViewportKeyId, 'pan'> | null {
   if (event.isComposing || event.altKey) return null
-  if (!(event.metaKey || event.ctrlKey) || (event.metaKey && event.ctrlKey)) return null
+  if (!primaryModifier(event)) return null
   if (event.key === '+' || event.key === '=' || event.code === 'NumpadAdd') return 'zoom-in'
   if (event.key === '-' || event.key === '_' || event.code === 'NumpadSubtract') return 'zoom-out'
   if (event.shiftKey) return null
   if (event.key === '0' || event.code === 'Numpad0') return 'fit'
   if (event.key === '1' || event.code === 'Numpad1') return 'actual-size'
   return null
+}
+
+/** Command on Mac, Control on Windows. Both together are a different chord. */
+export function primaryModifier(event: KeyboardEvent): boolean {
+  return (event.metaKey || event.ctrlKey) && !(event.metaKey && event.ctrlKey)
+}
+
+/** Bare Backspace (Mac Delete) or Delete (Windows). Command and Control stay free for other shortcuts. */
+export function isPlainDelete(event: KeyboardEvent): boolean {
+  if (event.isComposing || event.altKey || primaryModifier(event) || (event.metaKey && event.ctrlKey)) return false
+  return event.key === 'Backspace' || event.key === 'Delete' || event.code === 'Backspace' || event.code === 'Delete'
 }
 
 export function wheelDelta(delta: number, mode: number): number {

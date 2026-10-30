@@ -29,6 +29,7 @@ import {
   lineStore,
   pointOnLine,
   selectAnchor,
+  selectLastLine,
   type LineHit,
 } from '../state/lines.ts'
 import {
@@ -43,7 +44,7 @@ import {
   toolUsesMove,
   type ToolId,
 } from '../state/tools.ts'
-import { wheelDelta, zoomFactorFromWheel, type ContentPlacement } from '../state/viewport.ts'
+import { isPlainDelete, wheelDelta, zoomFactorFromWheel, type ContentPlacement } from '../state/viewport.ts'
 import { useViewport, useViewportSelector } from '../state/use-viewport.ts'
 import { stage } from '../styles/stage.ts'
 import { LayersPanel } from './layers-panel.tsx'
@@ -184,8 +185,12 @@ export function ArtboardStage({ contentKey, placement, navigator = false, childr
       const node = stageRef.current
       if (drag && node?.hasPointerCapture(drag.id)) node.releasePointerCapture(drag.id)
       pointerUpLine()
+      if (toolDrawsLine(activeTool(toolStore.get()))) {
+        selectLastLine()
+        selectGroup('edit')
+        return
+      }
       finishLine()
-      if (toolDrawsLine(activeTool(toolStore.get()))) selectGroup('move')
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
@@ -206,33 +211,34 @@ export function ArtboardStage({ contentKey, placement, navigator = false, childr
     }
     const onLeave = () => clearLineHover()
     const onKeyDown = (event: KeyboardEvent) => {
-      if (lineGestureActive()) return
-      if (event.key !== 'Backspace' && event.key !== 'Delete') return
-      if (event.metaKey || event.ctrlKey || event.altKey || isTypingTarget(event.target)) return
+      if (lineGestureActive() || !isPlainDelete(event) || isTypingTarget(event.target)) return
       if (pointMenuRef.current) return
+      const state = lineStore.get()
+      if (state.activeId !== null && state.anchorIndex !== null) {
+        event.preventDefault()
+        deleteAnchor(state.activeId, state.anchorIndex)
+        return
+      }
       const toolId = activeTool(toolStore.get())
       if (toolDrawsLine(toolId)) {
         event.preventDefault()
         deleteLastAnchor()
         return
       }
-      if (!toolEditsLine(toolId)) return
-      const state = lineStore.get()
-      if (!state.activeId) return
+      if (!toolEditsLine(toolId) || !state.activeId) return
       const hovered =
         state.hover?.type === 'anchor' && state.hover.layerId === state.activeId ? state.hover.index : null
-      const index = state.anchorIndex ?? hovered
-      if (index === null) return
+      if (hovered === null) return
       event.preventDefault()
-      deleteAnchor(state.activeId, index)
+      deleteAnchor(state.activeId, hovered)
     }
     node.addEventListener('pointermove', onMove)
     node.addEventListener('pointerleave', onLeave)
-    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keydown', onKeyDown, true)
     return () => {
       node.removeEventListener('pointermove', onMove)
       node.removeEventListener('pointerleave', onLeave)
-      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keydown', onKeyDown, true)
       clearLineHover()
     }
   }, [getState, tool])

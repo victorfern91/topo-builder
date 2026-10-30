@@ -1,6 +1,7 @@
 import * as stylex from '@stylexjs/stylex'
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { t } from '../i18n/index.ts'
+import { isPlainDelete } from '../state/viewport.ts'
 import { color } from '../styles/tokens.stylex.ts'
 
 export type PointMenuState = {
@@ -51,8 +52,7 @@ export function PointMenu({ x, y, onDelete, onAdd, onClose }: PointMenuProps) {
         onClose()
         return
       }
-      if ((event.key !== 'Backspace' && event.key !== 'Delete') || !onDelete) return
-      if (event.metaKey || event.ctrlKey || event.altKey || isTypingTarget(event.target)) return
+      if (!onDelete || !isPlainDelete(event) || isTypingTarget(event.target)) return
       event.preventDefault()
       onDelete()
     }

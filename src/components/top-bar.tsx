@@ -21,6 +21,7 @@ import {
   registerImageFilePicker,
   requestImageFilePicker,
 } from '../state/image-document.ts'
+import { primaryModifier } from '../state/viewport.ts'
 
 export function TopBar() {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -42,7 +43,7 @@ export function TopBar() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'o') {
+      if (!primaryModifier(event) || event.key.toLowerCase() !== 'o') {
         return
       }
       const target = event.target
