@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { Button } from "@ui";
+import { Button, Layout } from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import { useLayoutEffect } from "react";
 import { t } from "../i18n/index.ts";
@@ -45,7 +45,7 @@ export function LayersPanel() {
     >
       <h2 {...stylex.props(lineLayers.title)}>{t("layers")}</h2>
       {active ? <ColorSteps layer={active} /> : null}
-      <div {...stylex.props(lineLayers.scroll)}>
+      <Layout.Box grow shrink sx={lineLayers.scroll}>
         <table {...stylex.props(lineLayers.table)}>
           <thead>
             <tr>
@@ -72,17 +72,24 @@ export function LayersPanel() {
             ))}
           </tbody>
         </table>
-      </div>
+      </Layout.Box>
     </section>
   );
 }
 
 function ColorSteps({ layer }: { layer: LineLayer }) {
   return (
-    <div
-      {...stylex.props(lineLayers.colors)}
+    <Layout.Stack
+      direction="row"
+      wrap
+      grow={false}
+      shrink={false}
+      gap="sm"
+      py="md"
+      px="lg"
       role="group"
       aria-label={t("lineColors")}
+      sx={lineLayers.colors}
     >
       {LINE_COLORS.map((value) => {
         const selected = layer.color === value;
@@ -100,7 +107,7 @@ function ColorSteps({ layer }: { layer: LineLayer }) {
           />
         );
       })}
-    </div>
+    </Layout.Stack>
   );
 }
 
@@ -115,7 +122,6 @@ function LayerRow({
   layer: LineLayer;
   selected: boolean;
 }) {
-  const swatch = stylex.props(lineLayers.swatch);
   return (
     <tr
       {...stylex.props(lineLayers.row)}
@@ -123,9 +129,11 @@ function LayerRow({
       onPointerDown={() => selectLine(layer.id)}
     >
       <td {...stylex.props(lineLayers.swatchCell)}>
-        <span
-          {...swatch}
-          style={{ ...swatch.style, backgroundColor: layer.color }}
+        <Layout.Box
+          renderAs="span"
+          display="inline-block"
+          sx={lineLayers.swatch}
+          style={{ backgroundColor: layer.color }}
         />
       </td>
       <td {...stylex.props(lineLayers.nameCell)}>

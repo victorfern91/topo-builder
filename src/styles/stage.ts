@@ -4,9 +4,6 @@ import { Tokens } from "@ui";
 export const stage = stylex.create({
   root: {
     position: "relative",
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: "0%",
     minWidth: 0,
     minHeight: 0,
     overflow: "hidden",
@@ -98,22 +95,11 @@ export const lineLayers = stylex.create({
     fontWeight: 650,
   },
   scroll: {
-    flexGrow: 1,
-    flexShrink: 1,
     minHeight: 0,
     overflow: "auto",
     overscrollBehavior: "contain",
   },
   colors: {
-    display: "flex",
-    flexWrap: "wrap",
-    flexGrow: 0,
-    flexShrink: 0,
-    gap: Tokens.spacing.sm,
-    paddingTop: Tokens.spacing.md,
-    paddingRight: Tokens.spacing.lg,
-    paddingBottom: Tokens.spacing.md,
-    paddingLeft: Tokens.spacing.lg,
     borderBottomWidth: 1,
     borderBottomStyle: "solid",
     borderBottomColor: Tokens.color.neutral[850],
@@ -175,7 +161,6 @@ export const lineLayers = stylex.create({
     verticalAlign: "middle",
   },
   swatch: {
-    display: "inline-block",
     width: 10,
     height: 10,
     borderRadius: 2,
@@ -246,13 +231,7 @@ export const navigator = stylex.create({
     overflow: "hidden",
   },
   header: {
-    display: "flex",
-    alignItems: "center",
-    gap: Tokens.spacing.md,
     height: Tokens.size.md,
-    flexGrow: 0,
-    flexShrink: 0,
-    paddingInline: Tokens.spacing.md,
     borderBottomWidth: 1,
     borderBottomStyle: "solid",
     borderBottomColor: Tokens.color.neutral[850],
@@ -266,8 +245,6 @@ export const navigator = stylex.create({
   grip: {
     width: 10,
     height: 10,
-    flexGrow: 0,
-    flexShrink: 0,
     opacity: 0.7,
     backgroundImage: "radial-gradient(currentColor 1px, transparent 1.4px)",
     backgroundSize: "4px 4px",
@@ -316,18 +293,8 @@ export const navigator = stylex.create({
     pointerEvents: "none",
   },
   controls: {
-    display: "flex",
-    flexDirection: "column",
-    gap: Tokens.spacing.sm,
     paddingTop: Tokens.spacing.none,
-    paddingRight: Tokens.spacing.lg,
     paddingBottom: Tokens.spacing.lg,
-    paddingLeft: Tokens.spacing.lg,
-  },
-  zoomRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: Tokens.spacing.sm,
   },
   step: {
     width: 22,
@@ -345,11 +312,6 @@ export const navigator = stylex.create({
     margin: Tokens.spacing.none,
     accentColor: Tokens.color.blue[500],
     cursor: "pointer",
-  },
-  commandRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: Tokens.spacing.sm,
   },
   percent: {
     width: 58,

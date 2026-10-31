@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { Button, Tokens } from "@ui";
+import { Button, Layout, Tokens } from "@ui";
 import { shallow } from "@tanstack/store";
 import { useSelector } from "@tanstack/react-store";
 import {
@@ -208,25 +208,26 @@ export function ToolSidebar() {
     }
   };
 
-  const rail = stylex.props(styles.rail);
-
   return (
-    <div
-      {...rail}
+    <Layout.Stack
       ref={railRef}
+      align="center"
+      gap="xxs"
+      px="sm"
+      sx={styles.rail}
       data-tools=""
       data-dragging={placement.dragging ? "" : undefined}
       role="toolbar"
       aria-label={t("tools")}
       style={{
-        ...rail.style,
         transform: `translate3d(${placement.x}px, ${placement.y}px, 0)`,
         visibility: placement.placed ? "visible" : "hidden",
       }}
       onPointerDown={(event) => event.stopPropagation()}
     >
-      <div
-        {...stylex.props(styles.gripBar)}
+      <Layout.Grid
+        place="center"
+        sx={styles.gripBar}
         data-dragging={placement.dragging ? "" : undefined}
         role="application"
         tabIndex={0}
@@ -240,7 +241,7 @@ export function ToolSidebar() {
         onKeyDown={onGripKeyDown}
       >
         <span {...stylex.props(styles.grip)} aria-hidden="true" />
-      </div>
+      </Layout.Grid>
       <Button.Root
         sx={styles.tool}
         type="button"
@@ -306,7 +307,7 @@ export function ToolSidebar() {
             role="menu"
             aria-label={t("createOptions")}
           >
-            <div {...stylex.props(styles.popup)}>
+            <Layout.Box p="xs" sx={styles.popup}>
               {CREATE_TOOLS.map((id) => (
                 <CreateChoice
                   key={id}
@@ -319,7 +320,7 @@ export function ToolSidebar() {
                   }}
                 />
               ))}
-            </div>
+            </Layout.Box>
           </div>
         ) : null}
       </div>
@@ -386,7 +387,7 @@ export function ToolSidebar() {
             role="menu"
             aria-label={t("zoomOptions")}
           >
-            <div {...stylex.props(styles.popup)}>
+            <Layout.Box p="xs" sx={styles.popup}>
               {ZOOM_TOOLS.map((id) => (
                 <ZoomChoice
                   key={id}
@@ -399,7 +400,7 @@ export function ToolSidebar() {
                   }}
                 />
               ))}
-              <div {...stylex.props(styles.rule)} />
+              <Layout.Box my="xs" sx={styles.rule} />
               {ZOOM_COMMANDS.map((id) => (
                 <CommandChoice
                   key={id}
@@ -408,11 +409,11 @@ export function ToolSidebar() {
                   onRun={() => runCommand(id)}
                 />
               ))}
-            </div>
+            </Layout.Box>
           </div>
         ) : null}
       </div>
-    </div>
+    </Layout.Stack>
   );
 }
 
@@ -501,13 +502,8 @@ const styles = stylex.create({
     top: Tokens.spacing.none,
     left: Tokens.spacing.none,
     zIndex: 5,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: Tokens.spacing.xxs,
     width: 48,
     paddingBottom: Tokens.spacing.sm,
-    paddingInline: Tokens.spacing.sm,
     backgroundColor: Tokens.color.neutral[600],
     color: Tokens.color.neutral[100],
     borderWidth: 1,
@@ -522,8 +518,6 @@ const styles = stylex.create({
     touchAction: "none",
   },
   gripBar: {
-    display: "grid",
-    placeItems: "center",
     width: "100%",
     height: 18,
     marginBottom: Tokens.spacing.xxs,
@@ -591,7 +585,6 @@ const styles = stylex.create({
   },
   popup: {
     minWidth: 196,
-    padding: Tokens.spacing.xs,
     backgroundColor: Tokens.color.neutral[750],
     color: Tokens.color.neutral[100],
     borderWidth: 1,
@@ -602,7 +595,6 @@ const styles = stylex.create({
   },
   rule: {
     height: 1,
-    marginBlock: Tokens.spacing.xs,
     backgroundColor: Tokens.color.white[12],
   },
   item: {

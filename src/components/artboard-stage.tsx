@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { Layout } from "@ui";
 import { shallow } from "@tanstack/store";
 import { useSelector } from "@tanstack/react-store";
 import {
@@ -459,13 +460,15 @@ export function ArtboardStage({
     setPointMenu(null);
   };
 
-  const root = stylex.props(stage.root);
   const content = stylex.props(stage.content);
   const cursor = stageCursor(motion.grabbing || spaceHeld, tool, lineHover);
 
   return (
-    <div
-      {...root}
+    <Layout.Box
+      grow
+      shrink
+      basis="0%"
+      sx={stage.root}
       ref={stageRef}
       role="region"
       aria-label={t("artboard")}
@@ -545,7 +548,7 @@ export function ArtboardStage({
           onClose={() => setPointMenu(null)}
         />
       ) : null}
-    </div>
+    </Layout.Box>
   );
 }
 

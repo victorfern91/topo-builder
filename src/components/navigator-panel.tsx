@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { Button } from "@ui";
+import { Button, Layout } from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import {
   useId,
@@ -122,8 +122,14 @@ export function NavigatorPanel() {
       }}
       onPointerDown={(event) => event.stopPropagation()}
     >
-      <div
-        {...stylex.props(navigator.header, navigator.focusable)}
+      <Layout.Stack
+        direction="row"
+        align="center"
+        gap="md"
+        grow={false}
+        shrink={false}
+        px="md"
+        sx={[navigator.header, navigator.focusable]}
         data-dragging={dragging ? "" : undefined}
         role="application"
         tabIndex={0}
@@ -136,9 +142,15 @@ export function NavigatorPanel() {
         onLostPointerCapture={(event) => endDrag(event.pointerId)}
         onKeyDown={onHeaderKeyDown}
       >
-        <span {...stylex.props(navigator.grip)} aria-hidden="true" />
+        <Layout.Box
+          renderAs="span"
+          grow={false}
+          shrink={false}
+          sx={navigator.grip}
+          aria-hidden="true"
+        />
         <span {...stylex.props(navigator.title)}>{t("navigator")}</span>
-      </div>
+      </Layout.Stack>
       <p {...stylex.props(a11y.visuallyHidden)} id={helpId}>
         {t("navigatorHelp", {
           pan: keys.pan,
@@ -147,8 +159,8 @@ export function NavigatorPanel() {
         })}
       </p>
       <Minimap />
-      <div {...stylex.props(navigator.controls)}>
-        <div {...stylex.props(navigator.zoomRow)}>
+      <Layout.Stack gap="sm" px="lg" sx={navigator.controls}>
+        <Layout.Stack direction="row" align="center" gap="sm">
           <Button.Root
             sx={navigator.step}
             type="button"
@@ -180,8 +192,8 @@ export function NavigatorPanel() {
           >
             <Button.Text>+</Button.Text>
           </Button.Root>
-        </div>
-        <div {...stylex.props(navigator.commandRow)}>
+        </Layout.Stack>
+        <Layout.Stack direction="row" align="center" gap="sm">
           <ZoomField />
           <Button.Root
             variant="secondary"
@@ -205,8 +217,8 @@ export function NavigatorPanel() {
           >
             <Button.Text>1:1</Button.Text>
           </Button.Root>
-        </div>
-      </div>
+        </Layout.Stack>
+      </Layout.Stack>
     </aside>
   );
 }

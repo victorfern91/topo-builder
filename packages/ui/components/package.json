@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./button": "./src/button/index.ts",
+    "./layout": "./src/layout/index.ts",
     "./tokens": "./src/tokens.stylex.ts"
   },
   "peerDependencies": {

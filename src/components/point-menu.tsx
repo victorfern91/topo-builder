@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { Button, Tokens } from "@ui";
+import { Button, Layout, Tokens } from "@ui";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { t } from "../i18n/index.ts";
 import type { MessageId } from "../i18n/messages.ts";
@@ -98,16 +98,15 @@ export function PointMenu({
     };
   }, [onClose, onDelete]);
 
-  const menu = stylex.props(styles.menu);
-
   return (
-    <div
-      {...menu}
+    <Layout.Box
       ref={menuRef}
+      p="xs"
+      sx={styles.menu}
       role="menu"
       data-point-menu=""
       aria-label={t("pointMenu")}
-      style={{ ...menu.style, left: x, top: y }}
+      style={{ left: x, top: y }}
       onPointerDown={(event) => event.stopPropagation()}
       onContextMenu={(event) => {
         event.preventDefault();
@@ -115,8 +114,10 @@ export function PointMenu({
       }}
     >
       {onMark ? (
-        <div
-          {...stylex.props(styles.marks)}
+        <Layout.Stack
+          direction="row"
+          gap="xs"
+          p="xxs"
           role="group"
           aria-label={t("pointMarks")}
         >
@@ -143,7 +144,7 @@ export function PointMenu({
               </Button.Root>
             );
           })}
-        </div>
+        </Layout.Stack>
       ) : null}
       {onAdd ? (
         <Button.Root
@@ -167,7 +168,7 @@ export function PointMenu({
           <Button.Text>{t("deletePoint")}</Button.Text>
         </Button.Root>
       ) : null}
-    </div>
+    </Layout.Box>
   );
 }
 
@@ -211,7 +212,6 @@ const styles = stylex.create({
     position: "fixed",
     zIndex: 40,
     minWidth: 160,
-    padding: Tokens.spacing.xs,
     backgroundColor: Tokens.color.neutral[750],
     color: Tokens.color.neutral[100],
     borderWidth: 1,
@@ -237,11 +237,6 @@ const styles = stylex.create({
       ":focus-visible": Tokens.color.neutral[0],
     },
     textAlign: "start",
-  },
-  marks: {
-    display: "flex",
-    gap: Tokens.spacing.xs,
-    padding: Tokens.spacing.xxs,
   },
   mark: {
     width: Tokens.size.xl,
