@@ -1,11 +1,15 @@
+import { magnetReach } from './point-marks.ts'
 import type { CreateToolId } from './tools.ts'
 import {
   appendAnchor,
+  attachAnchor,
   ensureLine,
   findLayer,
   hitTest,
   lineStore,
-  moveAnchor,
+  moveMarkedPoint,
+  nearestMarkedPoint,
+  placeAnchor,
   selectAnchor,
   selectLine,
   setLineHover,
@@ -18,6 +22,10 @@ type Gesture = {
   originY: number
   startX: number
   startY: number
+  /** Set when this drag relocates a shared mark. */
+  pointId: string | null
+  /** Mark a plain anchor will join when the pointer goes up inside the magnet. */
+  pendingPointId: string | null
 }
 
 let gesture: Gesture | null = null
@@ -46,9 +54,19 @@ export function pointerDownLine(x: number, y: number, zoom: number, kind: Create
   if (!kind) return false
   if (kind === 'edit') return beginEdit(x, y, zoom)
   const layerId = ensureLine(kind)
-  const index = appendAnchor(layerId, x, y)
+  const magnet = nearestMarkedPoint(x, y, magnetReach(zoom, lineStore.get().scale), layerId)
+  const index = appendAnchor(layerId, magnet?.x ?? x, magnet?.y ?? y)
   if (index < 0) return false
-  gesture = { layerId, index, originX: x, originY: y, startX: x, startY: y }
+  gesture = {
+    layerId,
+    index,
+    originX: x,
+    originY: y,
+    startX: x,
+    startY: y,
+    pointId: null,
+    pendingPointId: magnet?.id ?? null,
+  }
   return true
 }
 
@@ -57,11 +75,27 @@ export function pointerMoveLine(x: number, y: number, zoom: number): void {
     setLineHover(hitTest(lineStore.get(), x, y, zoom))
     return
   }
-  moveAnchor(gesture.layerId, gesture.index, gesture.startX, gesture.startY, x - gesture.originX, y - gesture.originY)
+  const nextX = gesture.startX + (x - gesture.originX)
+  const nextY = gesture.startY + (y - gesture.originY)
+  if (gesture.pointId) {
+    moveMarkedPoint(gesture.pointId, nextX, nextY)
+    return
+  }
+  const magnet = nearestMarkedPoint(nextX, nextY, magnetReach(zoom, lineStore.get().scale), gesture.layerId)
+  if (magnet) {
+    placeAnchor(gesture.layerId, gesture.index, magnet.x, magnet.y)
+    gesture.pendingPointId = magnet.id
+    return
+  }
+  placeAnchor(gesture.layerId, gesture.index, nextX, nextY)
+  gesture.pendingPointId = null
 }
 
 export function pointerUpLine(): void {
+  const current = gesture
   gesture = null
+  if (!current || current.pointId || !current.pendingPointId) return
+  attachAnchor(current.layerId, current.index, current.pendingPointId)
 }
 
 function beginEdit(x: number, y: number, zoom: number): boolean {
@@ -77,6 +111,8 @@ function beginEdit(x: number, y: number, zoom: number): boolean {
       originY: y,
       startX: anchor.x,
       startY: anchor.y,
+      pointId: anchor.pointId,
+      pendingPointId: null,
     }
     return true
   }
