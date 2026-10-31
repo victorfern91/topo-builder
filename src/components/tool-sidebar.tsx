@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { Button, Layout, Tokens, Widget } from "@ui";
 import { useSelector } from "@tanstack/react-store";
-import { useEffect, useId, useRef, useState } from "react";
+import { memo, useEffect, useId, useRef, useState } from "react";
 import { t } from "../i18n/index.ts";
 import type { MessageId } from "../i18n/messages.ts";
 import { imageDocumentStore } from "../state/image-document.ts";
@@ -47,7 +47,7 @@ const CREATE_TOOL_OPTIONS: { id: CreateToolId; label: MessageId }[] = [
 
 type ToolFlyout = "zoom" | "create";
 
-export function ToolSidebar() {
+export const ToolSidebar = memo(function ToolSidebar() {
   const ready = useSelector(
     imageDocumentStore,
     (state) => state.status === "ready",
@@ -300,7 +300,7 @@ export function ToolSidebar() {
       </Widget.Container>
     </Widget.Panel>
   );
-}
+});
 
 function ZoomChoice({
   id,

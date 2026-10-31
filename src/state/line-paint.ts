@@ -3,6 +3,7 @@ import { dropLineGeometry, lineGeometry } from "./line-curve.ts";
 import {
   findLayer,
   LINE_STROKE,
+  lineHoverStore,
   lineStore,
   type LineHit,
   type LineLayer,
@@ -73,13 +74,14 @@ export function paintLines(canvas: HTMLCanvasElement): void {
     paintSelection(ctx, active);
     strokeLayer(ctx, active, true);
   }
-  paintMarks(ctx, doc, view.zoom);
+  const hover = lineHoverStore.get();
+  paintMarks(ctx, doc, hover, view.zoom);
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   paintControls(
     ctx,
     active,
-    doc.hover,
+    hover,
     doc.anchorIndex,
     view.zoom,
     view.panX,
@@ -132,14 +134,13 @@ function strokeLayer(
 function paintMarks(
   ctx: CanvasRenderingContext2D,
   doc: LineState,
+  hover: LineHit | null,
   zoom: number,
 ): void {
   if (doc.points.length === 0 || !(zoom > 0)) return;
   const selectedId = markedId(doc, doc.activeId, doc.anchorIndex);
   const hoveredId =
-    doc.hover?.type === "anchor"
-      ? markedId(doc, doc.hover.layerId, doc.hover.index)
-      : null;
+    hover?.type === "anchor" ? markedId(doc, hover.layerId, hover.index) : null;
   ctx.setLineDash([]);
   for (const point of doc.points) {
     const radius = markRadius(doc.scale);
