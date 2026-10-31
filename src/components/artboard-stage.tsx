@@ -21,6 +21,8 @@ import {
   viewToContent,
 } from '../state/line-editor.ts'
 import {
+  anchorMark,
+  clearAnchorMark,
   deleteAnchor,
   deleteLastAnchor,
   finishLine,
@@ -30,8 +32,10 @@ import {
   pointOnLine,
   selectAnchor,
   selectLastLine,
+  setAnchorMark,
   type LineHit,
 } from '../state/lines.ts'
+import { magnetReach, type PointMark } from '../state/point-marks.ts'
 import {
   activeTool,
   applyToolClick,
@@ -413,6 +417,7 @@ export function ArtboardStage({ contentKey, placement, navigator = false, childr
         <PointMenu
           x={pointMenu.x}
           y={pointMenu.y}
+          mark={pointMenu.deleteIndex === null ? null : anchorMark(pointMenu.layerId, pointMenu.deleteIndex)}
           onDelete={
             pointMenu.deleteIndex === null
               ? null
@@ -426,16 +431,38 @@ export function ArtboardStage({ contentKey, placement, navigator = false, childr
               ? () => {
                   const insert = pointMenu.insert
                   if (!insert) return
-                  insertAnchor(pointMenu.layerId, insert.index, insert.x, insert.y)
+                  insertAnchor(
+                    pointMenu.layerId,
+                    insert.index,
+                    insert.x,
+                    insert.y,
+                    magnetReach(getState().zoom, lineStore.get().scale),
+                  )
                   setPointMenu(null)
                 }
               : null
+          }
+          onMark={
+            pointMenu.deleteIndex === null
+              ? null
+              : (mark) => {
+                  applyPointMark(pointMenu.layerId, pointMenu.deleteIndex ?? -1, mark, getState().zoom)
+                  setPointMenu(null)
+                }
           }
           onClose={() => setPointMenu(null)}
         />
       ) : null}
     </div>
   )
+}
+
+function applyPointMark(layerId: string, index: number, mark: PointMark, zoom: number): void {
+  if (anchorMark(layerId, index) === mark) {
+    clearAnchorMark(layerId, index)
+    return
+  }
+  setAnchorMark(layerId, index, mark, magnetReach(zoom, lineStore.get().scale))
 }
 
 function stageCursor(panning: boolean, tool: ToolId, hover: LineHit | null): string {

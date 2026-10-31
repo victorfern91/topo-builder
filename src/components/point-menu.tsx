@@ -1,6 +1,8 @@
 import * as stylex from '@stylexjs/stylex'
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { t } from '../i18n/index.ts'
+import type { MessageId } from '../i18n/messages.ts'
+import { drawPointMark, POINT_MARKS, type PointMark } from '../state/point-marks.ts'
 import { isPlainDelete } from '../state/viewport.ts'
 import { color } from '../styles/tokens.stylex.ts'
 
@@ -12,17 +14,26 @@ export type PointMenuState = {
   insert: { index: number; x: number; y: number } | null
 }
 
+const MARK_LABEL = {
+  bolt: 'boltMark',
+  ring: 'ringMark',
+  belay: 'belayMark',
+  rappel: 'rappelMark',
+} as const satisfies Record<PointMark, MessageId>
+
 type PointMenuProps = {
   x: number
   y: number
+  mark: PointMark | null
   onDelete: (() => void) | null
   onAdd: (() => void) | null
+  onMark: ((mark: PointMark) => void) | null
   onClose: () => void
 }
 
-export function PointMenu({ x, y, onDelete, onAdd, onClose }: PointMenuProps) {
+export function PointMenu({ x, y, mark, onDelete, onAdd, onMark, onClose }: PointMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
-  const deleteRef = useRef<HTMLButtonElement>(null)
+  const focusRef = useRef<HTMLButtonElement>(null)
 
   useLayoutEffect(() => {
     const menu = menuRef.current
@@ -36,7 +47,7 @@ export function PointMenu({ x, y, onDelete, onAdd, onClose }: PointMenuProps) {
   }, [x, y])
 
   useLayoutEffect(() => {
-    deleteRef.current?.focus()
+    focusRef.current?.focus()
   }, [])
 
   useEffect(() => {
@@ -83,18 +94,61 @@ export function PointMenu({ x, y, onDelete, onAdd, onClose }: PointMenuProps) {
         event.stopPropagation()
       }}
     >
+      {onMark ? (
+        <div {...stylex.props(styles.marks)} role="group" aria-label={t('pointMarks')}>
+          {POINT_MARKS.map((id) => {
+            const pressed = mark === id
+            const focusHere = pressed || (mark === null && id === POINT_MARKS[0] && !onDelete)
+            return (
+              <button
+                key={id}
+                {...stylex.props(styles.mark)}
+                ref={focusHere ? focusRef : undefined}
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={pressed}
+                aria-label={t(MARK_LABEL[id])}
+                title={t(MARK_LABEL[id])}
+                data-selected={pressed ? '' : undefined}
+                onClick={() => onMark(id)}
+              >
+                <MarkIcon mark={id} />
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
       {onAdd ? (
-        <button {...stylex.props(styles.item)} ref={onDelete ? undefined : deleteRef} type="button" role="menuitem" onClick={onAdd}>
+        <button {...stylex.props(styles.item)} ref={onDelete ? undefined : focusRef} type="button" role="menuitem" onClick={onAdd}>
           {t('addPoint')}
         </button>
       ) : null}
       {onDelete ? (
-        <button {...stylex.props(styles.item)} ref={deleteRef} type="button" role="menuitem" onClick={onDelete}>
+        <button {...stylex.props(styles.item)} ref={mark ? undefined : focusRef} type="button" role="menuitem" onClick={onDelete}>
           {t('deletePoint')}
         </button>
       ) : null}
     </div>
   )
+}
+
+function MarkIcon({ mark }: { mark: PointMark }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useLayoutEffect(() => {
+    const canvas = ref.current
+    if (!canvas) return
+    const size = 22
+    const dpr = Math.min(window.devicePixelRatio || 1, 3)
+    canvas.width = Math.round(size * dpr)
+    canvas.height = Math.round(size * dpr)
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.clearRect(0, 0, size, size)
+    ctx.translate(size / 2, size / 2)
+    drawPointMark(ctx, mark, 8, 1)
+  }, [mark])
+  return <canvas {...stylex.props(styles.icon)} ref={ref} width={22} height={22} aria-hidden="true" />
 }
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -142,5 +196,34 @@ const styles = stylex.create({
     textAlign: 'start',
     cursor: 'pointer',
     outlineStyle: 'none',
+  },
+  marks: {
+    display: 'flex',
+    gap: 4,
+    padding: 2,
+  },
+  mark: {
+    appearance: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 36,
+    height: 36,
+    padding: 0,
+    borderWidth: 0,
+    borderRadius: 4,
+    backgroundColor: {
+      default: 'transparent',
+      ':hover': color.primary,
+      ':focus-visible': color.primary,
+      '[data-selected]': color.primary,
+    },
+    cursor: 'pointer',
+    outlineStyle: 'none',
+  },
+  icon: {
+    display: 'block',
+    width: 22,
+    height: 22,
   },
 })

@@ -1,5 +1,6 @@
 import { dropLineGeometry, lineGeometry } from './line-curve.ts'
-import { findLayer, LINE_STROKE, lineStore, type LineHit, type LineLayer } from './lines.ts'
+import { findLayer, LINE_STROKE, lineStore, type LineHit, type LineLayer, type LineState } from './lines.ts'
+import { drawPointMark, markRadius } from './point-marks.ts'
 import { viewportStore } from './viewport.ts'
 
 const ANCHOR = 5
@@ -57,6 +58,7 @@ export function paintLines(canvas: HTMLCanvasElement): void {
     paintSelection(ctx, active)
     strokeLayer(ctx, active, true)
   }
+  paintMarks(ctx, doc, view.zoom)
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   paintControls(ctx, active, doc.hover, doc.anchorIndex, view.zoom, view.panX, view.panY)
@@ -88,6 +90,35 @@ function strokeLayer(ctx: CanvasRenderingContext2D, layer: LineLayer, active: bo
   ctx.setLineDash([])
 }
 
+function paintMarks(ctx: CanvasRenderingContext2D, doc: LineState, zoom: number): void {
+  if (doc.points.length === 0 || !(zoom > 0)) return
+  const selectedId = markedId(doc, doc.activeId, doc.anchorIndex)
+  const hoveredId = doc.hover?.type === 'anchor' ? markedId(doc, doc.hover.layerId, doc.hover.index) : null
+  ctx.setLineDash([])
+  for (const point of doc.points) {
+    const radius = markRadius(doc.scale)
+    if (!(radius > 0)) continue
+    ctx.save()
+    ctx.translate(point.x, point.y)
+    const selected = point.id === selectedId
+    if (selected || point.id === hoveredId) {
+      const pad = Math.min(3 / zoom, radius * 0.45)
+      ctx.beginPath()
+      ctx.arc(0, 0, radius + pad, 0, Math.PI * 2)
+      ctx.strokeStyle = SELECT_BLUE
+      ctx.lineWidth = Math.min((selected ? 2.5 : 1.5) / zoom, radius * 0.18)
+      ctx.stroke()
+    }
+    drawPointMark(ctx, point.mark, radius, Math.min(1.5 / zoom, radius * 0.08))
+    ctx.restore()
+  }
+}
+
+function markedId(doc: LineState, layerId: string | null, index: number | null): string | null {
+  if (layerId === null || index === null) return null
+  return findLayer(doc, layerId)?.anchors[index]?.pointId ?? null
+}
+
 function paintControls(
   ctx: CanvasRenderingContext2D,
   active: LineLayer | null,
@@ -101,7 +132,7 @@ function paintControls(
   if (!hover || hover.type !== 'anchor' || hover.layerId === active?.id) return
   const layer = findLayer(lineStore.get(), hover.layerId)
   const anchor = layer?.anchors[hover.index]
-  if (!layer || !anchor) return
+  if (!layer || !anchor || anchor.pointId) return
   const sx = panX + anchor.x * zoom
   const sy = panY + anchor.y * zoom
   fillSquare(ctx, sx, sy, ANCHOR + 2, '#ffffff', layer.color)
@@ -123,7 +154,7 @@ function paintAnchors(
   for (let index = 0; index < layer.anchors.length; index += 1) {
     if (index === last || index === hovered) continue
     const anchor = layer.anchors[index]
-    if (!anchor) continue
+    if (!anchor || anchor.pointId) continue
     square(ctx, panX + anchor.x * zoom, panY + anchor.y * zoom, ANCHOR)
   }
   ctx.fillStyle = '#ffffff'
@@ -132,16 +163,20 @@ function paintAnchors(
   ctx.fill()
   ctx.stroke()
   const tail = layer.anchors[last]
-  if (tail) {
+  if (tail && !tail.pointId) {
     fillSquare(ctx, panX + tail.x * zoom, panY + tail.y * zoom, ANCHOR, layer.color, '#111111')
   }
   if (hovered >= 0 && hovered !== last) {
     const anchor = layer.anchors[hovered]
-    if (anchor) fillSquare(ctx, panX + anchor.x * zoom, panY + anchor.y * zoom, ANCHOR + 2, '#ffffff', layer.color)
+    if (anchor && !anchor.pointId) {
+      fillSquare(ctx, panX + anchor.x * zoom, panY + anchor.y * zoom, ANCHOR + 2, '#ffffff', layer.color)
+    }
   }
   if (picked >= 0) {
     const anchor = layer.anchors[picked]
-    if (anchor) fillSquare(ctx, panX + anchor.x * zoom, panY + anchor.y * zoom, ANCHOR + 3, '#ffffff', layer.color)
+    if (anchor && !anchor.pointId) {
+      fillSquare(ctx, panX + anchor.x * zoom, panY + anchor.y * zoom, ANCHOR + 3, '#ffffff', layer.color)
+    }
   }
 }
 

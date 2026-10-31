@@ -1,6 +1,7 @@
 import { Store } from '@tanstack/store'
 import { t } from '../i18n/index.ts'
 import { closestOnLine, curveDistance2, lineGeometry } from './line-curve.ts'
+import { markRadius, type PointMark } from './point-marks.ts'
 import type { CreateToolId } from './tools.ts'
 import { MAX_ZOOM, MIN_ZOOM, sliderToZoom, zoomToSlider } from './viewport.ts'
 
@@ -9,6 +10,16 @@ export type LineKind = CreateToolId
 export type Anchor = {
   x: number
   y: number
+  /** Shared annotation. Null is a plain handle. */
+  pointId: string | null
+}
+
+/** One piece of gear. Every route anchor with this id sits on the same spot. */
+export type MarkedPoint = {
+  id: string
+  x: number
+  y: number
+  mark: PointMark
 }
 
 /** Same bounds as the zoom slider, so a given percent sits in the same place on both. */
@@ -56,6 +67,8 @@ export type LineState = {
   hover: LineHit | null
   /** Scale the top bar writes onto every line, and that new lines copy. */
   scale: number
+  /** Annotations routes can share. Anchors reference these by id. */
+  points: MarkedPoint[]
   revision: number
 }
 
@@ -66,6 +79,7 @@ export type LineColor = (typeof LINE_COLORS)[number]
 const HIT_PX = 8
 
 let sequence = 0
+let pointSequence = 0
 
 export const lineStore = new Store<LineState>({
   layers: [],
@@ -73,6 +87,7 @@ export const lineStore = new Store<LineState>({
   anchorIndex: null,
   hover: null,
   scale: DEFAULT_DRAW_SCALE,
+  points: [],
   revision: 0,
 })
 
@@ -171,7 +186,13 @@ export function setDrawScale(scale: number): void {
 
 export function clearLines(): void {
   lineStore.setState((state) => {
-    if (state.layers.length === 0 && state.activeId === null && state.hover === null && state.anchorIndex === null) {
+    if (
+      state.layers.length === 0 &&
+      state.points.length === 0 &&
+      state.activeId === null &&
+      state.hover === null &&
+      state.anchorIndex === null
+    ) {
       return state
     }
     return {
@@ -180,6 +201,7 @@ export function clearLines(): void {
       anchorIndex: null,
       hover: null,
       scale: state.scale,
+      points: [],
       revision: state.revision + 1,
     }
   })
@@ -193,17 +215,115 @@ export function setLineHover(hover: LineHit | null): void {
 export function appendAnchor(layerId: string, x: number, y: number): number {
   const layer = findLayer(lineStore.get(), layerId)
   if (!layer) return -1
-  layer.anchors.push({ x, y })
+  layer.anchors.push({ x, y, pointId: null })
   touch(layer)
   return layer.anchors.length - 1
 }
 
-export function moveAnchor(layerId: string, index: number, startX: number, startY: number, dx: number, dy: number): void {
+/** Moves a plain anchor. Shared marks move through `moveMarkedPoint`. */
+export function placeAnchor(layerId: string, index: number, x: number, y: number): void {
   const anchor = findAnchor(layerId, index)
-  if (!anchor) return
-  anchor.x = startX + dx
-  anchor.y = startY + dy
+  if (!anchor || anchor.pointId) return
+  if (anchor.x === x && anchor.y === y) return
+  anchor.x = x
+  anchor.y = y
   touch(layerOf(layerId))
+}
+
+/** Moves the mark and every route anchor glued to it. */
+export function moveMarkedPoint(id: string, x: number, y: number): void {
+  const point = lineStore.get().points.find((item) => item.id === id)
+  if (!point || (point.x === x && point.y === y)) return
+  point.x = x
+  point.y = y
+  for (const layer of lineStore.get().layers) {
+    let moved = false
+    for (const anchor of layer.anchors) {
+      if (anchor.pointId !== id) continue
+      anchor.x = x
+      anchor.y = y
+      moved = true
+    }
+    if (moved) layer.geometryRevision += 1
+  }
+  lineStore.setState((state) => ({ ...state, revision: state.revision + 1 }))
+}
+
+export function nearestMarkedPoint(x: number, y: number, reach: number, layerId: string | null): MarkedPoint | null {
+  if (!(reach > 0)) return null
+  const state = lineStore.get()
+  const used = layerId ? pointIdsOnLayer(findLayer(state, layerId)) : null
+  let best: MarkedPoint | null = null
+  let bestDist = reach * reach
+  for (const point of state.points) {
+    if (used?.has(point.id)) continue
+    const dist = distance2(point.x, point.y, x, y)
+    if (dist > bestDist) continue
+    best = point
+    bestDist = dist
+  }
+  return best
+}
+
+/** Glues this anchor to an existing mark. A route keeps each mark once. */
+export function attachAnchor(layerId: string, index: number, pointId: string): void {
+  const layer = findLayer(lineStore.get(), layerId)
+  const anchor = layer?.anchors[index]
+  const point = lineStore.get().points.find((item) => item.id === pointId)
+  if (!layer || !anchor || !point || anchor.pointId) return
+  if (layer.anchors.some((item, itemIndex) => itemIndex !== index && item.pointId === pointId)) return
+  anchor.pointId = pointId
+  anchor.x = point.x
+  anchor.y = point.y
+  touch(layer)
+}
+
+export function anchorMark(layerId: string, index: number | null): PointMark | null {
+  if (index === null) return null
+  const anchor = findLayer(lineStore.get(), layerId)?.anchors[index]
+  if (!anchor?.pointId) return null
+  return lineStore.get().points.find((point) => point.id === anchor.pointId)?.mark ?? null
+}
+
+/** Turns this anchor into a shared mark. A nearby mark is joined instead of stacked. */
+export function setAnchorMark(layerId: string, index: number, mark: PointMark, magnet: number): void {
+  const layer = findLayer(lineStore.get(), layerId)
+  const anchor = layer?.anchors[index]
+  if (!layer || !anchor) return
+  if (anchor.pointId) {
+    const point = lineStore.get().points.find((item) => item.id === anchor.pointId)
+    if (!point || point.mark === mark) return
+    point.mark = mark
+    lineStore.setState((state) => ({ ...state, revision: state.revision + 1 }))
+    return
+  }
+  const nearby = nearestMarkedPoint(anchor.x, anchor.y, magnet, layerId)
+  if (nearby) {
+    if (nearby.mark !== mark) nearby.mark = mark
+    anchor.pointId = nearby.id
+    const moved = anchor.x !== nearby.x || anchor.y !== nearby.y
+    anchor.x = nearby.x
+    anchor.y = nearby.y
+    if (moved) layer.geometryRevision += 1
+    lineStore.setState((state) => ({ ...state, revision: state.revision + 1 }))
+    return
+  }
+  const point: MarkedPoint = { id: nextPointId(), x: anchor.x, y: anchor.y, mark }
+  anchor.pointId = point.id
+  lineStore.setState((state) => ({ ...state, points: [...state.points, point], revision: state.revision + 1 }))
+}
+
+/** Drops this anchor off the shared mark. The mark stays while another route still uses it. */
+export function clearAnchorMark(layerId: string, index: number): void {
+  const anchor = findAnchor(layerId, index)
+  if (!anchor?.pointId) return
+  const pointId = anchor.pointId
+  anchor.pointId = null
+  lineStore.setState((state) => ({
+    ...state,
+    points: unusedPoint(state, pointId),
+    revision: state.revision + 1,
+  }))
 }
 
 export function pointOnLine(layerId: string, x: number, y: number): { index: number; x: number; y: number } | null {
@@ -212,11 +332,16 @@ export function pointOnLine(layerId: string, x: number, y: number): { index: num
   return closestOnLine(lineGeometry(layer.id, layer.geometryRevision, layer.anchors).ops, x, y)
 }
 
-export function insertAnchor(layerId: string, index: number, x: number, y: number): void {
+export function insertAnchor(layerId: string, index: number, x: number, y: number, magnet: number): void {
   const layer = findLayer(lineStore.get(), layerId)
   if (!layer) return
+  const nearby = nearestMarkedPoint(x, y, magnet, layerId)
   const at = Math.max(0, Math.min(index, layer.anchors.length))
-  layer.anchors.splice(at, 0, { x, y })
+  layer.anchors.splice(
+    at,
+    0,
+    nearby ? { x: nearby.x, y: nearby.y, pointId: nearby.id } : { x, y, pointId: null },
+  )
   layer.geometryRevision += 1
   lineStore.setState((state) => ({
     ...state,
@@ -230,10 +355,12 @@ export function insertAnchor(layerId: string, index: number, x: number, y: numbe
 export function deleteAnchor(layerId: string, index: number): void {
   const layer = findLayer(lineStore.get(), layerId)
   if (!layer || index < 0 || index >= layer.anchors.length) return
+  const removed = layer.anchors[index]
   layer.anchors.splice(index, 1)
   layer.geometryRevision += 1
   lineStore.setState((state) => ({
     ...state,
+    points: unusedPoint(state, removed?.pointId ?? null),
     anchorIndex: state.activeId === layerId ? shiftIndex(state.anchorIndex, index) : state.anchorIndex,
     hover: shiftHover(state.hover, layerId, index),
     revision: state.revision + 1,
@@ -248,8 +375,7 @@ export function deleteLastAnchor(): void {
 
 export function hitTest(state: LineState, x: number, y: number, zoom: number): LineHit | null {
   if (zoom <= 0 || state.layers.length === 0) return null
-  const tol = HIT_PX / zoom
-  return nearestPoint(state, x, y, tol * tol) ?? nearestStroke(state, x, y, zoom)
+  return nearestPoint(state, x, y, zoom) ?? nearestStroke(state, x, y, zoom)
 }
 
 export function findLayer(state: LineState, id: string | null): LineLayer | null {
@@ -285,23 +411,49 @@ function findAnchor(layerId: string, index: number): Anchor | null {
   return layerOf(layerId)?.anchors[index] ?? null
 }
 
-function nearestPoint(state: LineState, x: number, y: number, tol2: number): LineHit | null {
-  let best: LineHit | null = null
-  let bestDist = tol2
+function nextPointId(): string {
+  pointSequence += 1
+  return `point-${pointSequence}`
+}
+
+function pointIdsOnLayer(layer: LineLayer | null): Set<string> | null {
+  if (!layer) return null
+  const ids = new Set<string>()
+  for (const anchor of layer.anchors) {
+    if (anchor.pointId) ids.add(anchor.pointId)
+  }
+  return ids
+}
+
+function unusedPoint(state: LineState, pointId: string | null): MarkedPoint[] {
+  if (!pointId) return state.points
+  for (const layer of state.layers) {
+    for (const anchor of layer.anchors) {
+      if (anchor.pointId === pointId) return state.points
+    }
+  }
+  return state.points.filter((point) => point.id !== pointId)
+}
+
+function nearestPoint(state: LineState, x: number, y: number, zoom: number): LineHit | null {
+  const handle = HIT_PX / zoom
+  let best: { hit: LineHit; dist: number } | null = null
   for (let layerIndex = state.layers.length - 1; layerIndex >= 0; layerIndex -= 1) {
     const layer = state.layers[layerIndex]
     if (!layer) continue
     for (let index = layer.anchors.length - 1; index >= 0; index -= 1) {
       const anchor = layer.anchors[index]
       if (!anchor) continue
+      const limit = anchor.pointId ? Math.max(handle, markRadius(layer.scale) * 1.25) : handle
       const dist = distance2(anchor.x, anchor.y, x, y)
-      if (dist <= tol2 && (best === null || dist < bestDist)) {
-        best = { type: 'anchor', layerId: layer.id, index }
-        bestDist = dist
+      if (dist > limit * limit) continue
+      const preferActive = best !== null && Math.abs(dist - best.dist) <= 0.01 && layer.id === state.activeId
+      if (!best || dist + 0.01 < best.dist || preferActive) {
+        best = { hit: { type: 'anchor', layerId: layer.id, index }, dist }
       }
     }
   }
-  return best
+  return best?.hit ?? null
 }
 
 function nearestStroke(state: LineState, x: number, y: number, zoom: number): LineHit | null {
