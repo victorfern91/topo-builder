@@ -131,20 +131,6 @@ export function selectLine(id: string): void {
   });
 }
 
-/** Selects the newest route that has points, so leaving the create tool keeps that route. */
-export function selectLastLine(): void {
-  const layers = lineStore.get().layers;
-  for (let index = layers.length - 1; index >= 0; index -= 1) {
-    const layer = layers[index];
-    if (layer && layer.anchors.length > 0) {
-      selectLine(layer.id);
-      return;
-    }
-  }
-  const last = layers[layers.length - 1];
-  if (last) selectLine(last.id);
-}
-
 export function selectAnchor(layerId: string, index: number): void {
   lineStore.setState((state) => {
     const layer = findLayer(state, layerId);
