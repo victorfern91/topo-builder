@@ -19,7 +19,12 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "@ui/tokens": ["./packages/ui/components/src/tokens.stylex.ts"],
+      "@ui/button": ["./packages/ui/components/src/button/index.ts"],
+      "@ui": ["./packages/ui/components/src/index.ts"]
+    }
   },
-  "include": ["src"]
+  "include": ["src", "packages/ui/components/src"]
 }

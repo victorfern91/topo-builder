@@ -1,0 +1,17 @@
+{
+  "name": "@ui",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./button": "./src/button/index.ts",
+    "./tokens": "./src/tokens.stylex.ts"
+  },
+  "peerDependencies": {
+    "@base-ui/react": "^1.9.0",
+    "@stylexjs/stylex": "^0.19.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  }
+}

@@ -7,8 +7,9 @@ alwaysApply: true
 
 Do not verify changes with browser actions or browser tools. Do not open the app, click through flows, or take screenshots.
 
-After code changes, run both and report the results:
+After code changes, run these and report the results:
 
+- `bun fmt`
 - `bun run lint`
 - `bun ./node_modules/typescript/lib/tsc.js -b --pretty false`
 

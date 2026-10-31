@@ -1,6 +1,7 @@
-import * as stylex from '@stylexjs/stylex'
-import { shallow } from '@tanstack/store'
-import { useSelector } from '@tanstack/react-store'
+import * as stylex from "@stylexjs/stylex";
+import { Button, Tokens } from "@ui";
+import { shallow } from "@tanstack/store";
+import { useSelector } from "@tanstack/react-store";
 import {
   useEffect,
   useId,
@@ -9,11 +10,11 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
-} from 'react'
-import { t } from '../i18n/index.ts'
-import type { MessageId } from '../i18n/messages.ts'
-import { imageDocumentStore } from '../state/image-document.ts'
-import { beginLine, ensureLine } from '../state/lines.ts'
+} from "react";
+import { t } from "../i18n/index.ts";
+import type { MessageId } from "../i18n/messages.ts";
+import { imageDocumentStore } from "../state/image-document.ts";
+import { beginLine, ensureLine } from "../state/lines.ts";
 import {
   applyToolClick,
   CREATE_TOOLS,
@@ -26,129 +27,148 @@ import {
   type CreateToolId,
   type ZoomCommandId,
   type ZoomToolId,
-} from '../state/tools.ts'
-import { useViewport, useViewportSelector } from '../state/use-viewport.ts'
-import type { ViewportKeyId } from '../state/viewport.ts'
-import { color } from '../styles/tokens.stylex.ts'
+} from "../state/tools.ts";
+import { useViewport, useViewportSelector } from "../state/use-viewport.ts";
+import type { ViewportKeyId } from "../state/viewport.ts";
 
-const ZOOM_TOOL_OPTIONS: { id: ZoomToolId; label: MessageId; shortcut: ViewportKeyId }[] = [
-  { id: 'zoom-in', label: 'zoomIn', shortcut: 'zoom-in' },
-  { id: 'zoom-out', label: 'zoomOut', shortcut: 'zoom-out' },
-]
+const ZOOM_TOOL_OPTIONS: {
+  id: ZoomToolId;
+  label: MessageId;
+  shortcut: ViewportKeyId;
+}[] = [
+  { id: "zoom-in", label: "zoomIn", shortcut: "zoom-in" },
+  { id: "zoom-out", label: "zoomOut", shortcut: "zoom-out" },
+];
 
-const ZOOM_COMMAND_OPTIONS: { id: ZoomCommandId; label: MessageId; shortcut: ViewportKeyId }[] = [
-  { id: 'fit', label: 'fitWindow', shortcut: 'fit' },
-  { id: 'actual-size', label: 'actualSize', shortcut: 'actual-size' },
-]
+const ZOOM_COMMAND_OPTIONS: {
+  id: ZoomCommandId;
+  label: MessageId;
+  shortcut: ViewportKeyId;
+}[] = [
+  { id: "fit", label: "fitWindow", shortcut: "fit" },
+  { id: "actual-size", label: "actualSize", shortcut: "actual-size" },
+];
 
 const CREATE_TOOL_OPTIONS: { id: CreateToolId; label: MessageId }[] = [
-  { id: 'route', label: 'createRoute' },
-  { id: 'boulder', label: 'createBoulder' },
-]
+  { id: "route", label: "createRoute" },
+  { id: "boulder", label: "createBoulder" },
+];
 
-type ToolFlyout = 'zoom' | 'create'
+type ToolFlyout = "zoom" | "create";
 
-const DRAG_SLOP = 3
+const DRAG_SLOP = 3;
 
 export function ToolSidebar() {
-  const ready = useSelector(imageDocumentStore, (state) => state.status === 'ready')
-  const group = useSelector(toolStore, (state) => state.group)
-  const zoom = useSelector(toolStore, (state) => state.zoom)
-  const create = useSelector(toolStore, (state) => state.create)
-  const { actions, keys, getState } = useViewport()
+  const ready = useSelector(
+    imageDocumentStore,
+    (state) => state.status === "ready",
+  );
+  const group = useSelector(toolStore, (state) => state.group);
+  const zoom = useSelector(toolStore, (state) => state.zoom);
+  const create = useSelector(toolStore, (state) => state.create);
+  const { actions, keys, getState } = useViewport();
   const placement = useViewportSelector(
     (state) => ({
       x: state.toolX,
       y: state.toolY,
       placed: state.viewWidth > 0,
-      dragging: state.userAction === 'tools',
+      dragging: state.userAction === "tools",
     }),
     { compare: shallow },
-  )
-  const [flyout, setFlyout] = useState<ToolFlyout | null>(null)
-  const railRef = useRef<HTMLDivElement>(null)
-  const zoomSlotRef = useRef<HTMLDivElement>(null)
-  const createSlotRef = useRef<HTMLDivElement>(null)
-  const closeTimer = useRef<number | null>(null)
+  );
+  const [flyout, setFlyout] = useState<ToolFlyout | null>(null);
+  const railRef = useRef<HTMLDivElement>(null);
+  const zoomSlotRef = useRef<HTMLDivElement>(null);
+  const createSlotRef = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<number | null>(null);
   const dragRef = useRef<{
-    id: number
-    x: number
-    y: number
-    toolX: number
-    toolY: number
-    moved: boolean
-  } | null>(null)
-  const menuId = useId()
-  const zoomOption = ZOOM_TOOL_OPTIONS.find((item) => item.id === zoom) ?? ZOOM_TOOL_OPTIONS[0]
-  const createOption = CREATE_TOOL_OPTIONS.find((item) => item.id === create) ?? CREATE_TOOL_OPTIONS[0]
+    id: number;
+    x: number;
+    y: number;
+    toolX: number;
+    toolY: number;
+    moved: boolean;
+  } | null>(null);
+  const menuId = useId();
+  const zoomOption =
+    ZOOM_TOOL_OPTIONS.find((item) => item.id === zoom) ?? ZOOM_TOOL_OPTIONS[0];
+  const createOption =
+    CREATE_TOOL_OPTIONS.find((item) => item.id === create) ??
+    CREATE_TOOL_OPTIONS[0];
 
   useEffect(() => {
     return () => {
-      if (closeTimer.current != null) window.clearTimeout(closeTimer.current)
-    }
-  }, [])
+      if (closeTimer.current != null) window.clearTimeout(closeTimer.current);
+    };
+  }, []);
 
   useLayoutEffect(() => {
-    const rail = railRef.current
-    if (!rail) return
+    const rail = railRef.current;
+    if (!rail) return;
     const publish = () => {
-      actions.resizeTool(rail.offsetWidth, rail.offsetHeight)
-    }
-    publish()
-    const observer = new ResizeObserver(publish)
-    observer.observe(rail)
-    return () => observer.disconnect()
-  }, [actions, ready])
+      actions.resizeTool(rail.offsetWidth, rail.offsetHeight);
+    };
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(rail);
+    return () => observer.disconnect();
+  }, [actions, ready]);
 
   useEffect(() => {
-    if (flyout == null) return
+    if (flyout == null) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setFlyout(null)
-    }
+      if (event.key === "Escape") setFlyout(null);
+    };
     const onPointerDown = (event: PointerEvent) => {
-      const slot = flyout === 'zoom' ? zoomSlotRef.current : createSlotRef.current
-      if (!slot || !(event.target instanceof Node) || slot.contains(event.target)) return
-      setFlyout(null)
-    }
-    window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('pointerdown', onPointerDown)
+      const slot =
+        flyout === "zoom" ? zoomSlotRef.current : createSlotRef.current;
+      if (
+        !slot ||
+        !(event.target instanceof Node) ||
+        slot.contains(event.target)
+      )
+        return;
+      setFlyout(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("pointerdown", onPointerDown);
     return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('pointerdown', onPointerDown)
-    }
-  }, [flyout])
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [flyout]);
 
-  if (!ready) return null
+  if (!ready) return null;
 
   const cancelClose = () => {
-    if (closeTimer.current != null) window.clearTimeout(closeTimer.current)
-    closeTimer.current = null
-  }
+    if (closeTimer.current != null) window.clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+  };
 
   const scheduleClose = () => {
-    cancelClose()
-    closeTimer.current = window.setTimeout(() => setFlyout(null), 160)
-  }
+    cancelClose();
+    closeTimer.current = window.setTimeout(() => setFlyout(null), 160);
+  };
 
   const runCommand = (id: ZoomCommandId) => {
-    setFlyout(null)
-    applyToolClick(id, actions, 'center')
-  }
+    setFlyout(null);
+    applyToolClick(id, actions, "center");
+  };
 
   const endDrag = (pointerId: number) => {
-    const drag = dragRef.current
-    if (!drag || drag.id !== pointerId) return
-    dragRef.current = null
-    if (drag.moved) actions.dropTool()
-    if (getState().userAction === 'tools') actions.setUserAction('idle')
-  }
+    const drag = dragRef.current;
+    if (!drag || drag.id !== pointerId) return;
+    dragRef.current = null;
+    if (drag.moved) actions.dropTool();
+    if (getState().userAction === "tools") actions.setUserAction("idle");
+  };
 
   const onGripPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return
-    event.preventDefault()
-    event.stopPropagation()
-    event.currentTarget.setPointerCapture(event.pointerId)
-    const state = getState()
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const state = getState();
     dragRef.current = {
       id: event.pointerId,
       x: event.clientX,
@@ -156,235 +176,244 @@ export function ToolSidebar() {
       toolX: state.toolX,
       toolY: state.toolY,
       moved: false,
-    }
-  }
+    };
+  };
 
   const onGripPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const drag = dragRef.current
-    if (!drag || drag.id !== event.pointerId) return
-    const dx = event.clientX - drag.x
-    const dy = event.clientY - drag.y
-    if (!drag.moved && Math.hypot(dx, dy) < DRAG_SLOP) return
-    drag.moved = true
-    if (getState().userAction !== 'tools') actions.setUserAction('tools')
-    actions.moveTool(drag.toolX + dx, drag.toolY + dy)
-  }
+    const drag = dragRef.current;
+    if (!drag || drag.id !== event.pointerId) return;
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    if (!drag.moved && Math.hypot(dx, dy) < DRAG_SLOP) return;
+    drag.moved = true;
+    if (getState().userAction !== "tools") actions.setUserAction("tools");
+    actions.moveTool(drag.toolX + dx, drag.toolY + dy);
+  };
 
   const onGripKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const step = event.shiftKey ? 24 : 8
-    const state = getState()
-    if (event.key === 'ArrowLeft') {
-      event.preventDefault()
-      actions.moveTool(state.toolX - step, state.toolY)
-    } else if (event.key === 'ArrowRight') {
-      event.preventDefault()
-      actions.moveTool(state.toolX + step, state.toolY)
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault()
-      actions.moveTool(state.toolX, state.toolY - step)
-    } else if (event.key === 'ArrowDown') {
-      event.preventDefault()
-      actions.moveTool(state.toolX, state.toolY + step)
+    const step = event.shiftKey ? 24 : 8;
+    const state = getState();
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      actions.moveTool(state.toolX - step, state.toolY);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      actions.moveTool(state.toolX + step, state.toolY);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      actions.moveTool(state.toolX, state.toolY - step);
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      actions.moveTool(state.toolX, state.toolY + step);
     }
-  }
+  };
 
-  const rail = stylex.props(styles.rail)
+  const rail = stylex.props(styles.rail);
 
   return (
+    <div
+      {...rail}
+      ref={railRef}
+      data-tools=""
+      data-dragging={placement.dragging ? "" : undefined}
+      role="toolbar"
+      aria-label={t("tools")}
+      style={{
+        ...rail.style,
+        transform: `translate3d(${placement.x}px, ${placement.y}px, 0)`,
+        visibility: placement.placed ? "visible" : "hidden",
+      }}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
       <div
-        {...rail}
-        ref={railRef}
-        data-tools=""
-        data-dragging={placement.dragging ? '' : undefined}
-        role="toolbar"
-        aria-label={t('tools')}
-        style={{
-          ...rail.style,
-          transform: `translate3d(${placement.x}px, ${placement.y}px, 0)`,
-          visibility: placement.placed ? 'visible' : 'hidden',
-        }}
-        onPointerDown={(event) => event.stopPropagation()}
+        {...stylex.props(styles.gripBar)}
+        data-dragging={placement.dragging ? "" : undefined}
+        role="application"
+        tabIndex={0}
+        aria-label={t("dragTools")}
+        aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"
+        onPointerDown={onGripPointerDown}
+        onPointerMove={onGripPointerMove}
+        onPointerUp={(event) => endDrag(event.pointerId)}
+        onPointerCancel={(event) => endDrag(event.pointerId)}
+        onLostPointerCapture={(event) => endDrag(event.pointerId)}
+        onKeyDown={onGripKeyDown}
       >
-        <div
-          {...stylex.props(styles.gripBar)}
-          data-dragging={placement.dragging ? '' : undefined}
-          role="application"
-          tabIndex={0}
-          aria-label={t('dragTools')}
-          aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"
-          onPointerDown={onGripPointerDown}
-          onPointerMove={onGripPointerMove}
-          onPointerUp={(event) => endDrag(event.pointerId)}
-          onPointerCancel={(event) => endDrag(event.pointerId)}
-          onLostPointerCapture={(event) => endDrag(event.pointerId)}
-          onKeyDown={onGripKeyDown}
-        >
-          <span {...stylex.props(styles.grip)} aria-hidden="true" />
-        </div>
-        <button
-          {...stylex.props(styles.tool)}
-          type="button"
-          aria-label={t('moveView')}
-          aria-pressed={group === 'move'}
-          data-pressed={group === 'move' ? '' : undefined}
-          title={`${t('moveView')} (${keys.pan})`}
-          onClick={() => {
-            setFlyout(null)
-            selectGroup('move')
-          }}
-        >
-          <MoveIcon />
-        </button>
-        <div
-          {...stylex.props(styles.slot)}
-          ref={createSlotRef}
-          onMouseLeave={scheduleClose}
-          onMouseEnter={cancelClose}
-        >
-          <button
-            {...stylex.props(styles.tool)}
-            type="button"
-            aria-label={t(createOption.label)}
-            aria-pressed={group === 'create'}
-            data-pressed={group === 'create' ? '' : undefined}
-            title={t(createOption.label)}
-            onClick={() => {
-              setFlyout(null)
-              const drawing = group === 'create'
-              selectGroup('create')
-              if (drawing) beginLine(create)
-              else ensureLine(create)
-            }}
-          >
-            <CreateToolIcon id={create} />
-          </button>
-          <button
-            {...stylex.props(styles.triangle)}
-            type="button"
-            aria-label={t('createOptions')}
-            aria-haspopup="menu"
-            aria-expanded={flyout === 'create'}
-            aria-controls={`${menuId}-create`}
-            onMouseEnter={() => {
-              cancelClose()
-              setFlyout('create')
-            }}
-            onClick={(event) => {
-              event.preventDefault()
-              cancelClose()
-              setFlyout('create')
-            }}
-          >
-            <span {...stylex.props(styles.triangleMark)} />
-          </button>
-          {flyout === 'create' ? (
-            <div
-              {...stylex.props(styles.menu)}
-              id={`${menuId}-create`}
-              role="menu"
-              aria-label={t('createOptions')}
-            >
-              <div {...stylex.props(styles.popup)}>
-                {CREATE_TOOLS.map((id) => (
-                  <CreateChoice
-                    key={id}
-                    id={id}
-                    checked={id === create}
-                    onSelect={() => {
-                      selectCreate(id)
-                      beginLine(id)
-                      setFlyout(null)
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </div>
-        <button
-          {...stylex.props(styles.tool)}
-          type="button"
-          aria-label={t('editRoute')}
-          aria-pressed={group === 'edit'}
-          data-pressed={group === 'edit' ? '' : undefined}
-          title={t('editRoute')}
-          onClick={() => {
-            setFlyout(null)
-            selectGroup('edit')
-          }}
-        >
-          <EditRouteIcon />
-        </button>
-        <div
-          {...stylex.props(styles.slot)}
-          ref={zoomSlotRef}
-          onMouseLeave={scheduleClose}
-          onMouseEnter={cancelClose}
-        >
-          <button
-            {...stylex.props(styles.tool)}
-            type="button"
-            aria-label={t(zoomOption.label)}
-            aria-pressed={group === 'zoom'}
-            data-pressed={group === 'zoom' ? '' : undefined}
-            title={`${t(zoomOption.label)} (${keys[zoomOption.shortcut]})`}
-            onClick={() => {
-              setFlyout(null)
-              selectGroup('zoom')
-              applyToolClick(zoom, actions, 'center')
-            }}
-          >
-            <ZoomToolIcon id={zoom} />
-          </button>
-          <button
-            {...stylex.props(styles.triangle)}
-            type="button"
-            aria-label={t('zoomOptions')}
-            aria-haspopup="menu"
-            aria-expanded={flyout === 'zoom'}
-            aria-controls={`${menuId}-zoom`}
-            onMouseEnter={() => {
-              cancelClose()
-              setFlyout('zoom')
-            }}
-            onClick={(event) => {
-              event.preventDefault()
-              cancelClose()
-              setFlyout('zoom')
-            }}
-          >
-            <span {...stylex.props(styles.triangleMark)} />
-          </button>
-          {flyout === 'zoom' ? (
-            <div
-              {...stylex.props(styles.menu)}
-              id={`${menuId}-zoom`}
-              role="menu"
-              aria-label={t('zoomOptions')}
-            >
-              <div {...stylex.props(styles.popup)}>
-                {ZOOM_TOOLS.map((id) => (
-                  <ZoomChoice
-                    key={id}
-                    id={id}
-                    keys={keys}
-                    checked={id === zoom}
-                    onSelect={() => {
-                      selectZoom(id)
-                      setFlyout(null)
-                    }}
-                  />
-                ))}
-                <div {...stylex.props(styles.rule)} />
-                {ZOOM_COMMANDS.map((id) => (
-                  <CommandChoice key={id} id={id} keys={keys} onRun={() => runCommand(id)} />
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </div>
+        <span {...stylex.props(styles.grip)} aria-hidden="true" />
       </div>
-  )
+      <Button.Root
+        sx={styles.tool}
+        type="button"
+        aria-label={t("moveView")}
+        aria-pressed={group === "move"}
+        data-pressed={group === "move" ? "" : undefined}
+        title={`${t("moveView")} (${keys.pan})`}
+        onClick={() => {
+          setFlyout(null);
+          selectGroup("move");
+        }}
+      >
+        <Button.Icon id="move" />
+      </Button.Root>
+      <div
+        {...stylex.props(styles.slot)}
+        ref={createSlotRef}
+        onMouseLeave={scheduleClose}
+        onMouseEnter={cancelClose}
+      >
+        <Button.Root
+          sx={styles.tool}
+          type="button"
+          aria-label={t(createOption.label)}
+          aria-pressed={group === "create"}
+          data-pressed={group === "create" ? "" : undefined}
+          title={t(createOption.label)}
+          onClick={() => {
+            setFlyout(null);
+            const drawing = group === "create";
+            selectGroup("create");
+            if (drawing) beginLine(create);
+            else ensureLine(create);
+          }}
+        >
+          <Button.Icon id={create} />
+        </Button.Root>
+        <Button.Root
+          sx={styles.triangle}
+          type="button"
+          aria-label={t("createOptions")}
+          aria-haspopup="menu"
+          aria-expanded={flyout === "create"}
+          aria-controls={`${menuId}-create`}
+          onMouseEnter={() => {
+            cancelClose();
+            setFlyout("create");
+          }}
+          onClick={(event) => {
+            event.preventDefault();
+            cancelClose();
+            setFlyout("create");
+          }}
+        >
+          <Button.Icon id="options">
+            <span {...stylex.props(styles.triangleMark)} />
+          </Button.Icon>
+        </Button.Root>
+        {flyout === "create" ? (
+          <div
+            {...stylex.props(styles.menu)}
+            id={`${menuId}-create`}
+            role="menu"
+            aria-label={t("createOptions")}
+          >
+            <div {...stylex.props(styles.popup)}>
+              {CREATE_TOOLS.map((id) => (
+                <CreateChoice
+                  key={id}
+                  id={id}
+                  checked={id === create}
+                  onSelect={() => {
+                    selectCreate(id);
+                    beginLine(id);
+                    setFlyout(null);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+      <Button.Root
+        sx={styles.tool}
+        type="button"
+        aria-label={t("editRoute")}
+        aria-pressed={group === "edit"}
+        data-pressed={group === "edit" ? "" : undefined}
+        title={t("editRoute")}
+        onClick={() => {
+          setFlyout(null);
+          selectGroup("edit");
+        }}
+      >
+        <Button.Icon id="edit" />
+      </Button.Root>
+      <div
+        {...stylex.props(styles.slot)}
+        ref={zoomSlotRef}
+        onMouseLeave={scheduleClose}
+        onMouseEnter={cancelClose}
+      >
+        <Button.Root
+          sx={styles.tool}
+          type="button"
+          aria-label={t(zoomOption.label)}
+          aria-pressed={group === "zoom"}
+          data-pressed={group === "zoom" ? "" : undefined}
+          title={`${t(zoomOption.label)} (${keys[zoomOption.shortcut]})`}
+          onClick={() => {
+            setFlyout(null);
+            selectGroup("zoom");
+            applyToolClick(zoom, actions, "center");
+          }}
+        >
+          <Button.Icon id={zoom} />
+        </Button.Root>
+        <Button.Root
+          sx={styles.triangle}
+          type="button"
+          aria-label={t("zoomOptions")}
+          aria-haspopup="menu"
+          aria-expanded={flyout === "zoom"}
+          aria-controls={`${menuId}-zoom`}
+          onMouseEnter={() => {
+            cancelClose();
+            setFlyout("zoom");
+          }}
+          onClick={(event) => {
+            event.preventDefault();
+            cancelClose();
+            setFlyout("zoom");
+          }}
+        >
+          <Button.Icon id="options">
+            <span {...stylex.props(styles.triangleMark)} />
+          </Button.Icon>
+        </Button.Root>
+        {flyout === "zoom" ? (
+          <div
+            {...stylex.props(styles.menu)}
+            id={`${menuId}-zoom`}
+            role="menu"
+            aria-label={t("zoomOptions")}
+          >
+            <div {...stylex.props(styles.popup)}>
+              {ZOOM_TOOLS.map((id) => (
+                <ZoomChoice
+                  key={id}
+                  id={id}
+                  keys={keys}
+                  checked={id === zoom}
+                  onSelect={() => {
+                    selectZoom(id);
+                    setFlyout(null);
+                  }}
+                />
+              ))}
+              <div {...stylex.props(styles.rule)} />
+              {ZOOM_COMMANDS.map((id) => (
+                <CommandChoice
+                  key={id}
+                  id={id}
+                  keys={keys}
+                  onRun={() => runCommand(id)}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 function ZoomChoice({
@@ -393,29 +422,27 @@ function ZoomChoice({
   checked,
   onSelect,
 }: {
-  id: ZoomToolId
-  keys: Record<ViewportKeyId, string>
-  checked: boolean
-  onSelect: () => void
+  id: ZoomToolId;
+  keys: Record<ViewportKeyId, string>;
+  checked: boolean;
+  onSelect: () => void;
 }) {
-  const option = ZOOM_TOOL_OPTIONS.find((item) => item.id === id)
-  if (!option) return null
+  const option = ZOOM_TOOL_OPTIONS.find((item) => item.id === id);
+  if (!option) return null;
   return (
-    <button
-      {...stylex.props(styles.item)}
+    <Button.Root
+      sx={styles.item}
       type="button"
       role="option"
       aria-selected={checked}
-      data-checked={checked ? '' : undefined}
+      data-checked={checked ? "" : undefined}
       onClick={onSelect}
     >
-      <span {...stylex.props(styles.itemIcon)}>
-        <ZoomToolIcon id={id} />
-      </span>
-      <span {...stylex.props(styles.itemLabel)}>{t(option.label)}</span>
+      <Button.Icon id={id} />
+      <Button.Text sx={styles.itemLabel}>{t(option.label)}</Button.Text>
       <span {...stylex.props(styles.kbd)}>{keys[option.shortcut]}</span>
-    </button>
-  )
+    </Button.Root>
+  );
 }
 
 function CommandChoice({
@@ -423,21 +450,23 @@ function CommandChoice({
   keys,
   onRun,
 }: {
-  id: ZoomCommandId
-  keys: Record<ViewportKeyId, string>
-  onRun: () => void
+  id: ZoomCommandId;
+  keys: Record<ViewportKeyId, string>;
+  onRun: () => void;
 }) {
-  const option = ZOOM_COMMAND_OPTIONS.find((item) => item.id === id)
-  if (!option) return null
+  const option = ZOOM_COMMAND_OPTIONS.find((item) => item.id === id);
+  if (!option) return null;
   return (
-    <button {...stylex.props(styles.item)} type="button" onClick={onRun}>
-      <span {...stylex.props(styles.itemIcon)}>
-        <CommandIcon id={id} />
-      </span>
-      <span {...stylex.props(styles.itemLabel)}>{t(option.label)}</span>
+    <Button.Root sx={styles.item} type="button" onClick={onRun}>
+      <Button.Icon id={id}>
+        {id === "actual-size" ? (
+          <span {...stylex.props(styles.mark)}>1:1</span>
+        ) : undefined}
+      </Button.Icon>
+      <Button.Text sx={styles.itemLabel}>{t(option.label)}</Button.Text>
       <span {...stylex.props(styles.kbd)}>{keys[option.shortcut]}</span>
-    </button>
-  )
+    </Button.Root>
+  );
 }
 
 function CreateChoice({
@@ -445,325 +474,166 @@ function CreateChoice({
   checked,
   onSelect,
 }: {
-  id: CreateToolId
-  checked: boolean
-  onSelect: () => void
+  id: CreateToolId;
+  checked: boolean;
+  onSelect: () => void;
 }) {
-  const option = CREATE_TOOL_OPTIONS.find((item) => item.id === id)
-  if (!option) return null
+  const option = CREATE_TOOL_OPTIONS.find((item) => item.id === id);
+  if (!option) return null;
   return (
-    <button
-      {...stylex.props(styles.item)}
+    <Button.Root
+      sx={styles.item}
       type="button"
       role="option"
       aria-selected={checked}
-      data-checked={checked ? '' : undefined}
+      data-checked={checked ? "" : undefined}
       onClick={onSelect}
     >
-      <span {...stylex.props(styles.itemIcon)}>
-        <CreateToolIcon id={id} />
-      </span>
-      <span {...stylex.props(styles.itemLabel)}>{t(option.label)}</span>
-    </button>
-  )
-}
-
-function ZoomToolIcon({ id }: { id: ZoomToolId }) {
-  if (id === 'zoom-out') return <ZoomOutIcon />
-  return <ZoomInIcon />
-}
-
-function CreateToolIcon({ id }: { id: CreateToolId }) {
-  if (id === 'boulder') return <BoulderIcon />
-  return <RouteIcon />
-}
-
-function CommandIcon({ id }: { id: ZoomCommandId }) {
-  if (id === 'fit') return <FitIcon />
-  return <span {...stylex.props(styles.mark)}>1:1</span>
-}
-
-function ZoomInIcon() {
-  return (
-    <svg {...iconProps}>
-      <circle cx="8.25" cy="8.25" r="5" />
-      <path d="M12.2 12.2 16.4 16.4" />
-      <path d="M8.25 5.9v4.7M5.9 8.25h4.7" />
-    </svg>
-  )
-}
-
-function ZoomOutIcon() {
-  return (
-    <svg {...iconProps}>
-      <circle cx="8.25" cy="8.25" r="5" />
-      <path d="M12.2 12.2 16.4 16.4" />
-      <path d="M5.9 8.25h4.7" />
-    </svg>
-  )
-}
-
-function FitIcon() {
-  return (
-    <svg {...iconProps}>
-      <path d="M4.25 8V4.25H8M12 4.25h3.75V8M15.75 12v3.75H12M8 15.75H4.25V12" />
-    </svg>
-  )
-}
-
-function RouteIcon() {
-  return (
-    <svg {...iconProps}>
-      <path d="M6.2 16.2 9.1 11.5 12 8.2 14.6 4.4" />
-      <circle cx="6.2" cy="16.2" r="1.15" />
-      <circle cx="9.1" cy="11.5" r="1.15" />
-      <circle cx="12" cy="8.2" r="1.15" />
-      <circle cx="14.6" cy="4.4" r="1.15" />
-    </svg>
-  )
-}
-
-function BoulderIcon() {
-  return (
-    <svg {...iconProps}>
-      <path d="M3.6 15.2c.8-3.4 2.6-5.6 5-6.4 1.5-.5 2.2-2 3.8-2.4 2-.6 3.6.6 4.4 2.1.7 1.3 1.5 2 1 4.2" />
-      <path d="M7.2 13.8c1.5-1.7 2.4-1.9 3.6-3 .8-.7 1.9-.4 2.7.5" />
-    </svg>
-  )
-}
-
-function EditRouteIcon() {
-  return (
-    <svg {...iconProps}>
-      <path d="M3.4 2.5v12.1l3.7-3.7 4.4 6.3 2.7-1.8-4.4-6.3h6.4z" />
-    </svg>
-  )
-}
-
-function MoveIcon() {
-  return (
-    <svg {...iconProps}>
-      <path d="M10 3.2v13.6M3.2 10h13.6" />
-      <path d="M10 3.2 7.6 5.6M10 3.2l2.4 2.4M10 16.8l-2.4-2.4M10 16.8l2.4-2.4M3.2 10l2.4-2.4M3.2 10l2.4 2.4M16.8 10l-2.4-2.4M16.8 10l-2.4 2.4" />
-    </svg>
-  )
+      <Button.Icon id={id} />
+      <Button.Text>{t(option.label)}</Button.Text>
+    </Button.Root>
+  );
 }
 
 const styles = stylex.create({
   rail: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
+    position: "absolute",
+    top: Tokens.spacing.none,
+    left: Tokens.spacing.none,
     zIndex: 5,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 2,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: Tokens.spacing.xxs,
     width: 48,
-    paddingBottom: 6,
-    paddingInline: 6,
-    backgroundColor: color.bar,
-    color: color.text,
+    paddingBottom: Tokens.spacing.sm,
+    paddingInline: Tokens.spacing.sm,
+    backgroundColor: Tokens.color.neutral[600],
+    color: Tokens.color.neutral[100],
     borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: color.menuLine,
+    borderStyle: "solid",
+    borderColor: Tokens.color.neutral[950],
     borderRadius: 6,
     boxShadow: {
-      default: '0 12px 28px rgba(0, 0, 0, 0.4)',
-      '[data-dragging]': '0 18px 40px rgba(0, 0, 0, 0.55)',
+      default: `0 12px 28px ${Tokens.color.black[40]}`,
+      "[data-dragging]": `0 18px 40px ${Tokens.color.black[55]}`,
     },
-    userSelect: 'none',
-    touchAction: 'none',
+    userSelect: "none",
+    touchAction: "none",
   },
   gripBar: {
-    display: 'grid',
-    placeItems: 'center',
-    width: '100%',
+    display: "grid",
+    placeItems: "center",
+    width: "100%",
     height: 18,
-    marginBottom: 2,
+    marginBottom: Tokens.spacing.xxs,
     borderRadius: 4,
     cursor: {
-      default: 'grab',
-      '[data-dragging]': 'grabbing',
+      default: "grab",
+      "[data-dragging]": "grabbing",
     },
     outlineWidth: {
       default: 0,
-      ':focus-visible': 2,
+      ":focus-visible": 2,
     },
     outlineStyle: {
-      default: 'none',
-      ':focus-visible': 'solid',
+      default: "none",
+      ":focus-visible": "solid",
     },
     outlineColor: {
-      default: 'transparent',
-      ':focus-visible': color.focus,
+      default: "transparent",
+      ":focus-visible": Tokens.color.blue[100],
     },
     outlineOffset: 1,
   },
   grip: {
     width: 14,
-    height: 8,
+    height: Tokens.size.xxs,
     opacity: 0.7,
-    backgroundImage: 'radial-gradient(currentColor 1.1px, transparent 1.5px)',
-    backgroundSize: '4px 4px',
-    backgroundPosition: 'center',
+    backgroundImage: "radial-gradient(currentColor 1.1px, transparent 1.5px)",
+    backgroundSize: "4px 4px",
+    backgroundPosition: "center",
   },
   slot: {
-    position: 'relative',
+    position: "relative",
   },
   tool: {
-    appearance: 'none',
-    display: 'grid',
-    placeItems: 'center',
-    width: 36,
-    height: 36,
-    padding: 0,
-    borderWidth: 0,
-    borderRadius: 4,
-    backgroundColor: {
-      default: 'transparent',
-      ':hover': 'rgba(255, 255, 255, 0.08)',
-      '[data-pressed]': 'rgba(20, 115, 230, 0.35)',
-    },
-    color: 'inherit',
-    cursor: 'pointer',
-    outlineWidth: {
-      default: 0,
-      ':focus-visible': 2,
-    },
-    outlineStyle: {
-      default: 'none',
-      ':focus-visible': 'solid',
-    },
-    outlineColor: {
-      default: 'transparent',
-      ':focus-visible': color.focus,
-    },
-    outlineOffset: 1,
+    width: Tokens.size.xl,
+    height: Tokens.size.xl,
+    paddingBlock: Tokens.spacing.none,
+    paddingInline: Tokens.spacing.none,
   },
   triangle: {
-    appearance: 'none',
-    position: 'absolute',
+    position: "absolute",
     right: 1,
     bottom: 1,
     zIndex: 1,
-    display: 'grid',
-    placeItems: 'end',
-    width: 16,
-    height: 16,
-    padding: 0,
-    borderWidth: 0,
-    borderRadius: 2,
-    backgroundColor: 'transparent',
-    color: 'inherit',
-    cursor: 'pointer',
-    outlineWidth: {
-      default: 0,
-      ':focus-visible': 2,
-    },
-    outlineStyle: {
-      default: 'none',
-      ':focus-visible': 'solid',
-    },
-    outlineColor: {
-      default: 'transparent',
-      ':focus-visible': color.focus,
-    },
-    outlineOffset: 1,
+    width: Tokens.size.xs,
+    height: Tokens.size.xs,
+    paddingBlock: Tokens.spacing.none,
+    paddingInline: Tokens.spacing.none,
   },
   triangleMark: {
     width: 7,
     height: 7,
-    marginRight: 2,
-    marginBottom: 2,
-    backgroundColor: color.kbd,
-    clipPath: 'polygon(100% 0, 100% 100%, 0 100%)',
+    marginRight: Tokens.spacing.xxs,
+    marginBottom: Tokens.spacing.xxs,
+    backgroundColor: Tokens.color.neutral[400],
+    clipPath: "polygon(100% 0, 100% 100%, 0 100%)",
   },
   menu: {
-    position: 'absolute',
-    top: 0,
-    left: '100%',
+    position: "absolute",
+    top: Tokens.spacing.none,
+    left: "100%",
     zIndex: 30,
     marginLeft: -10,
-    paddingLeft: 10,
+    paddingLeft: Tokens.spacing.lg,
   },
   popup: {
     minWidth: 196,
-    padding: 4,
-    backgroundColor: color.menu,
-    color: color.text,
+    padding: Tokens.spacing.xs,
+    backgroundColor: Tokens.color.neutral[750],
+    color: Tokens.color.neutral[100],
     borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: color.menuLine,
+    borderStyle: "solid",
+    borderColor: Tokens.color.neutral[950],
     borderRadius: 6,
-    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)',
+    boxShadow: `0 8px 24px ${Tokens.color.black[45]}`,
   },
   rule: {
     height: 1,
-    marginBlock: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    marginBlock: Tokens.spacing.xs,
+    backgroundColor: Tokens.color.white[12],
   },
   item: {
-    appearance: 'none',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    width: '100%',
-    paddingBlock: 6,
-    paddingInline: 8,
-    borderWidth: 0,
-    borderRadius: 4,
+    width: "100%",
+    height: "auto",
+    justifyContent: "flex-start",
+    paddingBlock: Tokens.spacing.sm,
+    paddingInline: Tokens.spacing.md,
     backgroundColor: {
-      default: 'transparent',
-      ':hover': color.primary,
-      '[data-checked]': 'rgba(20, 115, 230, 0.35)',
+      default: "transparent",
+      ":hover": Tokens.color.blue[500],
+      "[data-checked]": Tokens.color.blue[35],
     },
     color: {
-      default: 'inherit',
-      ':hover': '#ffffff',
+      default: "inherit",
+      ":hover": Tokens.color.neutral[0],
     },
-    fontSize: 13,
-    lineHeight: 1.3,
-    textAlign: 'start',
-    cursor: 'pointer',
-    outlineStyle: 'none',
-  },
-  itemIcon: {
-    display: 'grid',
-    placeItems: 'center',
-    width: 20,
-    height: 20,
-    flexGrow: 0,
-    flexShrink: 0,
+    textAlign: "start",
   },
   itemLabel: {
     flexGrow: 1,
   },
   kbd: {
-    color: color.kbd,
+    color: Tokens.color.neutral[400],
     fontSize: 12,
-    fontVariantNumeric: 'tabular-nums',
-  },
-  icon: {
-    width: 20,
-    height: 20,
-    display: 'block',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.5,
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
+    fontVariantNumeric: "tabular-nums",
   },
   mark: {
     fontSize: 11,
     fontWeight: 700,
-    letterSpacing: '-0.03em',
+    letterSpacing: "-0.03em",
     lineHeight: 1,
   },
-})
-
-const iconProps = {
-  ...stylex.props(styles.icon),
-  viewBox: '0 0 20 20',
-  'aria-hidden': true as const,
-}
+});

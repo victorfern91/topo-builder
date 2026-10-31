@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "packages/ui/components"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -10,6 +13,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ui": "workspace:*",
     "@base-ui/react": "^1.9.0",
     "@stylexjs/stylex": "^0.19.1",
     "@tanstack/react-router": "^1.170.46",
