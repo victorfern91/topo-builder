@@ -34,7 +34,7 @@ Ship Slider defaults. Pass `sx` for instance width or flex.
 Ship Widget defaults. Pass `sx` for instance chrome such as width, z-index, or overflow.
 
 ```tsx
-<Widget.Panel x={x} y={y} onMove={move} onResize={resize}>
+<Widget.Panel x={x} y={y} onMove={move} onResize={resize} resizable>
   <Widget.Header label="Drag to move">Title</Widget.Header>
   <Widget.Container>{children}</Widget.Container>
 </Widget.Panel>
@@ -44,11 +44,11 @@ Ship Widget defaults. Pass `sx` for instance chrome such as width, z-index, or o
 
 `Widget.Header` is the drag handle. `label` is its accessible name. Children are the title. Omit children for a grip bar. The title row and the grip bar show the same grip.
 
-`Widget.Panel` resizes from the right edge, the bottom edge, and the corner. `onResize` reports the border box, in pixels, after layout and during that resize. `minWidth` and `minHeight` default to 48. `resizeLabel` names the corner handle. Arrow keys on that handle resize; Shift uses the larger step. Pass `resizable={false}` when the panel stays at its layout size.
+`Widget.Panel` stays at its layout size. Pass `resizable` to resize from the right edge, the bottom edge, and the corner. `onResize` reports the border box, in pixels, after layout and during that resize. `minWidth` and `minHeight` default to 48. `resizeLabel` names the corner handle. Arrow keys on that handle resize; Shift uses the larger step.
 
 `Widget.Container` is the column body. Pass Layout stack props for that instance.
 
-`Widget.Menu` is the popup chrome. Position it with `sx` or `style`.
+`Widget.Menu` is the popup chrome. Position it with `sx` or `style`. It stays at its content size. Pass `resizable` to resize from the right edge, the bottom edge, and the corner; `onResize`, `minWidth`, `minHeight`, and `resizeLabel` match the panel. The menu stops at the viewport edge.
 
 # Tokens
 

@@ -33,7 +33,7 @@ export type WidgetPanelProps = Omit<
   onResize?: (width: number, height: number) => void;
   /**
    * Right edge, bottom edge, and corner resize the panel.
-   * Default true.
+   * Default false; the panel stays at its layout size.
    */
   resizable?: boolean;
   /** Minimum width while resizing, in pixels. Default 48. */
@@ -70,4 +70,21 @@ export type WidgetHeaderProps = {
 
 export type WidgetContainerProps = LayoutStackProps;
 
-export type WidgetMenuProps = LayoutBoxProps;
+export type WidgetMenuProps = LayoutBoxProps & {
+  /**
+   * Right edge, bottom edge, and corner resize the menu.
+   * Default false; the menu stays at its content size.
+   */
+  resizable?: boolean;
+  /**
+   * Reports the border box after layout and while the user resizes.
+   * Width and height are pixels. Used when `resizable` is set.
+   */
+  onResize?: (width: number, height: number) => void;
+  /** Minimum width while resizing, in pixels. Default 48. */
+  minWidth?: number;
+  /** Minimum height while resizing, in pixels. Default 48. */
+  minHeight?: number;
+  /** Accessible name for the corner resize handle. */
+  resizeLabel?: string;
+};

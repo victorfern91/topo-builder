@@ -1,4 +1,5 @@
-import { Store } from "@tanstack/store";
+import { batch, Store } from "@tanstack/store";
+import { produce, setAutoFreeze } from "immer";
 import { t } from "../i18n/index.ts";
 import { closestOnLine, curveDistance2, lineGeometry } from "./line-curve.ts";
 import { markRadius, type PointMark } from "./point-marks.ts";
@@ -56,7 +57,6 @@ export type LineState = {
   activeId: string | null;
   /** Anchor chosen on the active line. Delete and the point menu use it. */
   anchorIndex: number | null;
-  hover: LineHit | null;
   /** Scale the top bar writes onto every line, and that new lines copy. */
   scale: number;
   /** Annotations routes can share. Anchors reference these by id. */
@@ -82,25 +82,44 @@ const HIT_PX = 8;
 let sequence = 0;
 let pointSequence = 0;
 
+/**
+ * Geometry stays on the live layer objects so a dragged anchor does not
+ * copy the layer list. Immer must not freeze those objects.
+ */
+setAutoFreeze(false);
+
+/** Lines, selection, scale, and shared marks. */
 export const lineStore = new Store<LineState>({
   layers: [],
   activeId: null,
   anchorIndex: null,
-  hover: null,
   scale: DEFAULT_DRAW_SCALE,
   points: [],
   revision: 0,
 });
 
+/** Pointer target. Its own store so a hover does not publish the line document. */
+export const lineHoverStore = new Store<LineHit | null>(null);
+
+function patch(recipe: (draft: LineState) => void): void {
+  lineStore.setState((state) => produce(state, recipe));
+}
+
+/** Notifies canvas subscribers. The layer list keeps its identity. */
+function publish(): void {
+  patch((draft) => {
+    draft.revision += 1;
+  });
+}
+
 export function beginLine(kind: LineKind): string {
   const layer = createLayer(kind, lineStore.get().layers);
-  lineStore.setState((current) => ({
-    ...current,
-    layers: [...current.layers, layer],
-    activeId: layer.id,
-    anchorIndex: null,
-    revision: current.revision + 1,
-  }));
+  patch((draft) => {
+    draft.layers.push(layer);
+    draft.activeId = layer.id;
+    draft.anchorIndex = null;
+    draft.revision += 1;
+  });
   return layer.id;
 }
 
@@ -112,102 +131,93 @@ export function ensureLine(kind: LineKind): string {
 
 /** Keeps the geometry and clears the selection. */
 export function finishLine(): void {
-  lineStore.setState((state) => {
-    if (
-      state.activeId === null &&
-      state.hover === null &&
-      state.anchorIndex === null
-    )
-      return state;
-    return { ...state, activeId: null, hover: null, anchorIndex: null };
+  batch(() => {
+    patch((draft) => {
+      if (draft.activeId === null && draft.anchorIndex === null) return;
+      draft.activeId = null;
+      draft.anchorIndex = null;
+    });
+    setLineHover(null);
   });
 }
 
 export function selectLine(id: string): void {
-  lineStore.setState((state) => {
-    if (!findLayer(state, id)) return state;
-    if (state.activeId === id && state.anchorIndex === null) return state;
-    return { ...state, activeId: id, anchorIndex: null };
+  patch((draft) => {
+    if (!findLayer(draft, id)) return;
+    if (draft.activeId === id && draft.anchorIndex === null) return;
+    draft.activeId = id;
+    draft.anchorIndex = null;
   });
 }
 
 export function selectAnchor(layerId: string, index: number): void {
-  lineStore.setState((state) => {
-    const layer = findLayer(state, layerId);
-    if (!layer || !layer.anchors[index]) return state;
-    if (state.activeId === layerId && state.anchorIndex === index) return state;
-    return { ...state, activeId: layerId, anchorIndex: index };
+  patch((draft) => {
+    const layer = findLayer(draft, layerId);
+    if (!layer || !layer.anchors[index]) return;
+    if (draft.activeId === layerId && draft.anchorIndex === index) return;
+    draft.activeId = layerId;
+    draft.anchorIndex = index;
   });
 }
 
 export function setLineColor(id: string, color: LineColor): void {
-  lineStore.setState((state) => {
-    const index = state.layers.findIndex((layer) => layer.id === id);
-    const current = state.layers[index];
-    if (!current || current.color === color) return state;
-    const layers = state.layers.slice();
-    layers[index] = { ...current, color };
-    return { ...state, layers, revision: state.revision + 1 };
+  patch((draft) => {
+    const layer = draft.layers.find((item) => item.id === id);
+    if (!layer || layer.color === color) return;
+    layer.color = color;
+    draft.revision += 1;
   });
 }
 
 export function renameLine(id: string, name: string): void {
-  lineStore.setState((state) => {
-    const index = state.layers.findIndex((layer) => layer.id === id);
-    const current = state.layers[index];
-    if (!current || current.name === name) return state;
-    const layers = state.layers.slice();
-    layers[index] = { ...current, name };
-    return { ...state, layers, revision: state.revision + 1 };
+  patch((draft) => {
+    const layer = draft.layers.find((item) => item.id === id);
+    if (!layer || layer.name === name) return;
+    layer.name = name;
+    draft.revision += 1;
   });
 }
 
 /** Sets the drawing scale and writes it onto every line so they stay the same size on the photo. */
 export function setDrawScale(scale: number): void {
   const next = clampDrawScale(scale);
-  lineStore.setState((state) => {
+  patch((draft) => {
     if (
-      state.scale === next &&
-      state.layers.every((layer) => layer.scale === next)
+      draft.scale === next &&
+      draft.layers.every((layer) => layer.scale === next)
     )
-      return state;
-    return {
-      ...state,
-      scale: next,
-      layers: state.layers.map((layer) =>
-        layer.scale === next ? layer : { ...layer, scale },
-      ),
-      revision: state.revision + 1,
-    };
+      return;
+    draft.scale = next;
+    for (const layer of draft.layers) {
+      if (layer.scale !== next) layer.scale = next;
+    }
+    draft.revision += 1;
   });
 }
 
 export function clearLines(): void {
-  lineStore.setState((state) => {
-    if (
-      state.layers.length === 0 &&
-      state.points.length === 0 &&
-      state.activeId === null &&
-      state.hover === null &&
-      state.anchorIndex === null
-    ) {
-      return state;
-    }
-    return {
-      layers: [],
-      activeId: null,
-      anchorIndex: null,
-      hover: null,
-      scale: state.scale,
-      points: [],
-      revision: state.revision + 1,
-    };
+  batch(() => {
+    patch((draft) => {
+      if (
+        draft.layers.length === 0 &&
+        draft.points.length === 0 &&
+        draft.activeId === null &&
+        draft.anchorIndex === null
+      )
+        return;
+      draft.layers = [];
+      draft.points = [];
+      draft.activeId = null;
+      draft.anchorIndex = null;
+      draft.revision += 1;
+    });
+    setLineHover(null);
   });
 }
 
 export function setLineHover(hover: LineHit | null): void {
-  lineStore.setState((state) =>
-    sameHit(state.hover, hover) ? state : { ...state, hover },
+  lineHoverStore.setState((current) =>
+    sameHit(current, hover) ? current : hover,
   );
 }
 
@@ -251,7 +261,7 @@ export function moveMarkedPoint(id: string, x: number, y: number): void {
     }
     if (moved) layer.geometryRevision += 1;
   }
-  lineStore.setState((state) => ({ ...state, revision: state.revision + 1 }));
+  publish();
 }
 
 export function nearestMarkedPoint(
@@ -326,7 +336,7 @@ export function setAnchorMark(
       .points.find((item) => item.id === anchor.pointId);
     if (!point || point.mark === mark) return;
     point.mark = mark;
-    lineStore.setState((state) => ({ ...state, revision: state.revision + 1 }));
+    publish();
     return;
   }
   const nearby = nearestMarkedPoint(anchor.x, anchor.y, magnet, layerId);
@@ -337,7 +347,7 @@ export function setAnchorMark(
     anchor.x = nearby.x;
     anchor.y = nearby.y;
     if (moved) layer.geometryRevision += 1;
-    lineStore.setState((state) => ({ ...state, revision: state.revision + 1 }));
+    publish();
     return;
   }
   const point: MarkedPoint = {
@@ -347,11 +357,10 @@ export function setAnchorMark(
     mark,
   };
   anchor.pointId = point.id;
-  lineStore.setState((state) => ({
-    ...state,
-    points: [...state.points, point],
-    revision: state.revision + 1,
-  }));
+  patch((draft) => {
+    draft.points.push(point);
+    draft.revision += 1;
+  });
 }
 
 /** Drops this anchor off the shared mark. The mark stays while another route still uses it. */
@@ -360,11 +369,11 @@ export function clearAnchorMark(layerId: string, index: number): void {
   if (!anchor?.pointId) return;
   const pointId = anchor.pointId;
   anchor.pointId = null;
-  lineStore.setState((state) => ({
-    ...state,
-    points: unusedPoint(state, pointId),
-    revision: state.revision + 1,
-  }));
+  patch((draft) => {
+    const points = unusedPoint(draft, pointId);
+    if (points !== draft.points) draft.points = points;
+    draft.revision += 1;
+  });
 }
 
 export function pointOnLine(
@@ -400,13 +409,15 @@ export function insertAnchor(
       : { x, y, pointId: null },
   );
   layer.geometryRevision += 1;
-  lineStore.setState((state) => ({
-    ...state,
-    activeId: layerId,
-    anchorIndex: at,
-    hover: bumpHover(state.hover, layerId, at),
-    revision: state.revision + 1,
-  }));
+  const hover = bumpHover(lineHoverStore.get(), layerId, at);
+  batch(() => {
+    patch((draft) => {
+      draft.activeId = layerId;
+      draft.anchorIndex = at;
+      draft.revision += 1;
+    });
+    setLineHover(hover);
+  });
 }
 
 export function deleteAnchor(layerId: string, index: number): void {
@@ -415,16 +426,17 @@ export function deleteAnchor(layerId: string, index: number): void {
   const removed = layer.anchors[index];
   layer.anchors.splice(index, 1);
   layer.geometryRevision += 1;
-  lineStore.setState((state) => ({
-    ...state,
-    points: unusedPoint(state, removed?.pointId ?? null),
-    anchorIndex:
-      state.activeId === layerId
-        ? shiftIndex(state.anchorIndex, index)
-        : state.anchorIndex,
-    hover: shiftHover(state.hover, layerId, index),
-    revision: state.revision + 1,
-  }));
+  const hover = shiftHover(lineHoverStore.get(), layerId, index);
+  batch(() => {
+    patch((draft) => {
+      const points = unusedPoint(draft, removed?.pointId ?? null);
+      if (points !== draft.points) draft.points = points;
+      if (draft.activeId === layerId)
+        draft.anchorIndex = shiftIndex(draft.anchorIndex, index);
+      draft.revision += 1;
+    });
+    setLineHover(hover);
+  });
 }
 
 export function deleteLastAnchor(): void {
@@ -472,7 +484,7 @@ function createLayer(kind: LineKind, layers: readonly LineLayer[]): LineLayer {
 function touch(layer: LineLayer | null): void {
   if (!layer) return;
   layer.geometryRevision += 1;
-  lineStore.setState((state) => ({ ...state, revision: state.revision + 1 }));
+  publish();
 }
 
 function layerOf(id: string): LineLayer | null {

@@ -43,6 +43,7 @@ export function LayersPanel() {
     <Widget.Panel
       {...frame}
       renderAs="section"
+      resizable
       minWidth={220}
       minHeight={120}
       resizeLabel={t("resizePanel")}

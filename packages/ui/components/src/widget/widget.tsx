@@ -66,13 +66,13 @@ const WidgetDragContext = createContext<WidgetDragValue | null>(null);
 /**
  * Floating panel. Place `Header` and `Container` inside it.
  * The header drags the panel; arrow keys nudge it.
- * The right edge, bottom edge, and corner resize it.
+ * Pass `resizable` to resize from the right edge, the bottom edge, and the corner.
  *
  * @example
  * ```tsx
  * import { Widget } from '@ui'
  *
- * <Widget.Panel x={x} y={y} onMove={move} onDragEnd={end} onResize={resize}>
+ * <Widget.Panel x={x} y={y} onMove={move} onDragEnd={end} onResize={resize} resizable>
  *   <Widget.Header label="Drag to move">Layers</Widget.Header>
  *   <Widget.Container>{children}</Widget.Container>
  * </Widget.Panel>
@@ -85,7 +85,7 @@ export function WidgetPanel({
   y,
   placed = true,
   dragging = false,
-  resizable = true,
+  resizable = false,
   minWidth = MIN_SIZE,
   minHeight = MIN_SIZE,
   resizeLabel = "Resize",
@@ -322,6 +322,8 @@ function WidgetResize({
   node,
   minWidth,
   minHeight,
+  flush = false,
+  bound = "parent",
   onResize,
   onSize,
 }: {
@@ -329,6 +331,10 @@ function WidgetResize({
   node: HTMLElement | null;
   minWidth: number;
   minHeight: number;
+  /** Cover the top of the east edge. Panels leave room for the header. */
+  flush?: boolean;
+  /** `parent` uses the offset parent. `viewport` uses the window. */
+  bound?: "parent" | "viewport";
   onResize?: (width: number, height: number) => void;
   onSize: (size: BoxSize) => void;
 }) {
@@ -342,13 +348,10 @@ function WidgetResize({
   };
 
   const limit = (width: number, height: number): BoxSize => {
-    const parent = node?.offsetParent;
-    const maxWidth = parent instanceof HTMLElement ? parent.clientWidth : width;
-    const maxHeight =
-      parent instanceof HTMLElement ? parent.clientHeight : height;
+    const max = maxBox(bound, node, width, height);
     return {
-      width: clampEdge(Math.round(width), minWidth, maxWidth),
-      height: clampEdge(Math.round(height), minHeight, maxHeight),
+      width: clampEdge(Math.round(width), minWidth, max.width),
+      height: clampEdge(Math.round(height), minHeight, max.height),
     };
   };
 
@@ -416,11 +419,12 @@ function WidgetResize({
   };
 
   const corner = stylex.props(styles.resizeCorner, styles.focusable);
+  const east = stylex.props(styles.resizeEast, flush && styles.resizeEastFlush);
 
   return (
     <>
       <div
-        {...stylex.props(styles.resizeEast)}
+        {...east}
         aria-hidden="true"
         onPointerDown={(event) => start("e", event)}
         onPointerMove={move}
@@ -457,6 +461,26 @@ function WidgetResize({
   );
 }
 
+function maxBox(
+  bound: "parent" | "viewport",
+  node: HTMLElement | null,
+  width: number,
+  height: number,
+): BoxSize {
+  if (bound === "viewport" && node) {
+    const rect = node.getBoundingClientRect();
+    return {
+      width: window.innerWidth - rect.left,
+      height: window.innerHeight - rect.top,
+    };
+  }
+  const parent = node?.offsetParent;
+  return {
+    width: parent instanceof HTMLElement ? parent.clientWidth : width,
+    height: parent instanceof HTMLElement ? parent.clientHeight : height,
+  };
+}
+
 function clampEdge(value: number, min: number, max: number): number {
   const ceiling = Math.max(min, max);
   return Math.min(ceiling, Math.max(min, value));
@@ -481,30 +505,108 @@ export function WidgetContainer({
 
 /**
  * Popup surface. Position it from the instance (`sx` or `style`).
+ * Pass `resizable` to resize from the right edge, the bottom edge, and the corner.
+ * The menu stops at the viewport edge.
  *
  * @example
  * ```tsx
  * <Widget.Menu aria-label="Zoom options">{items}</Widget.Menu>
+ * <Widget.Menu resizable onResize={resize} aria-label="Layers">
+ *   {items}
+ * </Widget.Menu>
  * ```
  */
 export function WidgetMenu({
+  ref,
   sx,
   role = "menu",
   className,
   style,
+  resizable = false,
+  minWidth = MIN_SIZE,
+  minHeight = MIN_SIZE,
+  resizeLabel = "Resize",
+  onResize,
+  children,
   ...props
 }: WidgetMenuProps) {
-  const styled = stylex.props(styles.menu);
-  const mergedClass = [styled.className, className].filter(Boolean).join(" ");
+  const [node, setNode] = useState<HTMLDivElement | null>(null);
+  const [size, setSize] = useState<BoxSize | null>(null);
+  const surfaceRef = useCallback((next: HTMLDivElement | null) => {
+    setNode(next);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!resizable || !node) return;
+    const publish = () => {
+      onResize?.(node.offsetWidth, node.offsetHeight);
+    };
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [node, onResize, resizable]);
+
+  useLayoutEffect(() => {
+    if (typeof ref === "function") {
+      const cleanup = ref(node);
+      return () => {
+        if (typeof cleanup === "function") cleanup();
+        else void ref(null);
+      };
+    }
+    if (!ref) return;
+    ref.current = node;
+    return () => {
+      ref.current = null;
+    };
+  }, [node, ref]);
+
+  const body = stylex.props(styles.menuBody, size && styles.menuBodyFill);
+
   return (
     <Layout.Box
       p="xs"
       {...props}
+      ref={surfaceRef}
       role={role}
-      sx={sx}
-      className={mergedClass || undefined}
-      style={{ ...styled.style, ...style }}
-    />
+      sx={[styles.menu, resizable && styles.menuAnchor, sx] as never}
+      className={className}
+      style={{
+        ...style,
+        ...(size
+          ? {
+              width: size.width,
+              height: size.height,
+              maxWidth: "none",
+              maxHeight: "none",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }
+          : null),
+      }}
+    >
+      {resizable ? (
+        <div className={body.className} style={body.style}>
+          {children}
+        </div>
+      ) : (
+        children
+      )}
+      {resizable ? (
+        <WidgetResize
+          flush
+          bound="viewport"
+          label={resizeLabel}
+          node={node}
+          minWidth={minWidth}
+          minHeight={minHeight}
+          onResize={onResize}
+          onSize={setSize}
+        />
+      ) : null}
+    </Layout.Box>
   );
 }
 
@@ -591,6 +693,9 @@ const styles = stylex.create({
     cursor: "ew-resize",
     touchAction: "none",
   },
+  resizeEastFlush: {
+    top: Tokens.spacing.none,
+  },
   resizeSouth: {
     position: "absolute",
     right: 14,
@@ -639,5 +744,18 @@ const styles = stylex.create({
     borderColor: Tokens.color.neutral[950],
     borderRadius: 6,
     boxShadow: `0 8px 24px ${Tokens.color.black[45]}`,
+  },
+  menuAnchor: {
+    position: "relative",
+    boxSizing: "border-box",
+  },
+  menuBody: {
+    minWidth: 0,
+  },
+  menuBodyFill: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minHeight: 0,
+    overflow: "auto",
   },
 });

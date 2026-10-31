@@ -289,7 +289,16 @@ export function sliderToZoom(value: number): number {
 }
 
 export function minimapLayout(
-  state: ViewportState,
+  state: Pick<
+    ViewportState,
+    | "contentWidth"
+    | "contentHeight"
+    | "zoom"
+    | "panX"
+    | "panY"
+    | "viewWidth"
+    | "viewHeight"
+  >,
   width: number,
   height: number,
 ): MinimapLayout | null {

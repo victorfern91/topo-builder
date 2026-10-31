@@ -1,7 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { Button, Layout, Slider, Widget } from "@ui";
 import { useSelector } from "@tanstack/react-store";
+import { shallow } from "@tanstack/store";
 import {
+  memo,
   useId,
   useLayoutEffect,
   useRef,
@@ -28,16 +30,16 @@ import {
   type MinimapLayout,
 } from "../state/viewport.ts";
 
-export function NavigatorPanel() {
+export const NavigatorPanel = memo(function NavigatorPanel() {
   const helpId = useId();
   const frame = useWidgetFrame("navigator");
-  const { actions, keys } = useViewport();
-  const viewport = useViewportSelector((state) => state);
+  const { keys } = useViewport();
 
   return (
     <Widget.Panel
       {...frame}
       renderAs="aside"
+      resizable
       minWidth={180}
       minHeight={200}
       resizeLabel={t("resizePanel")}
@@ -56,77 +58,86 @@ export function NavigatorPanel() {
       </p>
       <Widget.Container>
         <Minimap />
-        <Layout.Stack gap="sm" px="lg" sx={navigator.controls}>
-          <Layout.Stack direction="row" align="center" gap="sm">
-            <Button.Root
-              sx={navigator.step}
-              type="button"
-              aria-label={t("zoomOut")}
-              title={`${t("zoomOut")} (${keys["zoom-out"]})`}
-              onClick={() => actions.zoomOut()}
-            >
-              <Button.Text>−</Button.Text>
-            </Button.Root>
-            <Slider.Root
-              min={0}
-              max={1000}
-              step={1}
-              value={zoomToSlider(viewport.zoom)}
-              sx={navigator.slider}
-              onValueChange={(value) => actions.zoomTo(sliderToZoom(value))}
-            >
-              <Slider.Control>
-                <Slider.Track>
-                  <Slider.Indicator />
-                  <Slider.Thumb
-                    aria-label={t("zoomPercent")}
-                    aria-valuetext={formatZoomPercent(viewport.zoom)}
-                  />
-                </Slider.Track>
-              </Slider.Control>
-            </Slider.Root>
-            <Button.Root
-              sx={navigator.step}
-              type="button"
-              aria-label={t("zoomIn")}
-              title={`${t("zoomIn")} (${keys["zoom-in"]})`}
-              onClick={() => actions.zoomIn()}
-            >
-              <Button.Text>+</Button.Text>
-            </Button.Root>
-          </Layout.Stack>
-          <Layout.Stack direction="row" align="center" gap="sm">
-            <ZoomField />
-            <Button.Root
-              variant="secondary"
-              size="sm"
-              sx={navigator.command}
-              type="button"
-              aria-label={t("fitWindow")}
-              title={`${t("fitWindow")} (${keys.fit})`}
-              onClick={() => actions.fit()}
-            >
-              <Button.Text>{t("fitShort")}</Button.Text>
-            </Button.Root>
-            <Button.Root
-              variant="secondary"
-              size="sm"
-              sx={navigator.command}
-              type="button"
-              aria-label={t("actualSize")}
-              title={`${t("actualSize")} (${keys["actual-size"]})`}
-              onClick={() => actions.actualSize()}
-            >
-              <Button.Text>1:1</Button.Text>
-            </Button.Root>
-          </Layout.Stack>
-        </Layout.Stack>
+        <ZoomControls />
       </Widget.Container>
     </Widget.Panel>
   );
-}
+});
 
-function Minimap() {
+const ZoomControls = memo(function ZoomControls() {
+  const zoom = useViewportSelector((state) => state.zoom);
+  const { actions, keys } = useViewport();
+
+  return (
+    <Layout.Stack gap="sm" px="lg" sx={navigator.controls}>
+      <Layout.Stack direction="row" align="center" gap="sm">
+        <Button.Root
+          sx={navigator.step}
+          type="button"
+          aria-label={t("zoomOut")}
+          title={`${t("zoomOut")} (${keys["zoom-out"]})`}
+          onClick={() => actions.zoomOut()}
+        >
+          <Button.Text>−</Button.Text>
+        </Button.Root>
+        <Slider.Root
+          min={0}
+          max={1000}
+          step={1}
+          value={zoomToSlider(zoom)}
+          sx={navigator.slider}
+          onValueChange={(value) => actions.zoomTo(sliderToZoom(value))}
+        >
+          <Slider.Control>
+            <Slider.Track>
+              <Slider.Indicator />
+              <Slider.Thumb
+                aria-label={t("zoomPercent")}
+                aria-valuetext={formatZoomPercent(zoom)}
+              />
+            </Slider.Track>
+          </Slider.Control>
+        </Slider.Root>
+        <Button.Root
+          sx={navigator.step}
+          type="button"
+          aria-label={t("zoomIn")}
+          title={`${t("zoomIn")} (${keys["zoom-in"]})`}
+          onClick={() => actions.zoomIn()}
+        >
+          <Button.Text>+</Button.Text>
+        </Button.Root>
+      </Layout.Stack>
+      <Layout.Stack direction="row" align="center" gap="sm">
+        <ZoomField />
+        <Button.Root
+          variant="secondary"
+          size="sm"
+          sx={navigator.command}
+          type="button"
+          aria-label={t("fitWindow")}
+          title={`${t("fitWindow")} (${keys.fit})`}
+          onClick={() => actions.fit()}
+        >
+          <Button.Text>{t("fitShort")}</Button.Text>
+        </Button.Root>
+        <Button.Root
+          variant="secondary"
+          size="sm"
+          sx={navigator.command}
+          type="button"
+          aria-label={t("actualSize")}
+          title={`${t("actualSize")} (${keys["actual-size"]})`}
+          onClick={() => actions.actualSize()}
+        >
+          <Button.Text>1:1</Button.Text>
+        </Button.Root>
+      </Layout.Stack>
+    </Layout.Stack>
+  );
+});
+
+const Minimap = memo(function Minimap() {
   const mapRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
     id: number;
@@ -137,12 +148,24 @@ function Minimap() {
   } | null>(null);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
   const { actions, keys, getState } = useViewport();
-  const viewport = useViewportSelector((state) => state);
+  const view = useViewportSelector(
+    (state) => ({
+      zoom: state.zoom,
+      panX: state.panX,
+      panY: state.panY,
+      viewWidth: state.viewWidth,
+      viewHeight: state.viewHeight,
+      contentWidth: state.contentWidth,
+      contentHeight: state.contentHeight,
+      panning: state.userAction === "minimap",
+    }),
+    { compare: shallow },
+  );
   const imageUrl = useSelector(imageDocumentStore, (state) =>
     state.status === "ready" ? state.objectUrl : null,
   );
-  const layout = minimapLayout(viewport, mapSize.width, mapSize.height);
-  const panning = viewport.userAction === "minimap";
+  const layout = minimapLayout(view, mapSize.width, mapSize.height);
+  const panning = view.panning;
 
   useLayoutEffect(() => {
     const map = mapRef.current;
@@ -242,7 +265,7 @@ function Minimap() {
       {layout ? <MapPicture layout={layout} imageUrl={imageUrl} /> : null}
     </div>
   );
-}
+});
 
 function MapPicture({
   layout,

@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { useLayoutEffect, useRef } from "react";
-import { lineStore } from "../state/lines.ts";
+import { lineHoverStore, lineStore } from "../state/lines.ts";
 import { paintLines } from "../state/line-paint.ts";
 import { viewportStore } from "../state/viewport.ts";
 import { stage } from "../styles/stage.ts";
@@ -21,10 +21,12 @@ export function LineCanvas() {
       frame = requestAnimationFrame(draw);
     };
     const lines = lineStore.subscribe(schedule);
+    const hover = lineHoverStore.subscribe(schedule);
     const view = viewportStore.subscribe(schedule);
     schedule();
     return () => {
       lines.unsubscribe();
+      hover.unsubscribe();
       view.unsubscribe();
       if (frame !== 0) cancelAnimationFrame(frame);
     };
