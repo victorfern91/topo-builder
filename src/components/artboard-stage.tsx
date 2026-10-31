@@ -32,7 +32,6 @@ import {
   lineStore,
   pointOnLine,
   selectAnchor,
-  selectLastLine,
   setAnchorMark,
   type LineHit,
 } from "../state/lines.ts";
@@ -227,12 +226,9 @@ export function ArtboardStage({
       if (drag && node?.hasPointerCapture(drag.id))
         node.releasePointerCapture(drag.id);
       pointerUpLine();
-      if (toolDrawsLine(activeTool(toolStore.get()))) {
-        selectLastLine();
-        selectGroup("edit");
-        return;
-      }
+      const drawing = toolDrawsLine(activeTool(toolStore.get()));
       finishLine();
+      if (drawing) selectGroup("edit");
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
