@@ -8,13 +8,7 @@ const shimmer = stylex.keyframes({
 
 export const board = stylex.create({
   workspace: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: "0%",
     minHeight: 0,
-    display: "grid",
-    alignItems: "center",
-    justifyItems: "center",
     paddingBlock: {
       default: 28,
       [Tokens.media.narrow]: Tokens.spacing.xl,
@@ -49,17 +43,6 @@ export const board = stylex.create({
       [Tokens.media.narrow]: Tokens.spacing.xxxl,
     },
   },
-  message: {
-    display: "grid",
-    alignContent: "center",
-    justifyItems: "start",
-    gap: Tokens.spacing.xl,
-  },
-  loading: {
-    display: "grid",
-    alignContent: "center",
-    gap: Tokens.spacing.xxxl,
-  },
   title: {
     margin: Tokens.spacing.none,
     fontSize: 22,
@@ -82,15 +65,7 @@ export const board = stylex.create({
     color: Tokens.color.neutral[500],
   },
   progressBlock: {
-    display: "grid",
-    gap: Tokens.spacing.lg,
     width: "100%",
-  },
-  progressMeta: {
-    display: "flex",
-    alignItems: "baseline",
-    justifyContent: "space-between",
-    gap: Tokens.spacing.xl,
   },
   progressName: {
     minWidth: 0,
@@ -143,7 +118,6 @@ export const board = stylex.create({
     height: 180,
   },
   imageFrame: {
-    display: "inline-block",
     lineHeight: 0,
     backgroundColor: "transparent",
   },

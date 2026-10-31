@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { Menu } from "@base-ui/react/menu";
-import { Button, Tokens } from "@ui";
+import { Button, Layout, Tokens } from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import {
   useEffect,
@@ -79,10 +79,16 @@ export function TopBar() {
 
   return (
     <header {...stylex.props(styles.topbar)}>
-      <div {...stylex.props(styles.brand)}>
+      <Layout.Stack
+        direction="row"
+        align="center"
+        gap="md"
+        py="none"
+        sx={styles.brand}
+      >
         <span {...stylex.props(styles.brandMark)} aria-hidden="true" />
         Topo
-      </div>
+      </Layout.Stack>
       <Menu.Root>
         <Menu.Trigger {...stylex.props(styles.barButton)}>
           {t("file")}
@@ -109,7 +115,7 @@ export function TopBar() {
       <p {...stylex.props(styles.docTitle)} title={fileName ?? undefined}>
         {fileName ?? t("noDocument")}
       </p>
-      <div {...stylex.props(styles.spacer)} />
+      <Layout.Box grow sx={styles.spacer} />
       {size ? (
         <p {...stylex.props(styles.dimensions)}>
           {formatPixelSize(size.width, size.height)}
@@ -136,7 +142,6 @@ export function TopBar() {
 
 function ScaleBar({ scale }: { scale: number }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const fill = stylex.props(styles.scaleFill);
   const ratio = drawScaleRatio(scale);
 
   const setFromClientX = (clientX: number) => {
@@ -177,10 +182,19 @@ function ScaleBar({ scale }: { scale: number }) {
   };
 
   return (
-    <div {...stylex.props(styles.scaleControl)}>
+    <Layout.Stack
+      direction="row"
+      align="center"
+      gap="md"
+      grow={false}
+      shrink={false}
+      sx={styles.scaleControl}
+    >
       <span {...stylex.props(styles.scaleLabel)}>{t("scale")}</span>
-      <div
-        {...stylex.props(styles.scaleTrack)}
+      <Layout.Stack
+        direction="row"
+        align="center"
+        sx={styles.scaleTrack}
         ref={trackRef}
         role="slider"
         tabIndex={0}
@@ -194,15 +208,22 @@ function ScaleBar({ scale }: { scale: number }) {
         onPointerMove={onPointerMove}
         onKeyDown={onKeyDown}
       >
-        <span {...stylex.props(styles.scaleGroove)} aria-hidden="true">
-          <span
-            className={fill.className}
-            style={{ ...fill.style, width: `${ratio * 100}%` }}
+        <Layout.Box
+          renderAs="span"
+          display="block"
+          sx={styles.scaleGroove}
+          aria-hidden="true"
+        >
+          <Layout.Box
+            renderAs="span"
+            display="block"
+            sx={styles.scaleFill}
+            style={{ width: `${ratio * 100}%` }}
           />
-        </span>
-      </div>
+        </Layout.Box>
+      </Layout.Stack>
       <span {...stylex.props(styles.scaleReadout)}>{formatScale(scale)}</span>
-    </div>
+    </Layout.Stack>
   );
 }
 
@@ -247,11 +268,6 @@ const styles = stylex.create({
     color: Tokens.color.neutral[100],
   },
   brand: {
-    display: "flex",
-    alignItems: "center",
-    gap: Tokens.spacing.md,
-    paddingTop: Tokens.spacing.none,
-    paddingBottom: Tokens.spacing.none,
     paddingLeft: Tokens.spacing.xs,
     paddingRight: Tokens.spacing.md,
     fontSize: 14,
@@ -359,7 +375,6 @@ const styles = stylex.create({
     },
   },
   spacer: {
-    flexGrow: 1,
     display: {
       default: "block",
       [Tokens.media.narrow]: "none",
@@ -416,20 +431,13 @@ const styles = stylex.create({
     },
   },
   scaleControl: {
-    display: "flex",
-    alignItems: "center",
-    gap: Tokens.spacing.md,
     marginLeft: Tokens.spacing.md,
-    flexGrow: 0,
-    flexShrink: 0,
   },
   scaleLabel: {
     fontSize: 13,
     color: Tokens.color.neutral[400],
   },
   scaleTrack: {
-    display: "flex",
-    alignItems: "center",
     width: 120,
     height: 22,
     cursor: "pointer",
@@ -449,7 +457,6 @@ const styles = stylex.create({
     outlineOffset: 2,
   },
   scaleGroove: {
-    display: "block",
     width: "100%",
     height: Tokens.size.xxs,
     borderRadius: 4,
@@ -458,7 +465,6 @@ const styles = stylex.create({
     pointerEvents: "none",
   },
   scaleFill: {
-    display: "block",
     height: "100%",
     borderRadius: 4,
     backgroundColor: Tokens.color.blue[500],

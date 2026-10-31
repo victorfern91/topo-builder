@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { Layout } from "@ui";
 import Button from "@ui/button";
 import { useSelector } from "@tanstack/react-store";
 import { useEffect } from "react";
@@ -29,13 +30,10 @@ export default function ArtboardPage() {
         contentKey={`loading:${opened.fileName}`}
         placement="center"
       >
-        <div
-          {...stylex.props(
-            board.artboard,
-            board.card,
-            board.loading,
-            stage.sheet,
-          )}
+        <Layout.Grid
+          alignContent="center"
+          gap="xxxl"
+          sx={[board.artboard, board.card, stage.sheet]}
           aria-busy="true"
           aria-live="polite"
         >
@@ -43,7 +41,7 @@ export default function ArtboardPage() {
             {t("opening", { fileName: opened.fileName })}
           </p>
           <div {...stylex.props(board.skeleton, board.skeletonImage)} />
-        </div>
+        </Layout.Grid>
       </ArtboardStage>
     );
   }
@@ -54,13 +52,11 @@ export default function ArtboardPage() {
         contentKey={`error:${opened.fileName}:${opened.problem}`}
         placement="center"
       >
-        <div
-          {...stylex.props(
-            board.artboard,
-            board.card,
-            board.message,
-            stage.sheet,
-          )}
+        <Layout.Grid
+          alignContent="center"
+          justifyItems="start"
+          gap="xl"
+          sx={[board.artboard, board.card, stage.sheet]}
           role="alert"
         >
           <h1 {...stylex.props(board.title, board.alertTitle)}>
@@ -77,7 +73,7 @@ export default function ArtboardPage() {
           >
             <Button.Text>{t("chooseAnotherFile")}</Button.Text>
           </Button.Root>
-        </div>
+        </Layout.Grid>
       </ArtboardStage>
     );
   }
@@ -90,13 +86,11 @@ export default function ArtboardPage() {
 
   return (
     <ArtboardStage contentKey="empty" placement="center">
-      <div
-        {...stylex.props(
-          board.artboard,
-          board.card,
-          board.message,
-          stage.sheet,
-        )}
+      <Layout.Grid
+        alignContent="center"
+        justifyItems="start"
+        gap="xl"
+        sx={[board.artboard, board.card, stage.sheet]}
       >
         <h1 {...stylex.props(board.title)}>{t("noImageTitle")}</h1>
         <p {...stylex.props(board.copy)}>
@@ -110,7 +104,7 @@ export default function ArtboardPage() {
         >
           <Button.Text>{t("openImage")}</Button.Text>
         </Button.Root>
-      </div>
+      </Layout.Grid>
     </ArtboardStage>
   );
 }
@@ -127,17 +121,19 @@ function TiffConversion({
   const fill = stylex.props(board.progressFill);
   return (
     <ArtboardStage contentKey={`converting:${fileName}`} placement="center">
-      <div
-        {...stylex.props(
-          board.artboard,
-          board.card,
-          board.loading,
-          stage.sheet,
-        )}
+      <Layout.Grid
+        alignContent="center"
+        gap="xxxl"
+        sx={[board.artboard, board.card, stage.sheet]}
         aria-busy="true"
       >
-        <div {...stylex.props(board.progressBlock)}>
-          <div {...stylex.props(board.progressMeta)}>
+        <Layout.Grid gap="lg" sx={board.progressBlock}>
+          <Layout.Stack
+            direction="row"
+            align="baseline"
+            justify="space-between"
+            gap="xl"
+          >
             <p {...stylex.props(board.kicker, board.progressName)}>
               {t("converting", { fileName })}
             </p>
@@ -147,7 +143,7 @@ function TiffConversion({
             >
               {percentLabel}
             </p>
-          </div>
+          </Layout.Stack>
           <div
             {...stylex.props(board.progressTrack)}
             role="progressbar"
@@ -165,8 +161,8 @@ function TiffConversion({
               }}
             />
           </div>
-        </div>
-      </div>
+        </Layout.Grid>
+      </Layout.Grid>
     </ArtboardStage>
   );
 }
@@ -186,7 +182,10 @@ function ReadyImage({
   }, [objectUrl]);
   return (
     <ArtboardStage contentKey={objectUrl} placement="fit" navigator>
-      <div {...stylex.props(board.artboard, board.imageFrame)}>
+      <Layout.Box
+        display="inline-block"
+        sx={[board.artboard, board.imageFrame]}
+      >
         <img
           key={objectUrl}
           {...stylex.props(board.image)}
@@ -204,7 +203,7 @@ function ReadyImage({
             );
           }}
         />
-      </div>
+      </Layout.Box>
     </ArtboardStage>
   );
 }

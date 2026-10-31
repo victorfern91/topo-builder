@@ -3,7 +3,7 @@ import { Toast } from "@base-ui/react/toast";
 import { useEffect, type ReactNode } from "react";
 import { t } from "../i18n/index.ts";
 import { preferencesSchemaReset } from "../state/preferences.ts";
-import { Tokens } from "@ui";
+import { Layout, Tokens } from "@ui";
 
 export function SettingsNotice({ children }: { children: ReactNode }) {
   return (
@@ -50,12 +50,17 @@ function ToastList() {
           {...stylex.props(styles.toast)}
         >
           <Toast.Content {...stylex.props(styles.content)}>
-            <div {...stylex.props(styles.head)}>
+            <Layout.Stack
+              direction="row"
+              align="center"
+              justify="space-between"
+              gap="xl"
+            >
               <Toast.Title {...stylex.props(styles.title)} />
               <Toast.Close {...stylex.props(styles.close)}>
                 {t("dismiss")}
               </Toast.Close>
-            </div>
+            </Layout.Stack>
             <Toast.Description {...stylex.props(styles.description)} />
           </Toast.Content>
         </Toast.Root>
@@ -136,12 +141,6 @@ const styles = stylex.create({
     flexDirection: "column",
     gap: Tokens.spacing.sm,
     padding: Tokens.spacing.xl,
-  },
-  head: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: Tokens.spacing.xl,
   },
   title: {
     margin: Tokens.spacing.none,

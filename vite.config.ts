@@ -11,6 +11,9 @@ const rootDir = fileURLToPath(new URL(".", import.meta.url));
 const buttonEntry = fileURLToPath(
   new URL("./packages/ui/components/src/button/index.ts", import.meta.url),
 );
+const layoutEntry = fileURLToPath(
+  new URL("./packages/ui/components/src/layout/index.ts", import.meta.url),
+);
 const tokensEntry = fileURLToPath(
   new URL("./packages/ui/components/src/tokens.stylex.ts", import.meta.url),
 );
@@ -24,6 +27,7 @@ export default defineConfig({
     alias: [
       { find: /^@ui\/tokens$/, replacement: tokensEntry },
       { find: /^@ui\/button$/, replacement: buttonEntry },
+      { find: /^@ui\/layout$/, replacement: layoutEntry },
       { find: /^@ui$/, replacement: uiEntry },
     ],
   },
