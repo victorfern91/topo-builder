@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./button": "./src/button/index.ts",
     "./layout": "./src/layout/index.ts",
-    "./tokens": "./src/tokens.stylex.ts"
+    "./tokens": "./src/tokens.stylex.ts",
+    "./widget": "./src/widget/index.ts"
   },
   "peerDependencies": {
     "@base-ui/react": "^1.9.0",

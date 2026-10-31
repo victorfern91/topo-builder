@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { Button, Layout, Tokens } from "@ui";
+import { Button, Layout, Tokens, Widget } from "@ui";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { t } from "../i18n/index.ts";
 import type { MessageId } from "../i18n/messages.ts";
@@ -99,11 +99,9 @@ export function PointMenu({
   }, [onClose, onDelete]);
 
   return (
-    <Layout.Box
+    <Widget.Menu
       ref={menuRef}
-      p="xs"
       sx={styles.menu}
-      role="menu"
       data-point-menu=""
       aria-label={t("pointMenu")}
       style={{ left: x, top: y }}
@@ -168,7 +166,7 @@ export function PointMenu({
           <Button.Text>{t("deletePoint")}</Button.Text>
         </Button.Root>
       ) : null}
-    </Layout.Box>
+    </Widget.Menu>
   );
 }
 
@@ -212,13 +210,6 @@ const styles = stylex.create({
     position: "fixed",
     zIndex: 40,
     minWidth: 160,
-    backgroundColor: Tokens.color.neutral[750],
-    color: Tokens.color.neutral[100],
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: Tokens.color.neutral[950],
-    borderRadius: 6,
-    boxShadow: `0 8px 24px ${Tokens.color.black[45]}`,
   },
   item: {
     width: "100%",

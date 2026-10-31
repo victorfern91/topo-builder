@@ -10,7 +10,7 @@ const STORAGE_KEY = "topo.preferences";
 const WRITE_DELAY = 200;
 
 /** Bump when the stored shape changes. Snapshots that fail this schema reset to defaults. */
-export const PREFERENCES_SCHEMA_VERSION = 1;
+export const PREFERENCES_SCHEMA_VERSION = 2;
 
 const placementSchema = z.strictObject({
   x: z.number(),
@@ -23,6 +23,7 @@ export const preferencesSchema = z.strictObject({
   locale: z.enum(appLocales),
   navigator: placementSchema,
   tools: placementSchema,
+  layers: placementSchema,
 });
 
 export type Preferences = z.infer<typeof preferencesSchema>;
@@ -43,6 +44,21 @@ function defaultPreferences(): Preferences {
     locale: resolveLocale(readNavigatorLanguages()),
     navigator: dockedPlacement(),
     tools: dockedPlacement(),
+    layers: dockedPlacement(),
+  };
+}
+
+/** Version 1 stored tools and the navigator. Layers joined in version 2. */
+function migrate(json: unknown): unknown {
+  if (json == null || typeof json !== "object") return json;
+  const value = json as Record<string, unknown>;
+  if (value.schemaVersion !== 1) return json;
+  return {
+    schemaVersion: PREFERENCES_SCHEMA_VERSION,
+    locale: value.locale,
+    navigator: value.navigator,
+    tools: value.tools,
+    layers: dockedPlacement(),
   };
 }
 
@@ -76,7 +92,7 @@ function loadPreferences(): LoadedPreferences {
     writePreferences(fallback);
     return { preferences: fallback, schemaReset: true };
   }
-  const parsed = preferencesSchema.safeParse(json);
+  const parsed = preferencesSchema.safeParse(migrate(json));
   if (!parsed.success) {
     writePreferences(fallback);
     return { preferences: fallback, schemaReset: true };
@@ -131,7 +147,9 @@ if (import.meta.hot) {
   });
 }
 
-function savePlacement(key: "navigator" | "tools", placement: Placement): void {
+export type WidgetPreferenceId = "navigator" | "tools" | "layers";
+
+function savePlacement(key: WidgetPreferenceId, placement: Placement): void {
   preferencesStore.setState((state) => {
     const current = state[key];
     if (
@@ -145,10 +163,9 @@ function savePlacement(key: "navigator" | "tools", placement: Placement): void {
   });
 }
 
-export function saveNavigator(placement: Placement): void {
-  savePlacement("navigator", placement);
-}
-
-export function saveTools(placement: Placement): void {
-  savePlacement("tools", placement);
+export function saveWidgetPlacement(
+  id: WidgetPreferenceId,
+  placement: Placement,
+): void {
+  savePlacement(id, placement);
 }

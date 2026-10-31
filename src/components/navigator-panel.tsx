@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { Button, Layout } from "@ui";
+import { Button, Layout, Widget } from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import {
   useId,
@@ -13,7 +13,11 @@ import { t } from "../i18n/index.ts";
 import { imageDocumentStore } from "../state/image-document.ts";
 import { a11y } from "../styles/a11y.ts";
 import { navigator } from "../styles/stage.ts";
-import { useViewport, useViewportSelector } from "../state/use-viewport.ts";
+import {
+  useViewport,
+  useViewportSelector,
+  useWidgetFrame,
+} from "../state/use-viewport.ts";
 import {
   formatZoomPercent,
   minimapLayout,
@@ -24,133 +28,25 @@ import {
   type MinimapLayout,
 } from "../state/viewport.ts";
 
-const DRAG_SLOP = 3;
-
 export function NavigatorPanel() {
   const helpId = useId();
-  const panelRef = useRef<HTMLElement>(null);
-  const dragRef = useRef<{
-    id: number;
-    x: number;
-    y: number;
-    panelX: number;
-    panelY: number;
-    moved: boolean;
-  } | null>(null);
-  const { actions, keys, getState } = useViewport();
+  const frame = useWidgetFrame("navigator");
+  const { actions, keys } = useViewport();
   const viewport = useViewportSelector((state) => state);
-  const dragging = viewport.userAction === "panel";
-
-  useLayoutEffect(() => {
-    const panel = panelRef.current;
-    if (!panel) return;
-    const publish = () => {
-      actions.resizePanel(panel.offsetWidth, panel.offsetHeight);
-    };
-    publish();
-    const observer = new ResizeObserver(publish);
-    observer.observe(panel);
-    return () => observer.disconnect();
-  }, [actions]);
-
-  const endDrag = (pointerId: number) => {
-    const drag = dragRef.current;
-    if (!drag || drag.id !== pointerId) return;
-    dragRef.current = null;
-    if (drag.moved) actions.dropPanel();
-    if (getState().userAction === "panel") actions.setUserAction("idle");
-  };
-
-  const onHeaderPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    dragRef.current = {
-      id: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-      panelX: getState().panelX,
-      panelY: getState().panelY,
-      moved: false,
-    };
-  };
-
-  const onHeaderPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const drag = dragRef.current;
-    if (!drag || drag.id !== event.pointerId) return;
-    const dx = event.clientX - drag.x;
-    const dy = event.clientY - drag.y;
-    if (!drag.moved && Math.hypot(dx, dy) < DRAG_SLOP) return;
-    drag.moved = true;
-    if (getState().userAction !== "panel") actions.setUserAction("panel");
-    actions.movePanel(drag.panelX + dx, drag.panelY + dy);
-  };
-
-  const onHeaderKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const step = event.shiftKey ? 24 : 8;
-    const state = getState();
-    if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      actions.movePanel(state.panelX - step, state.panelY);
-    } else if (event.key === "ArrowRight") {
-      event.preventDefault();
-      actions.movePanel(state.panelX + step, state.panelY);
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      actions.movePanel(state.panelX, state.panelY - step);
-    } else if (event.key === "ArrowDown") {
-      event.preventDefault();
-      actions.movePanel(state.panelX, state.panelY + step);
-    }
-  };
-
-  const panel = stylex.props(navigator.panel);
-  const placed = viewport.viewWidth > 0;
 
   return (
-    <aside
-      {...panel}
-      ref={panelRef}
+    <Widget.Panel
+      {...frame}
+      renderAs="aside"
+      minWidth={180}
+      minHeight={200}
+      resizeLabel={t("resizePanel")}
+      sx={navigator.panel}
       data-navigator=""
-      data-dragging={dragging ? "" : undefined}
       aria-label={t("navigator")}
       aria-describedby={helpId}
-      style={{
-        ...panel.style,
-        transform: `translate3d(${viewport.panelX}px, ${viewport.panelY}px, 0)`,
-        visibility: placed ? "visible" : "hidden",
-      }}
-      onPointerDown={(event) => event.stopPropagation()}
     >
-      <Layout.Stack
-        direction="row"
-        align="center"
-        gap="md"
-        grow={false}
-        shrink={false}
-        px="md"
-        sx={[navigator.header, navigator.focusable]}
-        data-dragging={dragging ? "" : undefined}
-        role="application"
-        tabIndex={0}
-        aria-label={t("dragNavigator")}
-        aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"
-        onPointerDown={onHeaderPointerDown}
-        onPointerMove={onHeaderPointerMove}
-        onPointerUp={(event) => endDrag(event.pointerId)}
-        onPointerCancel={(event) => endDrag(event.pointerId)}
-        onLostPointerCapture={(event) => endDrag(event.pointerId)}
-        onKeyDown={onHeaderKeyDown}
-      >
-        <Layout.Box
-          renderAs="span"
-          grow={false}
-          shrink={false}
-          sx={navigator.grip}
-          aria-hidden="true"
-        />
-        <span {...stylex.props(navigator.title)}>{t("navigator")}</span>
-      </Layout.Stack>
+      <Widget.Header label={t("dragNavigator")}>{t("navigator")}</Widget.Header>
       <p {...stylex.props(a11y.visuallyHidden)} id={helpId}>
         {t("navigatorHelp", {
           pan: keys.pan,
@@ -158,68 +54,70 @@ export function NavigatorPanel() {
           zoomOut: keys["zoom-out"],
         })}
       </p>
-      <Minimap />
-      <Layout.Stack gap="sm" px="lg" sx={navigator.controls}>
-        <Layout.Stack direction="row" align="center" gap="sm">
-          <Button.Root
-            sx={navigator.step}
-            type="button"
-            aria-label={t("zoomOut")}
-            title={`${t("zoomOut")} (${keys["zoom-out"]})`}
-            onClick={() => actions.zoomOut()}
-          >
-            <Button.Text>−</Button.Text>
-          </Button.Root>
-          <input
-            {...stylex.props(navigator.slider, navigator.focusable)}
-            type="range"
-            min={0}
-            max={1000}
-            step={1}
-            value={zoomToSlider(viewport.zoom)}
-            aria-label={t("zoomPercent")}
-            aria-valuetext={formatZoomPercent(viewport.zoom)}
-            onChange={(event) =>
-              actions.zoomTo(sliderToZoom(Number(event.target.value)))
-            }
-          />
-          <Button.Root
-            sx={navigator.step}
-            type="button"
-            aria-label={t("zoomIn")}
-            title={`${t("zoomIn")} (${keys["zoom-in"]})`}
-            onClick={() => actions.zoomIn()}
-          >
-            <Button.Text>+</Button.Text>
-          </Button.Root>
+      <Widget.Container>
+        <Minimap />
+        <Layout.Stack gap="sm" px="lg" sx={navigator.controls}>
+          <Layout.Stack direction="row" align="center" gap="sm">
+            <Button.Root
+              sx={navigator.step}
+              type="button"
+              aria-label={t("zoomOut")}
+              title={`${t("zoomOut")} (${keys["zoom-out"]})`}
+              onClick={() => actions.zoomOut()}
+            >
+              <Button.Text>−</Button.Text>
+            </Button.Root>
+            <input
+              {...stylex.props(navigator.slider, navigator.focusable)}
+              type="range"
+              min={0}
+              max={1000}
+              step={1}
+              value={zoomToSlider(viewport.zoom)}
+              aria-label={t("zoomPercent")}
+              aria-valuetext={formatZoomPercent(viewport.zoom)}
+              onChange={(event) =>
+                actions.zoomTo(sliderToZoom(Number(event.target.value)))
+              }
+            />
+            <Button.Root
+              sx={navigator.step}
+              type="button"
+              aria-label={t("zoomIn")}
+              title={`${t("zoomIn")} (${keys["zoom-in"]})`}
+              onClick={() => actions.zoomIn()}
+            >
+              <Button.Text>+</Button.Text>
+            </Button.Root>
+          </Layout.Stack>
+          <Layout.Stack direction="row" align="center" gap="sm">
+            <ZoomField />
+            <Button.Root
+              variant="secondary"
+              size="sm"
+              sx={navigator.command}
+              type="button"
+              aria-label={t("fitWindow")}
+              title={`${t("fitWindow")} (${keys.fit})`}
+              onClick={() => actions.fit()}
+            >
+              <Button.Text>{t("fitShort")}</Button.Text>
+            </Button.Root>
+            <Button.Root
+              variant="secondary"
+              size="sm"
+              sx={navigator.command}
+              type="button"
+              aria-label={t("actualSize")}
+              title={`${t("actualSize")} (${keys["actual-size"]})`}
+              onClick={() => actions.actualSize()}
+            >
+              <Button.Text>1:1</Button.Text>
+            </Button.Root>
+          </Layout.Stack>
         </Layout.Stack>
-        <Layout.Stack direction="row" align="center" gap="sm">
-          <ZoomField />
-          <Button.Root
-            variant="secondary"
-            size="sm"
-            sx={navigator.command}
-            type="button"
-            aria-label={t("fitWindow")}
-            title={`${t("fitWindow")} (${keys.fit})`}
-            onClick={() => actions.fit()}
-          >
-            <Button.Text>{t("fitShort")}</Button.Text>
-          </Button.Root>
-          <Button.Root
-            variant="secondary"
-            size="sm"
-            sx={navigator.command}
-            type="button"
-            aria-label={t("actualSize")}
-            title={`${t("actualSize")} (${keys["actual-size"]})`}
-            onClick={() => actions.actualSize()}
-          >
-            <Button.Text>1:1</Button.Text>
-          </Button.Root>
-        </Layout.Stack>
-      </Layout.Stack>
-    </aside>
+      </Widget.Container>
+    </Widget.Panel>
   );
 }
 

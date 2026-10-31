@@ -2,8 +2,8 @@ import { Store } from "@tanstack/store";
 import {
   flushPreferences,
   preferencesStore,
-  saveNavigator,
-  saveTools,
+  saveWidgetPlacement,
+  type WidgetPreferenceId,
 } from "./preferences.ts";
 
 export const MIN_ZOOM = 0.01;
@@ -13,7 +13,17 @@ const PANEL_MARGIN = 12;
 const VIEW_MARGIN = 32;
 const DOCK_SNAP = 28;
 
-export type UserAction = "idle" | "pan" | "minimap" | "panel" | "tools";
+export type WidgetId = WidgetPreferenceId;
+
+export type UserAction = "idle" | "pan" | "minimap" | WidgetId;
+
+export type WidgetFrame = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  custom: boolean;
+};
 
 export type ContentPlacement = "fit" | "center";
 
@@ -37,16 +47,7 @@ export type ViewportState = {
   fittedKey: string;
   spaceHeld: boolean;
   userAction: UserAction;
-  panelX: number;
-  panelY: number;
-  panelWidth: number;
-  panelHeight: number;
-  panelCustom: boolean;
-  toolX: number;
-  toolY: number;
-  toolWidth: number;
-  toolHeight: number;
-  toolCustom: boolean;
+  frames: Record<WidgetId, WidgetFrame>;
 };
 
 export type MinimapLayout = {
@@ -61,6 +62,29 @@ export type MinimapLayout = {
   frameH: number;
 };
 
+const FRAME_SIZE: Record<WidgetId, { width: number; height: number }> = {
+  tools: { width: 48, height: 120 },
+  navigator: { width: 216, height: 248 },
+  layers: { width: 280, height: 160 },
+};
+
+const WIDGET_IDS = [
+  "tools",
+  "navigator",
+  "layers",
+] as const satisfies readonly WidgetId[];
+
+function emptyFrame(id: WidgetId): WidgetFrame {
+  const size = FRAME_SIZE[id];
+  return {
+    x: PANEL_MARGIN,
+    y: PANEL_MARGIN,
+    width: size.width,
+    height: size.height,
+    custom: false,
+  };
+}
+
 const initialViewport: ViewportState = {
   zoom: 1,
   panX: 0,
@@ -74,16 +98,11 @@ const initialViewport: ViewportState = {
   fittedKey: "",
   spaceHeld: false,
   userAction: "idle",
-  panelX: PANEL_MARGIN,
-  panelY: PANEL_MARGIN,
-  panelWidth: 216,
-  panelHeight: 248,
-  panelCustom: false,
-  toolX: PANEL_MARGIN,
-  toolY: PANEL_MARGIN,
-  toolWidth: 48,
-  toolHeight: 120,
-  toolCustom: false,
+  frames: {
+    tools: emptyFrame("tools"),
+    navigator: emptyFrame("navigator"),
+    layers: emptyFrame("layers"),
+  },
 };
 
 export const viewportStore = new Store(initialViewport, (store) => ({
@@ -143,68 +162,34 @@ export const viewportStore = new Store(initialViewport, (store) => ({
       resizeContent(state, key, width, height, placement),
     );
   },
-  resizePanel(width: number, height: number) {
+  resizeFrame(id: WidgetId, width: number, height: number) {
     store.setState((state) => {
-      if (state.panelWidth === width && state.panelHeight === height)
-        return state;
-      return clampPanel({ ...state, panelWidth: width, panelHeight: height });
+      const frame = state.frames[id];
+      if (frame.width === width && frame.height === height) return state;
+      return clampFrame(writeFrame(state, id, { width, height }), id);
     });
   },
-  movePanel(x: number, y: number) {
+  moveFrame(id: WidgetId, x: number, y: number) {
     store.setState((state) => {
-      const next = clampPanel({
-        ...state,
-        panelX: x,
-        panelY: y,
-        panelCustom: true,
-      });
-      rememberPanel(next);
+      const next = clampFrame(
+        writeFrame(state, id, { x, y, custom: true }),
+        id,
+      );
+      rememberFrame(id, next);
       return next;
     });
   },
-  dropPanel() {
+  dropFrame(id: WidgetId) {
     store.setState((state) => {
-      if (!state.panelCustom) return state;
-      const docked = dockedPanelPosition(state);
+      const frame = state.frames[id];
+      if (!frame.custom) return state;
+      const docked = dockedOrigin(state, id);
       const near =
-        Math.abs(state.panelX - docked.x) <= DOCK_SNAP &&
-        Math.abs(state.panelY - docked.y) <= DOCK_SNAP;
+        Math.abs(frame.x - docked.x) <= DOCK_SNAP &&
+        Math.abs(frame.y - docked.y) <= DOCK_SNAP;
       if (!near) return state;
-      const next = clampPanel({ ...state, panelCustom: false });
-      rememberPanel(next);
-      return next;
-    });
-    flushPreferences();
-  },
-  resizeTool(width: number, height: number) {
-    store.setState((state) => {
-      if (state.toolWidth === width && state.toolHeight === height)
-        return state;
-      return clampTool({ ...state, toolWidth: width, toolHeight: height });
-    });
-  },
-  moveTool(x: number, y: number) {
-    store.setState((state) => {
-      const next = clampTool({
-        ...state,
-        toolX: x,
-        toolY: y,
-        toolCustom: true,
-      });
-      rememberTool(next);
-      return next;
-    });
-  },
-  dropTool() {
-    store.setState((state) => {
-      if (!state.toolCustom) return state;
-      const docked = dockedToolPosition();
-      const near =
-        Math.abs(state.toolX - docked.x) <= DOCK_SNAP &&
-        Math.abs(state.toolY - docked.y) <= DOCK_SNAP;
-      if (!near) return state;
-      const next = clampTool({ ...state, toolCustom: false });
-      rememberTool(next);
+      const next = clampFrame(writeFrame(state, id, { custom: false }), id);
+      rememberFrame(id, next);
       return next;
     });
     flushPreferences();
@@ -420,8 +405,12 @@ function placeCentered(state: ViewportState): ViewportState {
 }
 
 function placeInView(state: ViewportState, zoomCap: number): ViewportState {
-  const reserveLeft = state.toolCustom ? 0 : state.toolWidth + PANEL_MARGIN;
-  const reserveRight = state.panelCustom ? 0 : state.panelWidth + PANEL_MARGIN;
+  const tools = state.frames.tools;
+  const navigatorFrame = state.frames.navigator;
+  const reserveLeft = tools.custom ? 0 : tools.width + PANEL_MARGIN;
+  const reserveRight = navigatorFrame.custom
+    ? 0
+    : navigatorFrame.width + PANEL_MARGIN;
   const availW = Math.max(
     1,
     state.viewWidth - reserveLeft - reserveRight - VIEW_MARGIN * 2,
@@ -456,9 +445,7 @@ function resizeView(
   height: number,
 ): ViewportState {
   if (width === state.viewWidth && height === state.viewHeight) return state;
-  const next = clampTool(
-    clampPanel({ ...state, viewWidth: width, viewHeight: height }),
-  );
+  const next = clampFrames({ ...state, viewWidth: width, viewHeight: height });
   if (next.fittedKey === next.contentKey) return next;
   return tryPlace(next);
 }
@@ -510,80 +497,103 @@ function tryPlace(state: ViewportState): ViewportState {
   return { ...placed, fittedKey: state.contentKey };
 }
 
-function rememberPanel(state: ViewportState): void {
-  saveNavigator({
-    x: state.panelX,
-    y: state.panelY,
-    custom: state.panelCustom,
-  });
+function writeFrame(
+  state: ViewportState,
+  id: WidgetId,
+  patch: Partial<WidgetFrame>,
+): ViewportState {
+  return {
+    ...state,
+    frames: {
+      ...state.frames,
+      [id]: { ...state.frames[id], ...patch },
+    },
+  };
 }
 
-function rememberTool(state: ViewportState): void {
-  saveTools({ x: state.toolX, y: state.toolY, custom: state.toolCustom });
+function rememberFrame(id: WidgetId, state: ViewportState): void {
+  const frame = state.frames[id];
+  saveWidgetPlacement(id, {
+    x: frame.x,
+    y: frame.y,
+    custom: frame.custom,
+  });
 }
 
 function hydratePlacement(): void {
   const saved = preferencesStore.get();
-  if (!saved.navigator.custom && !saved.tools.custom) return;
-  viewportStore.setState((state) => ({
-    ...state,
-    panelX: saved.navigator.custom ? saved.navigator.x : state.panelX,
-    panelY: saved.navigator.custom ? saved.navigator.y : state.panelY,
-    panelCustom: saved.navigator.custom,
-    toolX: saved.tools.custom ? saved.tools.x : state.toolX,
-    toolY: saved.tools.custom ? saved.tools.y : state.toolY,
-    toolCustom: saved.tools.custom,
-  }));
+  if (WIDGET_IDS.every((id) => !saved[id].custom)) return;
+  viewportStore.setState((state) => {
+    let frames = state.frames;
+    for (const id of WIDGET_IDS) {
+      const placement = saved[id];
+      if (!placement.custom) continue;
+      frames = {
+        ...frames,
+        [id]: {
+          ...frames[id],
+          x: placement.x,
+          y: placement.y,
+          custom: true,
+        },
+      };
+    }
+    return { ...state, frames };
+  });
 }
 
 hydratePlacement();
 
-function dockedToolPosition(): { x: number; y: number } {
-  return { x: PANEL_MARGIN, y: PANEL_MARGIN };
-}
+type WidgetDock = "top-start" | "top-end" | "bottom-start";
 
-function clampTool(state: ViewportState): ViewportState {
-  const docked = dockedToolPosition();
-  const x = state.toolCustom ? state.toolX : docked.x;
-  const y = state.toolCustom ? state.toolY : docked.y;
-  const toolX = clamp(
-    x,
-    PANEL_MARGIN,
-    Math.max(PANEL_MARGIN, state.viewWidth - state.toolWidth - PANEL_MARGIN),
-  );
-  const toolY = clamp(
-    y,
-    PANEL_MARGIN,
-    Math.max(PANEL_MARGIN, state.viewHeight - state.toolHeight - PANEL_MARGIN),
-  );
-  if (toolX === state.toolX && toolY === state.toolY) return state;
-  return { ...state, toolX, toolY };
-}
+const WIDGET_DOCK: Record<WidgetId, WidgetDock> = {
+  tools: "top-start",
+  navigator: "top-end",
+  layers: "bottom-start",
+};
 
-function dockedPanelPosition(state: ViewportState): { x: number; y: number } {
+function dockedOrigin(
+  state: ViewportState,
+  id: WidgetId,
+): { x: number; y: number } {
+  const frame = state.frames[id];
+  const maxX = Math.max(
+    PANEL_MARGIN,
+    state.viewWidth - frame.width - PANEL_MARGIN,
+  );
+  const maxY = Math.max(
+    PANEL_MARGIN,
+    state.viewHeight - frame.height - PANEL_MARGIN,
+  );
+  const dock = WIDGET_DOCK[id];
   return {
-    x: Math.max(
-      PANEL_MARGIN,
-      state.viewWidth - state.panelWidth - PANEL_MARGIN,
-    ),
-    y: PANEL_MARGIN,
+    x: dock === "top-end" ? maxX : PANEL_MARGIN,
+    y: dock === "bottom-start" ? maxY : PANEL_MARGIN,
   };
 }
 
-function clampPanel(state: ViewportState): ViewportState {
-  const docked = dockedPanelPosition(state);
-  const x = state.panelCustom ? state.panelX : docked.x;
-  const y = state.panelCustom ? state.panelY : docked.y;
-  const panelX = clamp(
+function clampFrame(state: ViewportState, id: WidgetId): ViewportState {
+  if (state.viewWidth <= 0 || state.viewHeight <= 0) return state;
+  const frame = state.frames[id];
+  const docked = dockedOrigin(state, id);
+  const x = frame.custom ? frame.x : docked.x;
+  const y = frame.custom ? frame.y : docked.y;
+  const nextX = clamp(
     x,
     PANEL_MARGIN,
-    Math.max(PANEL_MARGIN, state.viewWidth - state.panelWidth - PANEL_MARGIN),
+    Math.max(PANEL_MARGIN, state.viewWidth - frame.width - PANEL_MARGIN),
   );
-  const panelY = clamp(
+  const nextY = clamp(
     y,
     PANEL_MARGIN,
-    Math.max(PANEL_MARGIN, state.viewHeight - state.panelHeight - PANEL_MARGIN),
+    Math.max(PANEL_MARGIN, state.viewHeight - frame.height - PANEL_MARGIN),
   );
-  if (panelX === state.panelX && panelY === state.panelY) return state;
-  return { ...state, panelX, panelY };
+  if (nextX === frame.x && nextY === frame.y) return state;
+  return writeFrame(state, id, { x: nextX, y: nextY });
+}
+
+function clampFrames(state: ViewportState): ViewportState {
+  let next = state;
+  for (const id of WIDGET_IDS) next = clampFrame(next, id);
+  return next;
 }

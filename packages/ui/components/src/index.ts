@@ -1,6 +1,7 @@
 export { Button } from "./button/index.ts";
 export { Layout } from "./layout/index.ts";
 export { Tokens } from "./tokens.stylex.ts";
+export { Widget } from "./widget/index.ts";
 export type {
   ButtonIconProps,
   ButtonRootProps,
@@ -27,3 +28,10 @@ export type {
   StackDirection,
   StackDisplay,
 } from "./layout/index.ts";
+export type {
+  WidgetContainerProps,
+  WidgetHeaderProps,
+  WidgetMenuProps,
+  WidgetPanelProps,
+  WidgetSurface,
+} from "./widget/index.ts";
