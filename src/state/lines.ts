@@ -3,7 +3,7 @@ import { t } from "../i18n/index.ts";
 import { closestOnLine, curveDistance2, lineGeometry } from "./line-curve.ts";
 import { markRadius, type PointMark } from "./point-marks.ts";
 import type { CreateToolId } from "./tools.ts";
-import { MAX_ZOOM, MIN_ZOOM, sliderToZoom, zoomToSlider } from "./viewport.ts";
+import { MAX_ZOOM, MIN_ZOOM } from "./viewport.ts";
 
 export type LineKind = CreateToolId;
 
@@ -33,16 +33,6 @@ export const LINE_STROKE = 3;
 export function clampDrawScale(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_DRAW_SCALE;
   return Math.min(DRAW_SCALE_MAX, Math.max(DRAW_SCALE_MIN, value));
-}
-
-/** 0 at the minimum zoom and 1 at the maximum, on the zoom slider's log curve. */
-export function drawScaleRatio(scale: number): number {
-  return zoomToSlider(clampDrawScale(scale)) / 1000;
-}
-
-export function drawScaleFromRatio(ratio: number): number {
-  const t = Math.min(1, Math.max(0, ratio));
-  return sliderToZoom(t * 1000);
 }
 
 export type LineLayer = {
