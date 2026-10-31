@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { Button, Layout } from "@ui";
+import { Button, Layout, Widget } from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import { useLayoutEffect } from "react";
 import { t } from "../i18n/index.ts";
@@ -11,10 +11,12 @@ import {
   setLineColor,
   type LineLayer,
 } from "../state/lines.ts";
+import { useWidgetFrame } from "../state/use-viewport.ts";
 import { a11y } from "../styles/a11y.ts";
 import { lineLayers } from "../styles/stage.ts";
 
 export function LayersPanel() {
+  const frame = useWidgetFrame("layers");
   const layers = useSelector(lineStore, (state) => state.layers);
   const activeId = useSelector(lineStore, (state) => state.activeId);
 
@@ -38,14 +40,19 @@ export function LayersPanel() {
   }
 
   return (
-    <section
-      {...stylex.props(lineLayers.root)}
+    <Widget.Panel
+      {...frame}
+      renderAs="section"
+      minWidth={220}
+      minHeight={120}
+      resizeLabel={t("resizePanel")}
+      sx={lineLayers.root}
       data-layers=""
       aria-label={t("layers")}
     >
-      <h2 {...stylex.props(lineLayers.title)}>{t("layers")}</h2>
+      <Widget.Header label={t("dragLayers")}>{t("layers")}</Widget.Header>
       {active ? <ColorSteps layer={active} /> : null}
-      <Layout.Box grow shrink sx={lineLayers.scroll}>
+      <Widget.Container grow shrink sx={lineLayers.scroll}>
         <table {...stylex.props(lineLayers.table)}>
           <thead>
             <tr>
@@ -72,8 +79,8 @@ export function LayersPanel() {
             ))}
           </tbody>
         </table>
-      </Layout.Box>
-    </section>
+      </Widget.Container>
+    </Widget.Panel>
   );
 }
 

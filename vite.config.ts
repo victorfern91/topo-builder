@@ -14,6 +14,9 @@ const buttonEntry = fileURLToPath(
 const layoutEntry = fileURLToPath(
   new URL("./packages/ui/components/src/layout/index.ts", import.meta.url),
 );
+const widgetEntry = fileURLToPath(
+  new URL("./packages/ui/components/src/widget/index.ts", import.meta.url),
+);
 const tokensEntry = fileURLToPath(
   new URL("./packages/ui/components/src/tokens.stylex.ts", import.meta.url),
 );
@@ -28,6 +31,7 @@ export default defineConfig({
       { find: /^@ui\/tokens$/, replacement: tokensEntry },
       { find: /^@ui\/button$/, replacement: buttonEntry },
       { find: /^@ui\/layout$/, replacement: layoutEntry },
+      { find: /^@ui\/widget$/, replacement: widgetEntry },
       { find: /^@ui$/, replacement: uiEntry },
     ],
   },

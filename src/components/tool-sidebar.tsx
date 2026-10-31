@@ -1,16 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
-import { Button, Layout, Tokens } from "@ui";
-import { shallow } from "@tanstack/store";
+import { Button, Layout, Tokens, Widget } from "@ui";
 import { useSelector } from "@tanstack/react-store";
-import {
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { t } from "../i18n/index.ts";
 import type { MessageId } from "../i18n/messages.ts";
 import { imageDocumentStore } from "../state/image-document.ts";
@@ -28,7 +19,7 @@ import {
   type ZoomCommandId,
   type ZoomToolId,
 } from "../state/tools.ts";
-import { useViewport, useViewportSelector } from "../state/use-viewport.ts";
+import { useViewport, useWidgetFrame } from "../state/use-viewport.ts";
 import type { ViewportKeyId } from "../state/viewport.ts";
 
 const ZOOM_TOOL_OPTIONS: {
@@ -56,8 +47,6 @@ const CREATE_TOOL_OPTIONS: { id: CreateToolId; label: MessageId }[] = [
 
 type ToolFlyout = "zoom" | "create";
 
-const DRAG_SLOP = 3;
-
 export function ToolSidebar() {
   const ready = useSelector(
     imageDocumentStore,
@@ -66,29 +55,12 @@ export function ToolSidebar() {
   const group = useSelector(toolStore, (state) => state.group);
   const zoom = useSelector(toolStore, (state) => state.zoom);
   const create = useSelector(toolStore, (state) => state.create);
-  const { actions, keys, getState } = useViewport();
-  const placement = useViewportSelector(
-    (state) => ({
-      x: state.toolX,
-      y: state.toolY,
-      placed: state.viewWidth > 0,
-      dragging: state.userAction === "tools",
-    }),
-    { compare: shallow },
-  );
+  const { actions, keys } = useViewport();
+  const frame = useWidgetFrame("tools");
   const [flyout, setFlyout] = useState<ToolFlyout | null>(null);
-  const railRef = useRef<HTMLDivElement>(null);
   const zoomSlotRef = useRef<HTMLDivElement>(null);
   const createSlotRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<number | null>(null);
-  const dragRef = useRef<{
-    id: number;
-    x: number;
-    y: number;
-    toolX: number;
-    toolY: number;
-    moved: boolean;
-  } | null>(null);
   const menuId = useId();
   const zoomOption =
     ZOOM_TOOL_OPTIONS.find((item) => item.id === zoom) ?? ZOOM_TOOL_OPTIONS[0];
@@ -101,18 +73,6 @@ export function ToolSidebar() {
       if (closeTimer.current != null) window.clearTimeout(closeTimer.current);
     };
   }, []);
-
-  useLayoutEffect(() => {
-    const rail = railRef.current;
-    if (!rail) return;
-    const publish = () => {
-      actions.resizeTool(rail.offsetWidth, rail.offsetHeight);
-    };
-    publish();
-    const observer = new ResizeObserver(publish);
-    observer.observe(rail);
-    return () => observer.disconnect();
-  }, [actions, ready]);
 
   useEffect(() => {
     if (flyout == null) return;
@@ -155,265 +115,190 @@ export function ToolSidebar() {
     applyToolClick(id, actions, "center");
   };
 
-  const endDrag = (pointerId: number) => {
-    const drag = dragRef.current;
-    if (!drag || drag.id !== pointerId) return;
-    dragRef.current = null;
-    if (drag.moved) actions.dropTool();
-    if (getState().userAction === "tools") actions.setUserAction("idle");
-  };
-
-  const onGripPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    const state = getState();
-    dragRef.current = {
-      id: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-      toolX: state.toolX,
-      toolY: state.toolY,
-      moved: false,
-    };
-  };
-
-  const onGripPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const drag = dragRef.current;
-    if (!drag || drag.id !== event.pointerId) return;
-    const dx = event.clientX - drag.x;
-    const dy = event.clientY - drag.y;
-    if (!drag.moved && Math.hypot(dx, dy) < DRAG_SLOP) return;
-    drag.moved = true;
-    if (getState().userAction !== "tools") actions.setUserAction("tools");
-    actions.moveTool(drag.toolX + dx, drag.toolY + dy);
-  };
-
-  const onGripKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const step = event.shiftKey ? 24 : 8;
-    const state = getState();
-    if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      actions.moveTool(state.toolX - step, state.toolY);
-    } else if (event.key === "ArrowRight") {
-      event.preventDefault();
-      actions.moveTool(state.toolX + step, state.toolY);
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      actions.moveTool(state.toolX, state.toolY - step);
-    } else if (event.key === "ArrowDown") {
-      event.preventDefault();
-      actions.moveTool(state.toolX, state.toolY + step);
-    }
-  };
-
   return (
-    <Layout.Stack
-      ref={railRef}
-      align="center"
-      gap="xxs"
-      px="sm"
+    <Widget.Panel
+      {...frame}
+      minWidth={48}
+      minHeight={120}
+      resizeLabel={t("resizePanel")}
       sx={styles.rail}
       data-tools=""
-      data-dragging={placement.dragging ? "" : undefined}
       role="toolbar"
       aria-label={t("tools")}
-      style={{
-        transform: `translate3d(${placement.x}px, ${placement.y}px, 0)`,
-        visibility: placement.placed ? "visible" : "hidden",
-      }}
-      onPointerDown={(event) => event.stopPropagation()}
     >
-      <Layout.Grid
-        place="center"
-        sx={styles.gripBar}
-        data-dragging={placement.dragging ? "" : undefined}
-        role="application"
-        tabIndex={0}
-        aria-label={t("dragTools")}
-        aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"
-        onPointerDown={onGripPointerDown}
-        onPointerMove={onGripPointerMove}
-        onPointerUp={(event) => endDrag(event.pointerId)}
-        onPointerCancel={(event) => endDrag(event.pointerId)}
-        onLostPointerCapture={(event) => endDrag(event.pointerId)}
-        onKeyDown={onGripKeyDown}
-      >
-        <span {...stylex.props(styles.grip)} aria-hidden="true" />
-      </Layout.Grid>
-      <Button.Root
-        sx={styles.tool}
-        type="button"
-        aria-label={t("moveView")}
-        aria-pressed={group === "move"}
-        data-pressed={group === "move" ? "" : undefined}
-        title={`${t("moveView")} (${keys.pan})`}
-        onClick={() => {
-          setFlyout(null);
-          selectGroup("move");
-        }}
-      >
-        <Button.Icon id="move" />
-      </Button.Root>
-      <div
-        {...stylex.props(styles.slot)}
-        ref={createSlotRef}
-        onMouseLeave={scheduleClose}
-        onMouseEnter={cancelClose}
-      >
+      <Widget.Header label={t("dragTools")} />
+      <Widget.Container align="center" gap="xxs">
         <Button.Root
           sx={styles.tool}
           type="button"
-          aria-label={t(createOption.label)}
-          aria-pressed={group === "create"}
-          data-pressed={group === "create" ? "" : undefined}
-          title={t(createOption.label)}
+          aria-label={t("moveView")}
+          aria-pressed={group === "move"}
+          data-pressed={group === "move" ? "" : undefined}
+          title={`${t("moveView")} (${keys.pan})`}
           onClick={() => {
             setFlyout(null);
-            const drawing = group === "create";
-            selectGroup("create");
-            if (drawing) beginLine(create);
-            else ensureLine(create);
+            selectGroup("move");
           }}
         >
-          <Button.Icon id={create} />
+          <Button.Icon id="move" />
         </Button.Root>
-        <Button.Root
-          sx={styles.triangle}
-          type="button"
-          aria-label={t("createOptions")}
-          aria-haspopup="menu"
-          aria-expanded={flyout === "create"}
-          aria-controls={`${menuId}-create`}
-          onMouseEnter={() => {
-            cancelClose();
-            setFlyout("create");
-          }}
-          onClick={(event) => {
-            event.preventDefault();
-            cancelClose();
-            setFlyout("create");
-          }}
+        <div
+          {...stylex.props(styles.slot)}
+          ref={createSlotRef}
+          onMouseLeave={scheduleClose}
+          onMouseEnter={cancelClose}
         >
-          <Button.Icon id="options">
-            <span {...stylex.props(styles.triangleMark)} />
-          </Button.Icon>
-        </Button.Root>
-        {flyout === "create" ? (
-          <div
-            {...stylex.props(styles.menu)}
-            id={`${menuId}-create`}
-            role="menu"
+          <Button.Root
+            sx={styles.tool}
+            type="button"
+            aria-label={t(createOption.label)}
+            aria-pressed={group === "create"}
+            data-pressed={group === "create" ? "" : undefined}
+            title={t(createOption.label)}
+            onClick={() => {
+              setFlyout(null);
+              const drawing = group === "create";
+              selectGroup("create");
+              if (drawing) beginLine(create);
+              else ensureLine(create);
+            }}
+          >
+            <Button.Icon id={create} />
+          </Button.Root>
+          <Button.Root
+            sx={styles.triangle}
+            type="button"
             aria-label={t("createOptions")}
+            aria-haspopup="menu"
+            aria-expanded={flyout === "create"}
+            aria-controls={`${menuId}-create`}
+            onMouseEnter={() => {
+              cancelClose();
+              setFlyout("create");
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              cancelClose();
+              setFlyout("create");
+            }}
           >
-            <Layout.Box p="xs" sx={styles.popup}>
-              {CREATE_TOOLS.map((id) => (
-                <CreateChoice
-                  key={id}
-                  id={id}
-                  checked={id === create}
-                  onSelect={() => {
-                    selectCreate(id);
-                    beginLine(id);
-                    setFlyout(null);
-                  }}
-                />
-              ))}
-            </Layout.Box>
-          </div>
-        ) : null}
-      </div>
-      <Button.Root
-        sx={styles.tool}
-        type="button"
-        aria-label={t("editRoute")}
-        aria-pressed={group === "edit"}
-        data-pressed={group === "edit" ? "" : undefined}
-        title={t("editRoute")}
-        onClick={() => {
-          setFlyout(null);
-          selectGroup("edit");
-        }}
-      >
-        <Button.Icon id="edit" />
-      </Button.Root>
-      <div
-        {...stylex.props(styles.slot)}
-        ref={zoomSlotRef}
-        onMouseLeave={scheduleClose}
-        onMouseEnter={cancelClose}
-      >
+            <Button.Icon id="options">
+              <span {...stylex.props(styles.triangleMark)} />
+            </Button.Icon>
+          </Button.Root>
+          {flyout === "create" ? (
+            <div {...stylex.props(styles.menu)}>
+              <Widget.Menu
+                id={`${menuId}-create`}
+                aria-label={t("createOptions")}
+                sx={styles.popup}
+              >
+                {CREATE_TOOLS.map((id) => (
+                  <CreateChoice
+                    key={id}
+                    id={id}
+                    checked={id === create}
+                    onSelect={() => {
+                      selectCreate(id);
+                      beginLine(id);
+                      setFlyout(null);
+                    }}
+                  />
+                ))}
+              </Widget.Menu>
+            </div>
+          ) : null}
+        </div>
         <Button.Root
           sx={styles.tool}
           type="button"
-          aria-label={t(zoomOption.label)}
-          aria-pressed={group === "zoom"}
-          data-pressed={group === "zoom" ? "" : undefined}
-          title={`${t(zoomOption.label)} (${keys[zoomOption.shortcut]})`}
+          aria-label={t("editRoute")}
+          aria-pressed={group === "edit"}
+          data-pressed={group === "edit" ? "" : undefined}
+          title={t("editRoute")}
           onClick={() => {
             setFlyout(null);
-            selectGroup("zoom");
-            applyToolClick(zoom, actions, "center");
+            selectGroup("edit");
           }}
         >
-          <Button.Icon id={zoom} />
+          <Button.Icon id="edit" />
         </Button.Root>
-        <Button.Root
-          sx={styles.triangle}
-          type="button"
-          aria-label={t("zoomOptions")}
-          aria-haspopup="menu"
-          aria-expanded={flyout === "zoom"}
-          aria-controls={`${menuId}-zoom`}
-          onMouseEnter={() => {
-            cancelClose();
-            setFlyout("zoom");
-          }}
-          onClick={(event) => {
-            event.preventDefault();
-            cancelClose();
-            setFlyout("zoom");
-          }}
+        <div
+          {...stylex.props(styles.slot)}
+          ref={zoomSlotRef}
+          onMouseLeave={scheduleClose}
+          onMouseEnter={cancelClose}
         >
-          <Button.Icon id="options">
-            <span {...stylex.props(styles.triangleMark)} />
-          </Button.Icon>
-        </Button.Root>
-        {flyout === "zoom" ? (
-          <div
-            {...stylex.props(styles.menu)}
-            id={`${menuId}-zoom`}
-            role="menu"
-            aria-label={t("zoomOptions")}
+          <Button.Root
+            sx={styles.tool}
+            type="button"
+            aria-label={t(zoomOption.label)}
+            aria-pressed={group === "zoom"}
+            data-pressed={group === "zoom" ? "" : undefined}
+            title={`${t(zoomOption.label)} (${keys[zoomOption.shortcut]})`}
+            onClick={() => {
+              setFlyout(null);
+              selectGroup("zoom");
+              applyToolClick(zoom, actions, "center");
+            }}
           >
-            <Layout.Box p="xs" sx={styles.popup}>
-              {ZOOM_TOOLS.map((id) => (
-                <ZoomChoice
-                  key={id}
-                  id={id}
-                  keys={keys}
-                  checked={id === zoom}
-                  onSelect={() => {
-                    selectZoom(id);
-                    setFlyout(null);
-                  }}
-                />
-              ))}
-              <Layout.Box my="xs" sx={styles.rule} />
-              {ZOOM_COMMANDS.map((id) => (
-                <CommandChoice
-                  key={id}
-                  id={id}
-                  keys={keys}
-                  onRun={() => runCommand(id)}
-                />
-              ))}
-            </Layout.Box>
-          </div>
-        ) : null}
-      </div>
-    </Layout.Stack>
+            <Button.Icon id={zoom} />
+          </Button.Root>
+          <Button.Root
+            sx={styles.triangle}
+            type="button"
+            aria-label={t("zoomOptions")}
+            aria-haspopup="menu"
+            aria-expanded={flyout === "zoom"}
+            aria-controls={`${menuId}-zoom`}
+            onMouseEnter={() => {
+              cancelClose();
+              setFlyout("zoom");
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              cancelClose();
+              setFlyout("zoom");
+            }}
+          >
+            <Button.Icon id="options">
+              <span {...stylex.props(styles.triangleMark)} />
+            </Button.Icon>
+          </Button.Root>
+          {flyout === "zoom" ? (
+            <div {...stylex.props(styles.menu)}>
+              <Widget.Menu
+                id={`${menuId}-zoom`}
+                aria-label={t("zoomOptions")}
+                sx={styles.popup}
+              >
+                {ZOOM_TOOLS.map((id) => (
+                  <ZoomChoice
+                    key={id}
+                    id={id}
+                    keys={keys}
+                    checked={id === zoom}
+                    onSelect={() => {
+                      selectZoom(id);
+                      setFlyout(null);
+                    }}
+                  />
+                ))}
+                <Layout.Box my="xs" sx={styles.rule} />
+                {ZOOM_COMMANDS.map((id) => (
+                  <CommandChoice
+                    key={id}
+                    id={id}
+                    keys={keys}
+                    onRun={() => runCommand(id)}
+                  />
+                ))}
+              </Widget.Menu>
+            </div>
+          ) : null}
+        </div>
+      </Widget.Container>
+    </Widget.Panel>
   );
 }
 
@@ -498,55 +383,11 @@ function CreateChoice({
 
 const styles = stylex.create({
   rail: {
-    position: "absolute",
-    top: Tokens.spacing.none,
-    left: Tokens.spacing.none,
     zIndex: 5,
     width: 48,
     paddingBottom: Tokens.spacing.sm,
+    paddingInline: Tokens.spacing.sm,
     backgroundColor: Tokens.color.neutral[600],
-    color: Tokens.color.neutral[100],
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: Tokens.color.neutral[950],
-    borderRadius: 6,
-    boxShadow: {
-      default: `0 12px 28px ${Tokens.color.black[40]}`,
-      "[data-dragging]": `0 18px 40px ${Tokens.color.black[55]}`,
-    },
-    userSelect: "none",
-    touchAction: "none",
-  },
-  gripBar: {
-    width: "100%",
-    height: 18,
-    marginBottom: Tokens.spacing.xxs,
-    borderRadius: 4,
-    cursor: {
-      default: "grab",
-      "[data-dragging]": "grabbing",
-    },
-    outlineWidth: {
-      default: 0,
-      ":focus-visible": 2,
-    },
-    outlineStyle: {
-      default: "none",
-      ":focus-visible": "solid",
-    },
-    outlineColor: {
-      default: "transparent",
-      ":focus-visible": Tokens.color.blue[100],
-    },
-    outlineOffset: 1,
-  },
-  grip: {
-    width: 14,
-    height: Tokens.size.xxs,
-    opacity: 0.7,
-    backgroundImage: "radial-gradient(currentColor 1.1px, transparent 1.5px)",
-    backgroundSize: "4px 4px",
-    backgroundPosition: "center",
   },
   slot: {
     position: "relative",
@@ -585,13 +426,6 @@ const styles = stylex.create({
   },
   popup: {
     minWidth: 196,
-    backgroundColor: Tokens.color.neutral[750],
-    color: Tokens.color.neutral[100],
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: Tokens.color.neutral[950],
-    borderRadius: 6,
-    boxShadow: `0 8px 24px ${Tokens.color.black[45]}`,
   },
   rule: {
     height: 1,

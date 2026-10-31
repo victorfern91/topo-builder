@@ -1,6 +1,6 @@
 # UI
 
-Import interactive controls from `@ui` (`import { Button, Layout } from '@ui'`, `import Button from '@ui/button'`, or `import Layout from '@ui/layout'`). The package exports are the components available to the app. Compose the parts those exports provide; for Button that is `Button.Root`, `Button.Icon`, and `Button.Text`. For boxes that is `Layout.Box`, `Layout.Stack`, and `Layout.Grid`. Each takes `renderAs` `div` (default) or `span`. Prop and composition details live on the JSDoc of each part.
+Import interactive controls from `@ui` (`import { Button, Layout, Widget } from '@ui'`, `import Button from '@ui/button'`, `import Layout from '@ui/layout'`, or `import Widget from '@ui/widget'`). The package exports are the components available to the app. Compose the parts those exports provide; for Button that is `Button.Root`, `Button.Icon`, and `Button.Text`. For boxes that is `Layout.Box`, `Layout.Stack`, and `Layout.Grid`. For a floating panel that is `Widget.Panel`, `Widget.Header`, `Widget.Container`, and `Widget.Menu`. Each of Button and Layout takes `renderAs` `div` (default) or `span`. `Widget.Panel` takes `renderAs` `div` (default), `aside`, or `section`. Prop and composition details live on the JSDoc of each part.
 
 Ship Button defaults. Pass `variant`, `size`, `radius`, `rounded`, or `sx` only for instance-specific layout or state.
 
@@ -9,6 +9,27 @@ Ship Layout defaults. `Layout.Box` keeps the element display. `Layout.Stack` is 
 `@base-ui/react` stays inside `packages/ui/components`. App code under `src/` does not import it.
 
 A control that is not exported from `@ui` gets a wrapper in `packages/ui/components` first. Export it from that package, then use the export.
+
+# Widget
+
+Ship Widget defaults. Pass `sx` for instance chrome such as width, z-index, or overflow.
+
+```tsx
+<Widget.Panel x={x} y={y} onMove={move} onResize={resize}>
+  <Widget.Header label="Drag to move">Title</Widget.Header>
+  <Widget.Container>{children}</Widget.Container>
+</Widget.Panel>
+```
+
+`x` and `y` are the panel origin in pixels. `onMove` receives the next origin from a pointer drag or an arrow-key nudge (8 pixels, 24 with Shift). `onDragStart` runs once the pointer passes the movement threshold. `onDragEnd` receives `moved`: false means the header was clicked. `placed` hides the panel until the stage has a size. `dragging` sets `data-dragging` on the panel and the header.
+
+`Widget.Header` is the drag handle. `label` is its accessible name. Children are the title. Omit children for a grip bar. The title row and the grip bar show the same grip.
+
+`Widget.Panel` resizes from the right edge, the bottom edge, and the corner. `onResize` reports the border box, in pixels, after layout and during that resize. `minWidth` and `minHeight` default to 48. `resizeLabel` names the corner handle. Arrow keys on that handle resize; Shift uses the larger step. Pass `resizable={false}` when the panel stays at its layout size.
+
+`Widget.Container` is the column body. Pass Layout stack props for that instance.
+
+`Widget.Menu` is the popup chrome. Position it with `sx` or `style`.
 
 # Tokens
 

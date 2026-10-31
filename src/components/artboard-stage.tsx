@@ -583,10 +583,8 @@ function isLayersTarget(target: EventTarget | null): boolean {
 
 function isChromeTarget(target: EventTarget | null): boolean {
   return (
-    isNavigatorTarget(target) ||
-    isToolsTarget(target) ||
-    isLayersTarget(target) ||
-    isPointMenuTarget(target)
+    target instanceof Element &&
+    Boolean(target.closest("[data-widget], [data-point-menu]"))
   );
 }
 
