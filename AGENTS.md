@@ -42,3 +42,7 @@ Inside `stylex.create`, use the named import.
 # Format
 
 `bun fmt`
+
+# Shell
+
+Prefix shell commands with `rtk` so output stays small. Unfiltered output: `rtk proxy <cmd>`. Command map: @RTK.md
