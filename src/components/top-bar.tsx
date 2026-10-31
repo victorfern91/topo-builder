@@ -1,11 +1,16 @@
-import * as stylex from '@stylexjs/stylex'
-import { Button } from '@base-ui/react/button'
-import { Menu } from '@base-ui/react/menu'
-import { useSelector } from '@tanstack/react-store'
-import { useEffect, useRef, type ChangeEvent, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { formatPixelSize, formatScale, t } from '../i18n/index.ts'
-import { a11y } from '../styles/a11y.ts'
-import { color, media } from '../styles/tokens.stylex.ts'
+import * as stylex from "@stylexjs/stylex";
+import { Menu } from "@base-ui/react/menu";
+import { Button, Tokens } from "@ui";
+import { useSelector } from "@tanstack/react-store";
+import {
+  useEffect,
+  useRef,
+  type ChangeEvent,
+  type PointerEvent as ReactPointerEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
+import { formatPixelSize, formatScale, t } from "../i18n/index.ts";
+import { a11y } from "../styles/a11y.ts";
 import {
   DRAW_SCALE_MAX,
   DRAW_SCALE_MIN,
@@ -13,59 +18,64 @@ import {
   drawScaleRatio,
   lineStore,
   setDrawScale,
-} from '../state/lines.ts'
+} from "../state/lines.ts";
 import {
   IMAGE_FILE_ACCEPT,
   imageDocumentStore,
   openImageFile,
   registerImageFilePicker,
   requestImageFilePicker,
-} from '../state/image-document.ts'
-import { primaryModifier } from '../state/viewport.ts'
+} from "../state/image-document.ts";
+import { primaryModifier } from "../state/viewport.ts";
 
 export function TopBar() {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const fileName = useSelector(imageDocumentStore, (state) => state.fileName)
-  const size = useSelector(imageDocumentStore, (state) => state.size)
-  const shortcutLabel = applePlatform() ? '⌘O' : 'Ctrl+O'
-  const imageReady = useSelector(imageDocumentStore, (state) => state.status === 'ready')
-  const scale = useSelector(lineStore, (state) => state.scale)
+  const inputRef = useRef<HTMLInputElement>(null);
+  const fileName = useSelector(imageDocumentStore, (state) => state.fileName);
+  const size = useSelector(imageDocumentStore, (state) => state.size);
+  const shortcutLabel = applePlatform() ? "⌘O" : "Ctrl+O";
+  const imageReady = useSelector(
+    imageDocumentStore,
+    (state) => state.status === "ready",
+  );
+  const scale = useSelector(lineStore, (state) => state.scale);
 
   useEffect(() => {
-    document.title = fileName ? t('documentTitle', { fileName }) : t('appTitle')
-  }, [fileName])
+    document.title = fileName
+      ? t("documentTitle", { fileName })
+      : t("appTitle");
+  }, [fileName]);
 
   useEffect(() => {
     return registerImageFilePicker(() => {
-      inputRef.current?.click()
-    })
-  }, [])
+      inputRef.current?.click();
+    });
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!primaryModifier(event) || event.key.toLowerCase() !== 'o') {
-        return
+      if (!primaryModifier(event) || event.key.toLowerCase() !== "o") {
+        return;
       }
-      const target = event.target
+      const target = event.target;
       if (
         target instanceof HTMLTextAreaElement ||
-        (target instanceof HTMLInputElement && target.type !== 'file')
+        (target instanceof HTMLInputElement && target.type !== "file")
       ) {
-        return
+        return;
       }
-      event.preventDefault()
-      inputRef.current?.click()
-    }
+      event.preventDefault();
+      inputRef.current?.click();
+    };
 
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (file) openImageFile(file)
-  }
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (file) openImageFile(file);
+  };
 
   return (
     <header {...stylex.props(styles.topbar)}>
@@ -74,15 +84,21 @@ export function TopBar() {
         Topo
       </div>
       <Menu.Root>
-        <Menu.Trigger {...stylex.props(styles.barButton)}>{t('file')}</Menu.Trigger>
+        <Menu.Trigger {...stylex.props(styles.barButton)}>
+          {t("file")}
+        </Menu.Trigger>
         <Menu.Portal>
-          <Menu.Positioner {...stylex.props(styles.positioner)} sideOffset={6} align="start">
+          <Menu.Positioner
+            {...stylex.props(styles.positioner)}
+            sideOffset={6}
+            align="start"
+          >
             <Menu.Popup {...stylex.props(styles.popup)}>
               <Menu.Item
                 {...stylex.props(styles.menuItem, stylex.defaultMarker())}
                 onClick={() => inputRef.current?.click()}
               >
-                <span>{t('openEllipsis')}</span>
+                <span>{t("openEllipsis")}</span>
                 <span {...stylex.props(styles.kbd)}>{shortcutLabel}</span>
               </Menu.Item>
             </Menu.Popup>
@@ -91,78 +107,84 @@ export function TopBar() {
       </Menu.Root>
       {imageReady ? <ScaleBar scale={scale} /> : null}
       <p {...stylex.props(styles.docTitle)} title={fileName ?? undefined}>
-        {fileName ?? t('noDocument')}
+        {fileName ?? t("noDocument")}
       </p>
       <div {...stylex.props(styles.spacer)} />
       {size ? (
-        <p {...stylex.props(styles.dimensions)}>{formatPixelSize(size.width, size.height)}</p>
+        <p {...stylex.props(styles.dimensions)}>
+          {formatPixelSize(size.width, size.height)}
+        </p>
       ) : null}
-      <Button {...stylex.props(styles.barButton, styles.primary)} onClick={requestImageFilePicker}>
-        {t('open')}
-      </Button>
+      <Button.Root
+        variant="primary"
+        sx={styles.openButton}
+        onClick={requestImageFilePicker}
+      >
+        <Button.Text>{t("open")}</Button.Text>
+      </Button.Root>
       <input
         {...stylex.props(a11y.visuallyHidden)}
         ref={inputRef}
         type="file"
         accept={IMAGE_FILE_ACCEPT}
-        aria-label={t('chooseImage')}
+        aria-label={t("chooseImage")}
         onChange={onFileChange}
       />
     </header>
-  )
+  );
 }
 
 function ScaleBar({ scale }: { scale: number }) {
-  const trackRef = useRef<HTMLDivElement>(null)
-  const fill = stylex.props(styles.scaleFill)
-  const ratio = drawScaleRatio(scale)
+  const trackRef = useRef<HTMLDivElement>(null);
+  const fill = stylex.props(styles.scaleFill);
+  const ratio = drawScaleRatio(scale);
 
   const setFromClientX = (clientX: number) => {
-    const track = trackRef.current
-    if (!track) return
-    const rect = track.getBoundingClientRect()
-    if (rect.width <= 0) return
-    setDrawScale(drawScaleFromRatio((clientX - rect.left) / rect.width))
-  }
+    const track = trackRef.current;
+    if (!track) return;
+    const rect = track.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    setDrawScale(drawScaleFromRatio((clientX - rect.left) / rect.width));
+  };
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return
-    event.preventDefault()
-    event.currentTarget.setPointerCapture(event.pointerId)
-    setFromClientX(event.clientX)
-  }
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setFromClientX(event.clientX);
+  };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
-    setFromClientX(event.clientX)
-  }
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    setFromClientX(event.clientX);
+  };
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const step = event.shiftKey ? 0.1 : 0.02
-    if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
-      event.preventDefault()
-      setDrawScale(drawScaleFromRatio(ratio + step))
-    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
-      event.preventDefault()
-      setDrawScale(drawScaleFromRatio(ratio - step))
-    } else if (event.key === 'Home') {
-      event.preventDefault()
-      setDrawScale(DRAW_SCALE_MIN)
-    } else if (event.key === 'End') {
-      event.preventDefault()
-      setDrawScale(DRAW_SCALE_MAX)
+    const step = event.shiftKey ? 0.1 : 0.02;
+    if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+      event.preventDefault();
+      setDrawScale(drawScaleFromRatio(ratio + step));
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+      event.preventDefault();
+      setDrawScale(drawScaleFromRatio(ratio - step));
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setDrawScale(DRAW_SCALE_MIN);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setDrawScale(DRAW_SCALE_MAX);
     }
-  }
+  };
 
   return (
     <div {...stylex.props(styles.scaleControl)}>
-      <span {...stylex.props(styles.scaleLabel)}>{t('scale')}</span>
+      <span {...stylex.props(styles.scaleLabel)}>{t("scale")}</span>
       <div
         {...stylex.props(styles.scaleTrack)}
         ref={trackRef}
         role="slider"
         tabIndex={0}
-        aria-label={t('scale')}
+        aria-label={t("scale")}
         aria-orientation="horizontal"
         aria-valuemin={Math.round(DRAW_SCALE_MIN * 100)}
         aria-valuemax={Math.round(DRAW_SCALE_MAX * 100)}
@@ -173,281 +195,279 @@ function ScaleBar({ scale }: { scale: number }) {
         onKeyDown={onKeyDown}
       >
         <span {...stylex.props(styles.scaleGroove)} aria-hidden="true">
-          <span className={fill.className} style={{ ...fill.style, width: `${ratio * 100}%` }} />
+          <span
+            className={fill.className}
+            style={{ ...fill.style, width: `${ratio * 100}%` }}
+          />
         </span>
       </div>
       <span {...stylex.props(styles.scaleReadout)}>{formatScale(scale)}</span>
     </div>
-  )
+  );
 }
 
 function applePlatform(): boolean {
-  return /\b(Mac|iPhone|iPad|iPod)\b/i.test(navigator.userAgent)
+  return /\b(Mac|iPhone|iPad|iPod)\b/i.test(navigator.userAgent);
 }
 
 const styles = stylex.create({
   topbar: {
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 4,
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+    gap: Tokens.spacing.xs,
     flexGrow: 0,
     flexShrink: 0,
-    flexBasis: 'auto',
+    flexBasis: "auto",
     height: {
       default: 42,
-      [media.narrow]: 'auto',
+      [Tokens.media.narrow]: "auto",
     },
     minHeight: {
       default: null,
-      [media.narrow]: 42,
+      [Tokens.media.narrow]: 42,
     },
     paddingBlock: {
-      default: 0,
-      [media.narrow]: 6,
+      default: Tokens.spacing.none,
+      [Tokens.media.narrow]: Tokens.spacing.sm,
     },
-    paddingInline: 8,
+    paddingInline: Tokens.spacing.md,
     rowGap: {
       default: null,
-      [media.narrow]: 2,
+      [Tokens.media.narrow]: Tokens.spacing.xxs,
     },
     flexWrap: {
-      default: 'nowrap',
-      [media.narrow]: 'wrap',
+      default: "nowrap",
+      [Tokens.media.narrow]: "wrap",
     },
-    backgroundColor: color.bar,
+    backgroundColor: Tokens.color.neutral[600],
     borderBottomWidth: 1,
-    borderBottomStyle: 'solid',
-    borderBottomColor: color.barLine,
-    color: color.text,
+    borderBottomStyle: "solid",
+    borderBottomColor: Tokens.color.neutral[850],
+    color: Tokens.color.neutral[100],
   },
   brand: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    paddingTop: 0,
-    paddingBottom: 0,
-    paddingLeft: 4,
-    paddingRight: 8,
+    display: "flex",
+    alignItems: "center",
+    gap: Tokens.spacing.md,
+    paddingTop: Tokens.spacing.none,
+    paddingBottom: Tokens.spacing.none,
+    paddingLeft: Tokens.spacing.xs,
+    paddingRight: Tokens.spacing.md,
     fontSize: 14,
     fontWeight: 650,
-    letterSpacing: '0.01em',
+    letterSpacing: "0.01em",
   },
   brandMark: {
-    width: 16,
-    height: 16,
+    width: Tokens.size.xs,
+    height: Tokens.size.xs,
     borderRadius: 2,
-    backgroundColor: color.primary,
-    backgroundImage: 'linear-gradient(#fff, #fff)',
-    backgroundPosition: 'center',
-    backgroundSize: '10px 8px',
-    backgroundRepeat: 'no-repeat',
-    boxShadow: '0 0 0 1px #0b0b0b',
+    backgroundColor: Tokens.color.blue[500],
+    backgroundImage: `linear-gradient(${Tokens.color.neutral[0]}, ${Tokens.color.neutral[0]})`,
+    backgroundPosition: "center",
+    backgroundSize: "10px 8px",
+    backgroundRepeat: "no-repeat",
+    boxShadow: `0 0 0 1px ${Tokens.color.neutral[1000]}`,
   },
   barButton: {
-    appearance: 'none',
+    appearance: "none",
     borderWidth: 0,
     backgroundColor: {
-      default: 'transparent',
-      ':hover': 'rgba(255, 255, 255, 0.08)',
-      '[data-popup-open]': 'rgba(255, 255, 255, 0.08)',
+      default: "transparent",
+      ":hover": Tokens.color.white[8],
+      "[data-popup-open]": Tokens.color.white[8],
     },
-    color: 'inherit',
-    height: 28,
-    paddingBlock: 0,
-    paddingInline: 10,
+    color: "inherit",
+    height: Tokens.size.md,
+    paddingBlock: Tokens.spacing.none,
+    paddingInline: Tokens.spacing.lg,
     borderRadius: 4,
-    cursor: 'pointer',
+    cursor: "pointer",
     fontSize: 13,
     outlineWidth: {
       default: 0,
-      ':focus-visible': 2,
+      ":focus-visible": 2,
     },
     outlineStyle: {
-      default: 'none',
-      ':focus-visible': 'solid',
+      default: "none",
+      ":focus-visible": "solid",
     },
     outlineColor: {
-      default: 'transparent',
-      ':focus-visible': color.focus,
+      default: "transparent",
+      ":focus-visible": Tokens.color.blue[100],
     },
     outlineOffset: 1,
   },
-  primary: {
-    backgroundColor: {
-      default: color.primary,
-      ':hover': color.primaryHover,
-    },
-    color: '#ffffff',
-    marginLeft: 4,
+  openButton: {
+    marginLeft: Tokens.spacing.xs,
   },
   docTitle: {
     position: {
-      default: 'absolute',
-      [media.narrow]: 'static',
+      default: "absolute",
+      [Tokens.media.narrow]: "static",
     },
     left: {
-      default: '50%',
-      [media.narrow]: 'auto',
+      default: "50%",
+      [Tokens.media.narrow]: "auto",
     },
     order: {
       default: 0,
-      [media.narrow]: 5,
+      [Tokens.media.narrow]: 5,
     },
     flexGrow: {
       default: 0,
-      [media.narrow]: 1,
+      [Tokens.media.narrow]: 1,
     },
     flexShrink: 0,
     flexBasis: {
-      default: 'auto',
-      [media.narrow]: '100%',
+      default: "auto",
+      [Tokens.media.narrow]: "100%",
     },
     maxWidth: {
-      default: 'min(46vw, 420px)',
-      [media.narrow]: '100%',
+      default: "min(46vw, 420px)",
+      [Tokens.media.narrow]: "100%",
     },
-    margin: 0,
+    margin: Tokens.spacing.none,
     transform: {
-      default: 'translateX(-50%)',
-      [media.narrow]: 'none',
+      default: "translateX(-50%)",
+      [Tokens.media.narrow]: "none",
     },
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
     fontSize: 13,
-    color: color.doc,
+    color: Tokens.color.neutral[200],
     pointerEvents: {
-      default: 'none',
-      [media.narrow]: 'auto',
+      default: "none",
+      [Tokens.media.narrow]: "auto",
     },
     paddingTop: {
-      default: 0,
-      [media.narrow]: 2,
+      default: Tokens.spacing.none,
+      [Tokens.media.narrow]: Tokens.spacing.xxs,
     },
     paddingBottom: {
-      default: 0,
-      [media.narrow]: 4,
+      default: Tokens.spacing.none,
+      [Tokens.media.narrow]: Tokens.spacing.xs,
     },
     paddingInline: {
-      default: 0,
-      [media.narrow]: 4,
+      default: Tokens.spacing.none,
+      [Tokens.media.narrow]: Tokens.spacing.xs,
     },
     textAlign: {
-      default: 'start',
-      [media.narrow]: 'left',
+      default: "start",
+      [Tokens.media.narrow]: "left",
     },
   },
   spacer: {
     flexGrow: 1,
     display: {
-      default: 'block',
-      [media.narrow]: 'none',
+      default: "block",
+      [Tokens.media.narrow]: "none",
     },
   },
   dimensions: {
-    margin: 0,
-    paddingInline: 8,
+    margin: Tokens.spacing.none,
+    paddingInline: Tokens.spacing.md,
     fontSize: 13,
-    fontVariantNumeric: 'tabular-nums',
-    color: color.kbd,
-    whiteSpace: 'nowrap',
+    fontVariantNumeric: "tabular-nums",
+    color: Tokens.color.neutral[400],
+    whiteSpace: "nowrap",
   },
   positioner: {
     zIndex: 30,
   },
   popup: {
     minWidth: 220,
-    padding: 4,
-    backgroundColor: color.menu,
-    color: color.text,
+    padding: Tokens.spacing.xs,
+    backgroundColor: Tokens.color.neutral[750],
+    color: Tokens.color.neutral[100],
     borderWidth: 1,
-    borderStyle: 'solid',
-    borderColor: color.menuLine,
+    borderStyle: "solid",
+    borderColor: Tokens.color.neutral[950],
     borderRadius: 6,
-    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)',
-    outlineStyle: 'none',
+    boxShadow: `0 8px 24px ${Tokens.color.black[45]}`,
+    outlineStyle: "none",
   },
   menuItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: 24,
-    paddingBlock: 6,
-    paddingInline: 10,
+    display: "flex",
+    justifyContent: "space-between",
+    gap: Tokens.spacing.xxxxl,
+    paddingBlock: Tokens.spacing.sm,
+    paddingInline: Tokens.spacing.lg,
     borderRadius: 4,
     fontSize: 13,
     lineHeight: 1.3,
-    cursor: 'default',
-    outlineStyle: 'none',
-    userSelect: 'none',
+    cursor: "default",
+    outlineStyle: "none",
+    userSelect: "none",
     backgroundColor: {
-      default: 'transparent',
-      '[data-highlighted]': color.primary,
+      default: "transparent",
+      "[data-highlighted]": Tokens.color.blue[500],
     },
     color: {
-      default: 'inherit',
-      '[data-highlighted]': '#ffffff',
+      default: "inherit",
+      "[data-highlighted]": Tokens.color.neutral[0],
     },
   },
   kbd: {
     color: {
-      default: color.kbd,
-      [stylex.when.ancestor('[data-highlighted]')]: 'inherit',
+      default: Tokens.color.neutral[400],
+      [stylex.when.ancestor("[data-highlighted]")]: "inherit",
     },
   },
   scaleControl: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    marginLeft: 8,
+    display: "flex",
+    alignItems: "center",
+    gap: Tokens.spacing.md,
+    marginLeft: Tokens.spacing.md,
     flexGrow: 0,
     flexShrink: 0,
   },
   scaleLabel: {
     fontSize: 13,
-    color: color.kbd,
+    color: Tokens.color.neutral[400],
   },
   scaleTrack: {
-    display: 'flex',
-    alignItems: 'center',
+    display: "flex",
+    alignItems: "center",
     width: 120,
     height: 22,
-    cursor: 'pointer',
-    touchAction: 'none',
+    cursor: "pointer",
+    touchAction: "none",
     outlineWidth: {
       default: 0,
-      ':focus-visible': 2,
+      ":focus-visible": 2,
     },
     outlineStyle: {
-      default: 'none',
-      ':focus-visible': 'solid',
+      default: "none",
+      ":focus-visible": "solid",
     },
     outlineColor: {
-      default: 'transparent',
-      ':focus-visible': color.focus,
+      default: "transparent",
+      ":focus-visible": Tokens.color.blue[100],
     },
     outlineOffset: 2,
   },
   scaleGroove: {
-    display: 'block',
-    width: '100%',
-    height: 8,
+    display: "block",
+    width: "100%",
+    height: Tokens.size.xxs,
     borderRadius: 4,
-    overflow: 'hidden',
-    backgroundColor: '#1a1a1a',
-    pointerEvents: 'none',
+    overflow: "hidden",
+    backgroundColor: Tokens.color.neutral[850],
+    pointerEvents: "none",
   },
   scaleFill: {
-    display: 'block',
-    height: '100%',
+    display: "block",
+    height: "100%",
     borderRadius: 4,
-    backgroundColor: color.primary,
+    backgroundColor: Tokens.color.blue[500],
   },
   scaleReadout: {
     width: 42,
     fontSize: 13,
-    fontVariantNumeric: 'tabular-nums',
-    color: color.kbd,
-    textAlign: 'end',
+    fontVariantNumeric: "tabular-nums",
+    color: Tokens.color.neutral[400],
+    textAlign: "end",
   },
-})
+});

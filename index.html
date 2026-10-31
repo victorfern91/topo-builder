@@ -41,7 +41,12 @@
       }
       .boot-line,
       .boot-block {
-        background: linear-gradient(90deg, #e6e6e6 0%, #f4f4f4 50%, #e6e6e6 100%);
+        background: linear-gradient(
+          90deg,
+          #e6e6e6 0%,
+          #f4f4f4 50%,
+          #e6e6e6 100%
+        );
         background-size: 200% 100%;
         animation: boot-shimmer 1.2s ease-in-out infinite;
       }
@@ -87,33 +92,33 @@
         var tags =
           navigator.languages && navigator.languages.length
             ? navigator.languages
-            : [navigator.language || 'en-US']
-        var locale = 'en-US'
+            : [navigator.language || "en-US"];
+        var locale = "en-US";
         for (var i = 0; i < tags.length; i++) {
-          var language = ''
+          var language = "";
           try {
-            language = new Intl.Locale(tags[i]).language
+            language = new Intl.Locale(tags[i]).language;
           } catch {
-            continue
+            continue;
           }
-          if (language === 'pt') {
-            locale = 'pt-PT'
-            break
+          if (language === "pt") {
+            locale = "pt-PT";
+            break;
           }
-          if (language === 'en') {
-            locale = 'en-US'
-            break
+          if (language === "en") {
+            locale = "en-US";
+            break;
           }
         }
-        document.documentElement.lang = locale
-        var boot = document.querySelector('.boot')
+        document.documentElement.lang = locale;
+        var boot = document.querySelector(".boot");
         if (boot) {
           boot.setAttribute(
-            'aria-label',
-            locale === 'pt-PT' ? 'A carregar o Topo' : 'Loading Topo',
-          )
+            "aria-label",
+            locale === "pt-PT" ? "A carregar o Topo" : "Loading Topo",
+          );
         }
-      })()
+      })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
