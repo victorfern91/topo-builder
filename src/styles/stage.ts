@@ -240,10 +240,6 @@ export const navigator = stylex.create({
     flexGrow: 1,
     flexShrink: 1,
     minWidth: 0,
-    height: Tokens.size.xs,
-    margin: Tokens.spacing.none,
-    accentColor: Tokens.color.blue[500],
-    cursor: "pointer",
   },
   percent: {
     width: 58,

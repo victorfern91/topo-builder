@@ -1,6 +1,6 @@
 # UI
 
-Import interactive controls from `@ui` (`import { Button, Layout, Widget } from '@ui'`, `import Button from '@ui/button'`, `import Layout from '@ui/layout'`, or `import Widget from '@ui/widget'`). The package exports are the components available to the app. Compose the parts those exports provide; for Button that is `Button.Root`, `Button.Icon`, and `Button.Text`. For boxes that is `Layout.Box`, `Layout.Stack`, and `Layout.Grid`. For a floating panel that is `Widget.Panel`, `Widget.Header`, `Widget.Container`, and `Widget.Menu`. Each of Button and Layout takes `renderAs` `div` (default) or `span`. `Widget.Panel` takes `renderAs` `div` (default), `aside`, or `section`. Prop and composition details live on the JSDoc of each part.
+Import interactive controls from `@ui` (`import { Button, Layout, Slider, Widget } from '@ui'`, `import Button from '@ui/button'`, `import Layout from '@ui/layout'`, `import Slider from '@ui/slider'`, or `import Widget from '@ui/widget'`). The package exports are the components available to the app. Compose the parts those exports provide; for Button that is `Button.Root`, `Button.Icon`, and `Button.Text`. For boxes that is `Layout.Box`, `Layout.Stack`, and `Layout.Grid`. For a slider that is `Slider.Root`, `Slider.Label`, `Slider.Control`, `Slider.Track`, `Slider.Indicator`, `Slider.Thumb`, and `Slider.Value`. For a floating panel that is `Widget.Panel`, `Widget.Header`, `Widget.Container`, and `Widget.Menu`. Each of Button and Layout takes `renderAs` `div` (default) or `span`. `Widget.Panel` takes `renderAs` `div` (default), `aside`, or `section`. Prop and composition details live on the JSDoc of each part.
 
 Ship Button defaults. Pass `variant`, `size`, `radius`, `rounded`, or `sx` only for instance-specific layout or state.
 
@@ -9,6 +9,25 @@ Ship Layout defaults. `Layout.Box` keeps the element display. `Layout.Stack` is 
 `@base-ui/react` stays inside `packages/ui/components`. App code under `src/` does not import it.
 
 A control that is not exported from `@ui` gets a wrapper in `packages/ui/components` first. Export it from that package, then use the export.
+
+# Slider
+
+Ship Slider defaults. Pass `sx` for instance width or flex.
+
+```tsx
+<Slider.Root min={0} max={100} value={value} onValueChange={setValue}>
+  <Slider.Label>Scale</Slider.Label>
+  <Slider.Control>
+    <Slider.Track>
+      <Slider.Indicator />
+      <Slider.Thumb aria-valuetext="100%" />
+    </Slider.Track>
+  </Slider.Control>
+  <Slider.Value>{() => "100%"}</Slider.Value>
+</Slider.Root>
+```
+
+`Label` and `Value` are optional. `Thumb` `aria-label` names the slider when there is no `Label`. `aria-valuetext` is the spoken value. `onValueChange` receives the next value while dragging and from the keyboard.
 
 # Widget
 

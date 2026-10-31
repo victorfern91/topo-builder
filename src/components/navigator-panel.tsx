@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { Button, Layout, Widget } from "@ui";
+import { Button, Layout, Slider, Widget } from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import {
   useId,
@@ -67,19 +67,24 @@ export function NavigatorPanel() {
             >
               <Button.Text>−</Button.Text>
             </Button.Root>
-            <input
-              {...stylex.props(navigator.slider, navigator.focusable)}
-              type="range"
+            <Slider.Root
               min={0}
               max={1000}
               step={1}
               value={zoomToSlider(viewport.zoom)}
-              aria-label={t("zoomPercent")}
-              aria-valuetext={formatZoomPercent(viewport.zoom)}
-              onChange={(event) =>
-                actions.zoomTo(sliderToZoom(Number(event.target.value)))
-              }
-            />
+              sx={navigator.slider}
+              onValueChange={(value) => actions.zoomTo(sliderToZoom(value))}
+            >
+              <Slider.Control>
+                <Slider.Track>
+                  <Slider.Indicator />
+                  <Slider.Thumb
+                    aria-label={t("zoomPercent")}
+                    aria-valuetext={formatZoomPercent(viewport.zoom)}
+                  />
+                </Slider.Track>
+              </Slider.Control>
+            </Slider.Root>
             <Button.Root
               sx={navigator.step}
               type="button"

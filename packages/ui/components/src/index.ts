@@ -1,5 +1,6 @@
 export { Button } from "./button/index.ts";
 export { Layout } from "./layout/index.ts";
+export { Slider } from "./slider/index.ts";
 export { Tokens } from "./tokens.stylex.ts";
 export { Widget } from "./widget/index.ts";
 export type {
@@ -28,6 +29,15 @@ export type {
   StackDirection,
   StackDisplay,
 } from "./layout/index.ts";
+export type {
+  SliderControlProps,
+  SliderIndicatorProps,
+  SliderLabelProps,
+  SliderRootProps,
+  SliderThumbProps,
+  SliderTrackProps,
+  SliderValueProps,
+} from "./slider/index.ts";
 export type {
   WidgetContainerProps,
   WidgetHeaderProps,

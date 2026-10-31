@@ -1,24 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 import { Menu } from "@base-ui/react/menu";
-import { Button, Layout, Tokens } from "@ui";
+import { Button, Layout, Slider, Tokens } from "@ui";
 import { useSelector } from "@tanstack/react-store";
-import {
-  useEffect,
-  useRef,
-  type ChangeEvent,
-  type PointerEvent as ReactPointerEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
-} from "react";
+import { useEffect, useRef, type ChangeEvent } from "react";
 import { formatPixelSize, formatScale, t } from "../i18n/index.ts";
 import { a11y } from "../styles/a11y.ts";
-import {
-  DRAW_SCALE_MAX,
-  DRAW_SCALE_MIN,
-  drawScaleFromRatio,
-  drawScaleRatio,
-  lineStore,
-  setDrawScale,
-} from "../state/lines.ts";
+import { lineStore, setDrawScale } from "../state/lines.ts";
 import {
   IMAGE_FILE_ACCEPT,
   imageDocumentStore,
@@ -26,7 +13,11 @@ import {
   registerImageFilePicker,
   requestImageFilePicker,
 } from "../state/image-document.ts";
-import { primaryModifier } from "../state/viewport.ts";
+import {
+  primaryModifier,
+  sliderToZoom,
+  zoomToSlider,
+} from "../state/viewport.ts";
 
 export function TopBar() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -141,89 +132,26 @@ export function TopBar() {
 }
 
 function ScaleBar({ scale }: { scale: number }) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const ratio = drawScaleRatio(scale);
-
-  const setFromClientX = (clientX: number) => {
-    const track = trackRef.current;
-    if (!track) return;
-    const rect = track.getBoundingClientRect();
-    if (rect.width <= 0) return;
-    setDrawScale(drawScaleFromRatio((clientX - rect.left) / rect.width));
-  };
-
-  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setFromClientX(event.clientX);
-  };
-
-  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-    setFromClientX(event.clientX);
-  };
-
-  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const step = event.shiftKey ? 0.1 : 0.02;
-    if (event.key === "ArrowRight" || event.key === "ArrowUp") {
-      event.preventDefault();
-      setDrawScale(drawScaleFromRatio(ratio + step));
-    } else if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
-      event.preventDefault();
-      setDrawScale(drawScaleFromRatio(ratio - step));
-    } else if (event.key === "Home") {
-      event.preventDefault();
-      setDrawScale(DRAW_SCALE_MIN);
-    } else if (event.key === "End") {
-      event.preventDefault();
-      setDrawScale(DRAW_SCALE_MAX);
-    }
-  };
-
   return (
-    <Layout.Stack
-      direction="row"
-      align="center"
-      gap="md"
-      grow={false}
-      shrink={false}
-      sx={styles.scaleControl}
+    <Slider.Root
+      min={0}
+      max={1000}
+      step={1}
+      value={zoomToSlider(scale)}
+      sx={styles.scaleSlider}
+      onValueChange={(value) => setDrawScale(sliderToZoom(value))}
     >
-      <span {...stylex.props(styles.scaleLabel)}>{t("scale")}</span>
-      <Layout.Stack
-        direction="row"
-        align="center"
-        sx={styles.scaleTrack}
-        ref={trackRef}
-        role="slider"
-        tabIndex={0}
-        aria-label={t("scale")}
-        aria-orientation="horizontal"
-        aria-valuemin={Math.round(DRAW_SCALE_MIN * 100)}
-        aria-valuemax={Math.round(DRAW_SCALE_MAX * 100)}
-        aria-valuenow={Math.round(scale * 100)}
-        aria-valuetext={formatScale(scale)}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onKeyDown={onKeyDown}
-      >
-        <Layout.Box
-          renderAs="span"
-          display="block"
-          sx={styles.scaleGroove}
-          aria-hidden="true"
-        >
-          <Layout.Box
-            renderAs="span"
-            display="block"
-            sx={styles.scaleFill}
-            style={{ width: `${ratio * 100}%` }}
-          />
-        </Layout.Box>
-      </Layout.Stack>
-      <span {...stylex.props(styles.scaleReadout)}>{formatScale(scale)}</span>
-    </Layout.Stack>
+      <Slider.Label>{t("scale")}</Slider.Label>
+      <Slider.Control sx={styles.scaleControl}>
+        <Slider.Track>
+          <Slider.Indicator />
+          <Slider.Thumb aria-valuetext={formatScale(scale)} />
+        </Slider.Track>
+      </Slider.Control>
+      <Slider.Value sx={styles.scaleReadout}>
+        {() => formatScale(scale)}
+      </Slider.Value>
+    </Slider.Root>
   );
 }
 
@@ -430,50 +358,18 @@ const styles = stylex.create({
       [stylex.when.ancestor("[data-highlighted]")]: "inherit",
     },
   },
-  scaleControl: {
+  scaleSlider: {
+    flexGrow: 0,
+    flexShrink: 0,
     marginLeft: Tokens.spacing.md,
   },
-  scaleLabel: {
-    fontSize: 13,
-    color: Tokens.color.neutral[400],
-  },
-  scaleTrack: {
+  scaleControl: {
     width: 120,
-    height: 22,
-    cursor: "pointer",
-    touchAction: "none",
-    outlineWidth: {
-      default: 0,
-      ":focus-visible": 2,
-    },
-    outlineStyle: {
-      default: "none",
-      ":focus-visible": "solid",
-    },
-    outlineColor: {
-      default: "transparent",
-      ":focus-visible": Tokens.color.blue[100],
-    },
-    outlineOffset: 2,
-  },
-  scaleGroove: {
-    width: "100%",
-    height: Tokens.size.xxs,
-    borderRadius: 4,
-    overflow: "hidden",
-    backgroundColor: Tokens.color.neutral[850],
-    pointerEvents: "none",
-  },
-  scaleFill: {
-    height: "100%",
-    borderRadius: 4,
-    backgroundColor: Tokens.color.blue[500],
+    flexGrow: 0,
+    flexShrink: 0,
   },
   scaleReadout: {
     width: 42,
-    fontSize: 13,
-    fontVariantNumeric: "tabular-nums",
-    color: Tokens.color.neutral[400],
     textAlign: "end",
   },
 });
