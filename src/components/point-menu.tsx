@@ -1,22 +1,40 @@
 import * as stylex from "@stylexjs/stylex";
 import { Button, Layout, Tokens, Widget } from "@ui";
+import { useSelector } from "@tanstack/react-store";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { t } from "../i18n/index.ts";
 import type { MessageId } from "../i18n/messages.ts";
 import {
+  pointMenuStore,
+  setPointMenu,
+  type PointMenuState,
+} from "../state/point-menu.ts";
+import {
+  addRouteNumber,
+  anchorMark,
+  clearAnchorMark,
+  clearRouteNumber,
+  deleteAnchor,
+  insertAnchor,
+  lineStore,
+  setAnchorMark,
+} from "../state/lines.ts";
+import {
   drawPointMark,
+  magnetReach,
   POINT_MARKS,
   type PointMark,
 } from "../state/point-marks.ts";
+import { useViewport } from "../state/use-viewport.ts";
 import { isPlainDelete } from "../state/viewport.ts";
 
-export type PointMenuState = {
-  x: number;
-  y: number;
-  layerId: string;
-  deleteIndex: number | null;
-  insert: { index: number; x: number; y: number } | null;
-};
+/** Subscribes to the point menu on its own, so the stage does not hold it. */
+export function PointMenuHost() {
+  const menu = useSelector(pointMenuStore, (state) => state);
+  useEffect(() => () => setPointMenu(null), []);
+  if (!menu) return null;
+  return <PointMenuFrame menu={menu} />;
+}
 
 const MARK_LABEL = {
   bolt: "boltMark",
@@ -31,6 +49,8 @@ type PointMenuProps = {
   mark: PointMark | null;
   onDelete: (() => void) | null;
   onAdd: (() => void) | null;
+  onAddNumber: (() => void) | null;
+  onRemoveNumber: (() => void) | null;
   onMark: ((mark: PointMark) => void) | null;
   onClose: () => void;
 };
@@ -41,6 +61,8 @@ export function PointMenu({
   mark,
   onDelete,
   onAdd,
+  onAddNumber,
+  onRemoveNumber,
   onMark,
   onClose,
 }: PointMenuProps) {
@@ -155,6 +177,28 @@ export function PointMenu({
           <Button.Text>{t("addPoint")}</Button.Text>
         </Button.Root>
       ) : null}
+      {onAddNumber ? (
+        <Button.Root
+          sx={styles.item}
+          ref={onAdd || onDelete || onMark ? undefined : focusRef}
+          type="button"
+          role="menuitem"
+          onClick={onAddNumber}
+        >
+          <Button.Text>{t("addNumber")}</Button.Text>
+        </Button.Root>
+      ) : null}
+      {onRemoveNumber ? (
+        <Button.Root
+          sx={styles.item}
+          ref={onAdd || onDelete || onMark ? undefined : focusRef}
+          type="button"
+          role="menuitem"
+          onClick={onRemoveNumber}
+        >
+          <Button.Text>{t("removeNumber")}</Button.Text>
+        </Button.Root>
+      ) : null}
       {onDelete ? (
         <Button.Root
           sx={styles.item}
@@ -168,6 +212,81 @@ export function PointMenu({
       ) : null}
     </Widget.Menu>
   );
+}
+
+function PointMenuFrame({ menu }: { menu: PointMenuState }) {
+  const { getState } = useViewport();
+  const index = menu.deleteIndex;
+  const close = () => setPointMenu(null);
+  return (
+    <PointMenu
+      x={menu.x}
+      y={menu.y}
+      mark={index === null ? null : anchorMark(menu.layerId, index)}
+      onDelete={
+        index === null
+          ? null
+          : () => {
+              deleteAnchor(menu.layerId, index);
+              close();
+            }
+      }
+      onAdd={
+        menu.insert
+          ? () => {
+              const insert = menu.insert;
+              if (!insert) return;
+              insertAnchor(
+                menu.layerId,
+                insert.index,
+                insert.x,
+                insert.y,
+                magnetReach(getState().zoom, lineStore.get().scale),
+              );
+              close();
+            }
+          : null
+      }
+      onAddNumber={
+        menu.number === "add"
+          ? () => {
+              addRouteNumber(menu.layerId, menu.at.x, menu.at.y);
+              close();
+            }
+          : null
+      }
+      onRemoveNumber={
+        menu.number === "remove"
+          ? () => {
+              clearRouteNumber(menu.layerId);
+              close();
+            }
+          : null
+      }
+      onMark={
+        index === null
+          ? null
+          : (mark) => {
+              applyPointMark(menu.layerId, index, mark, getState().zoom);
+              close();
+            }
+      }
+      onClose={close}
+    />
+  );
+}
+
+function applyPointMark(
+  layerId: string,
+  index: number,
+  mark: PointMark,
+  zoom: number,
+): void {
+  if (anchorMark(layerId, index) === mark) {
+    clearAnchorMark(layerId, index);
+    return;
+  }
+  setAnchorMark(layerId, index, mark, magnetReach(zoom, lineStore.get().scale));
 }
 
 function MarkIcon({ mark }: { mark: PointMark }) {

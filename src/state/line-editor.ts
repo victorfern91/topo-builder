@@ -1,3 +1,4 @@
+import { beginHistory, endHistory } from "./history.ts";
 import { magnetReach } from "./point-marks.ts";
 import type { CreateToolId } from "./tools.ts";
 import {
@@ -8,14 +9,17 @@ import {
   hitTest,
   lineStore,
   moveMarkedPoint,
+  moveRouteNumber,
   nearestMarkedPoint,
   placeAnchor,
   selectAnchor,
   selectLine,
   setLineHover,
+  setNumberDrag,
 } from "./lines.ts";
 
-type Gesture = {
+type AnchorGesture = {
+  kind: "anchor";
   layerId: string;
   index: number;
   originX: number;
@@ -27,6 +31,13 @@ type Gesture = {
   /** Mark a plain anchor will join when the pointer goes up inside the magnet. */
   pendingPointId: string | null;
 };
+
+type NumberGesture = {
+  kind: "number";
+  layerId: string;
+};
+
+type Gesture = AnchorGesture | NumberGesture;
 
 let gesture: Gesture | null = null;
 
@@ -56,33 +67,43 @@ export function pointerDownLine(
   zoom: number,
   kind: CreateToolId | "edit" | null,
 ): boolean {
-  if (!kind) return false;
-  if (kind === "edit") return beginEdit(x, y, zoom);
-  const layerId = ensureLine(kind);
-  const magnet = nearestMarkedPoint(
-    x,
-    y,
-    magnetReach(zoom, lineStore.get().scale),
-    layerId,
-  );
-  const index = appendAnchor(layerId, magnet?.x ?? x, magnet?.y ?? y);
-  if (index < 0) return false;
-  gesture = {
-    layerId,
-    index,
-    originX: x,
-    originY: y,
-    startX: x,
-    startY: y,
-    pointId: null,
-    pendingPointId: magnet?.id ?? null,
-  };
-  return true;
+  if (!kind || lineGestureActive()) return false;
+  beginHistory();
+  try {
+    if (kind === "edit") return beginEdit(x, y, zoom);
+    const layerId = ensureLine(kind);
+    const magnet = nearestMarkedPoint(
+      x,
+      y,
+      magnetReach(zoom, lineStore.get().scale),
+      layerId,
+    );
+    const index = appendAnchor(layerId, magnet?.x ?? x, magnet?.y ?? y);
+    if (index < 0) return false;
+    gesture = {
+      kind: "anchor",
+      layerId,
+      index,
+      originX: x,
+      originY: y,
+      startX: x,
+      startY: y,
+      pointId: null,
+      pendingPointId: magnet?.id ?? null,
+    };
+    return true;
+  } finally {
+    if (!lineGestureActive()) endHistory();
+  }
 }
 
 export function pointerMoveLine(x: number, y: number, zoom: number): void {
   if (!gesture) {
     setLineHover(hitTest(lineStore.get(), x, y, zoom));
+    return;
+  }
+  if (gesture.kind === "number") {
+    moveRouteNumber(gesture.layerId, x, y);
     return;
   }
   const nextX = gesture.startX + (x - gesture.originX);
@@ -109,17 +130,35 @@ export function pointerMoveLine(x: number, y: number, zoom: number): void {
 export function pointerUpLine(): void {
   const current = gesture;
   gesture = null;
-  if (!current || current.pointId || !current.pendingPointId) return;
-  attachAnchor(current.layerId, current.index, current.pendingPointId);
+  setNumberDrag(null);
+  if (
+    current &&
+    current.kind !== "number" &&
+    !current.pointId &&
+    current.pendingPointId
+  ) {
+    attachAnchor(current.layerId, current.index, current.pendingPointId);
+  }
+  endHistory();
 }
 
 function beginEdit(x: number, y: number, zoom: number): boolean {
   const hit = hitTest(lineStore.get(), x, y, zoom);
+  if (hit?.type === "number") {
+    selectLine(hit.layerId);
+    const layer = findLayer(lineStore.get(), hit.layerId);
+    if (!layer || layer.locked || !layer.routeNumber) return true;
+    gesture = { kind: "number", layerId: hit.layerId };
+    setNumberDrag(hit.layerId);
+    setLineHover(hit);
+    return true;
+  }
   if (hit?.type === "anchor") {
     selectAnchor(hit.layerId, hit.index);
     const anchor = findLayer(lineStore.get(), hit.layerId)?.anchors[hit.index];
     if (!anchor) return false;
     gesture = {
+      kind: "anchor",
       layerId: hit.layerId,
       index: hit.index,
       originX: x,

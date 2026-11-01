@@ -70,6 +70,11 @@ export function dropLineGeometry(live: ReadonlySet<string>): void {
   }
 }
 
+/** Drops cached paths so a restored revision cannot reuse a newer curve. */
+export function clearLineGeometry(): void {
+  cache.clear();
+}
+
 /** Nearest point on the stroked curve. `index` is where a new anchor should be inserted. */
 export function closestOnLine(
   ops: readonly CurveOp[],
@@ -136,6 +141,133 @@ export function curveDistance2(
     ay = op.y;
   }
   return best;
+}
+
+export type CurveSample = { x: number; y: number; d: number };
+
+export type CurveSpan = {
+  length: number;
+  points: CurveSample[];
+};
+
+export type CurveFrame = {
+  x: number;
+  y: number;
+  /** Unit tangent along the route. */
+  tx: number;
+  ty: number;
+  /** Unit normal, left of travel. */
+  nx: number;
+  ny: number;
+};
+
+/** Polyline samples of the stroked curve, with distance from the start. */
+export function curveSpan(ops: readonly CurveOp[]): CurveSpan {
+  const points: CurveSample[] = [];
+  let cx = 0;
+  let cy = 0;
+  let dist = 0;
+  let open = false;
+  for (const op of ops) {
+    if (op.op === "M") {
+      cx = op.x;
+      cy = op.y;
+      if (points.length === 0) points.push({ x: cx, y: cy, d: 0 });
+      open = true;
+      continue;
+    }
+    if (!open) continue;
+    if (op.op === "L") {
+      dist += Math.hypot(op.x - cx, op.y - cy);
+      points.push({ x: op.x, y: op.y, d: dist });
+      cx = op.x;
+      cy = op.y;
+      continue;
+    }
+    for (let step = 1; step <= SAMPLES; step += 1) {
+      const u = step / SAMPLES;
+      const x = cubic(cx, op.c1x, op.c2x, op.x, u);
+      const y = cubic(cy, op.c1y, op.c2y, op.y, u);
+      const prev = points[points.length - 1];
+      if (!prev) continue;
+      dist += Math.hypot(x - prev.x, y - prev.y);
+      points.push({ x, y, d: dist });
+    }
+    cx = op.x;
+    cy = op.y;
+  }
+  return { length: dist, points };
+}
+
+/** Pose at `t` (0 at the start, 1 at the end). */
+export function frameAt(span: CurveSpan, t: number): CurveFrame | null {
+  const { points, length } = span;
+  if (points.length < 2 || !(length > 0) || !Number.isFinite(t)) return null;
+  const target = Math.min(1, Math.max(0, t)) * length;
+  let index = 1;
+  while (index < points.length - 1 && (points[index]?.d ?? 0) < target) {
+    index += 1;
+  }
+  const start = points[index - 1];
+  const end = points[index];
+  if (!start || !end) return null;
+  const spanD = end.d - start.d;
+  const u = spanD > 0 ? (target - start.d) / spanD : 0;
+  return frameFrom(
+    start.x + (end.x - start.x) * u,
+    start.y + (end.y - start.y) * u,
+    end.x - start.x,
+    end.y - start.y,
+  );
+}
+
+/** Closest pose on the curve. `signed` is the perpendicular distance, positive to the left. */
+export function projectSpan(
+  span: CurveSpan,
+  x: number,
+  y: number,
+): (CurveFrame & { t: number; signed: number }) | null {
+  const { points, length } = span;
+  if (points.length < 2 || !(length > 0)) return null;
+  let best = Number.POSITIVE_INFINITY;
+  let bestX = 0;
+  let bestY = 0;
+  let bestD = 0;
+  let bestTx = 1;
+  let bestTy = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const start = points[index - 1];
+    const end = points[index];
+    if (!start || !end) continue;
+    const hit = closestOnSegment(x, y, start.x, start.y, end.x, end.y);
+    if (hit.dist >= best) continue;
+    best = hit.dist;
+    bestX = hit.x;
+    bestY = hit.y;
+    const abx = end.x - start.x;
+    const aby = end.y - start.y;
+    const denom = abx * abx + aby * aby;
+    let u = 0;
+    if (denom > 0) {
+      u = ((hit.x - start.x) * abx + (hit.y - start.y) * aby) / denom;
+      if (u < 0) u = 0;
+      else if (u > 1) u = 1;
+    }
+    bestD = start.d + (end.d - start.d) * u;
+    bestTx = abx;
+    bestTy = aby;
+  }
+  if (!(best < Number.POSITIVE_INFINITY)) return null;
+  const frame = frameFrom(bestX, bestY, bestTx, bestTy);
+  const signed = (x - bestX) * frame.nx + (y - bestY) * frame.ny;
+  return { ...frame, t: bestD / length, signed };
+}
+
+function frameFrom(x: number, y: number, tx: number, ty: number): CurveFrame {
+  const len = Math.hypot(tx, ty);
+  const ux = len > 0 ? tx / len : 1;
+  const uy = len > 0 ? ty / len : 0;
+  return { x, y, tx: ux, ty: uy, nx: -uy, ny: ux };
 }
 
 function bezierDistance2(

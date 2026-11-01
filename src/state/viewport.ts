@@ -65,7 +65,7 @@ export type MinimapLayout = {
 const FRAME_SIZE: Record<WidgetId, { width: number; height: number }> = {
   tools: { width: 48, height: 120 },
   navigator: { width: 216, height: 248 },
-  layers: { width: 280, height: 160 },
+  layers: { width: 340, height: 220 },
 };
 
 const WIDGET_IDS = [

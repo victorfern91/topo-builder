@@ -62,17 +62,12 @@ export const stage = stylex.create({
 export const lineLayers = stylex.create({
   root: {
     zIndex: 4,
-    width: "min(280px, calc(100% - 24px))",
+    width: "min(340px, calc(100% - 24px))",
     maxHeight: "min(360px, 46%)",
     overflow: "hidden",
     cursor: "default",
     userSelect: "auto",
     touchAction: "auto",
-  },
-  scroll: {
-    minHeight: 0,
-    overflow: "auto",
-    overscrollBehavior: "contain",
   },
   colors: {
     borderBottomWidth: 1,
@@ -90,63 +85,26 @@ export const lineLayers = stylex.create({
       "[data-selected]": `inset 0 0 0 1px ${Tokens.color.black[45]}, 0 0 0 2px ${Tokens.color.neutral[100]}`,
     },
   },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    tableLayout: "fixed",
+  orderHandle: {
+    width: 22,
+    height: 22,
+    paddingBlock: Tokens.spacing.none,
+    paddingInline: Tokens.spacing.none,
+    color: "inherit",
+    fontVariantNumeric: "tabular-nums",
+    fontWeight: 650,
     fontSize: 12,
-    lineHeight: 1.3,
-  },
-  head: {
-    paddingTop: Tokens.spacing.sm,
-    paddingRight: Tokens.spacing.md,
-    paddingBottom: Tokens.spacing.xs,
-    paddingLeft: Tokens.spacing.xs,
-    color: Tokens.color.neutral[400],
-    fontSize: 11,
-    fontWeight: 650,
-    textAlign: "start",
-  },
-  swatchHead: {
-    width: Tokens.size.md,
-    padding: Tokens.spacing.none,
-  },
-  kindHead: {
-    width: 72,
-    paddingTop: Tokens.spacing.sm,
-    paddingRight: Tokens.spacing.md,
-    paddingBottom: Tokens.spacing.xs,
-    paddingLeft: Tokens.spacing.xs,
-    color: Tokens.color.neutral[400],
-    fontSize: 11,
-    fontWeight: 650,
-    textAlign: "end",
-  },
-  row: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": Tokens.color.white[4],
-      "[data-selected]": Tokens.color.blue[28],
+    cursor: {
+      default: "grab",
+      ":active": "grabbing",
     },
-  },
-  swatchCell: {
-    width: Tokens.size.md,
-    padding: Tokens.spacing.none,
-    textAlign: "center",
-    verticalAlign: "middle",
+    touchAction: "none",
   },
   swatch: {
     width: 10,
     height: 10,
     borderRadius: 2,
     boxShadow: `inset 0 0 0 1px ${Tokens.color.black[45]}`,
-    verticalAlign: "middle",
-  },
-  nameCell: {
-    paddingTop: Tokens.spacing.xxs,
-    paddingRight: Tokens.spacing.xs,
-    paddingBottom: Tokens.spacing.xxs,
-    paddingLeft: Tokens.spacing.none,
     verticalAlign: "middle",
   },
   name: {
@@ -172,13 +130,16 @@ export const lineLayers = stylex.create({
     cursor: "text",
     outlineStyle: "none",
   },
-  kindCell: {
-    width: 72,
-    paddingRight: Tokens.spacing.md,
+  kind: {
     color: Tokens.color.neutral[400],
-    textAlign: "end",
-    verticalAlign: "middle",
     whiteSpace: "nowrap",
+  },
+  action: {
+    width: 22,
+    height: 22,
+    paddingBlock: Tokens.spacing.none,
+    paddingInline: Tokens.spacing.none,
+    color: Tokens.color.neutral[200],
   },
 });
 

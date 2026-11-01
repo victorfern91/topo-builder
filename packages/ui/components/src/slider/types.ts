@@ -8,7 +8,7 @@ import type {
   SliderValueProps as BaseSliderValueProps,
 } from "@base-ui/react/slider";
 import type { StyleXStyles } from "@stylexjs/stylex";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 type SliderChrome = {
   /** Extra StyleX styles, applied after the built-in styles. */
@@ -20,7 +20,26 @@ type SliderChrome = {
 };
 
 export type SliderRootProps<Value extends number | readonly number[] = number> =
-  Omit<BaseSliderRootProps<Value>, "className" | "style"> & SliderChrome;
+  Omit<BaseSliderRootProps<Value>, "className" | "style"> &
+    SliderChrome & {
+      /** Visible name. Also names the thumb. */
+      label?: ReactNode;
+      /** Extra styles for the label. */
+      labelSx?: StyleXStyles;
+      /**
+       * Visible value. A string is also the spoken value
+       * unless `valueText` is set.
+       */
+      readout?: ReactNode;
+      /** Extra styles for the readout. */
+      readoutSx?: StyleXStyles;
+      /** Width or flex for the default track. */
+      controlSx?: StyleXStyles;
+      /** Names the thumb when `label` is omitted. */
+      thumbLabel?: string;
+      /** Spoken value. Overrides a string `readout`. */
+      valueText?: string;
+    };
 
 export type SliderLabelProps = Omit<
   BaseSliderLabelProps,

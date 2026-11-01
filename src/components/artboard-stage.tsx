@@ -3,15 +3,13 @@ import { Layout } from "@ui";
 import { shallow } from "@tanstack/store";
 import { useSelector } from "@tanstack/react-store";
 import {
-  memo,
-  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
-  useState,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { t } from "../i18n/index.ts";
 import {
@@ -24,21 +22,19 @@ import {
   viewToContent,
 } from "../state/line-editor.ts";
 import {
-  anchorMark,
-  clearAnchorMark,
   deleteAnchor,
   deleteLastAnchor,
+  findLayer,
   finishLine,
   hitTest,
-  insertAnchor,
   lineHoverStore,
   lineStore,
   pointOnLine,
   selectAnchor,
-  setAnchorMark,
+  selectLine,
   type LineHit,
+  type LineLayer,
 } from "../state/lines.ts";
-import { magnetReach, type PointMark } from "../state/point-marks.ts";
 import {
   activeTool,
   applyToolClick,
@@ -53,6 +49,7 @@ import {
 } from "../state/tools.ts";
 import {
   isPlainDelete,
+  viewportStore,
   wheelDelta,
   zoomFactorFromWheel,
   type ContentPlacement,
@@ -62,7 +59,8 @@ import { stage } from "../styles/stage.ts";
 import { LayersPanel } from "./layers-panel.tsx";
 import { LineCanvas } from "./line-canvas.tsx";
 import { NavigatorPanel } from "./navigator-panel.tsx";
-import { PointMenu, type PointMenuState } from "./point-menu.tsx";
+import { pointMenuOpen, setPointMenu } from "../state/point-menu.ts";
+import { PointMenuHost } from "./point-menu.tsx";
 import { ToolSidebar } from "./tool-sidebar.tsx";
 
 const DRAG_SLOP = 3;
@@ -78,7 +76,6 @@ type StageMotion = {
   zoom: number;
   panX: number;
   panY: number;
-  grabbing: boolean;
   placed: boolean;
   crisp: boolean;
 };
@@ -106,13 +103,6 @@ export function ArtboardStage({
   const stageRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<StageDrag | null>(null);
-  const [pointMenu, setPointMenuState] = useState<PointMenuState | null>(null);
-  const pointMenuRef = useRef<PointMenuState | null>(null);
-  const setPointMenu = useCallback((next: PointMenuState | null) => {
-    pointMenuRef.current = next;
-    setPointMenuState(next);
-  }, []);
-  const closePointMenu = useCallback(() => setPointMenu(null), [setPointMenu]);
   const { actions, getState } = useViewport();
   const tool = useSelector(toolStore, activeTool);
   const editingLine = useSelector(
@@ -120,17 +110,6 @@ export function ArtboardStage({
     (state) => state.activeId !== null,
   );
   const spaceHeld = useViewportSelector((state) => state.spaceHeld);
-  const motion = useViewportSelector(
-    (state): StageMotion => ({
-      zoom: state.zoom,
-      panX: state.panX,
-      panY: state.panY,
-      grabbing: state.userAction === "pan",
-      placed: state.fittedKey === contentKey && contentKey !== "",
-      crisp: state.zoom >= 3,
-    }),
-    { compare: shallow },
-  );
 
   useLayoutEffect(() => {
     const node = stageRef.current;
@@ -165,8 +144,13 @@ export function ArtboardStage({
     const node = stageRef.current;
     if (!node) return;
     const apply = () => {
+      const grabbing = viewportStore.get().userAction === "pan";
+      if (node.hasAttribute("data-grabbing") !== grabbing) {
+        if (grabbing) node.setAttribute("data-grabbing", "");
+        else node.removeAttribute("data-grabbing");
+      }
       const cursor = stageCursor(
-        motion.grabbing || spaceHeld,
+        grabbing || spaceHeld,
         tool,
         lineHoverStore.get(),
       );
@@ -175,8 +159,12 @@ export function ArtboardStage({
     };
     apply();
     const hover = lineHoverStore.subscribe(apply);
-    return () => hover.unsubscribe();
-  }, [motion.grabbing, spaceHeld, tool]);
+    const view = viewportStore.subscribe(apply);
+    return () => {
+      hover.unsubscribe();
+      view.unsubscribe();
+    };
+  }, [spaceHeld, tool]);
 
   useEffect(() => {
     const node = stageRef.current;
@@ -233,7 +221,7 @@ export function ArtboardStage({
         event.ctrlKey
       )
         return;
-      if (pointMenuRef.current) return;
+      if (pointMenuOpen()) return;
       const target = event.target;
       const naming =
         target instanceof Element && Boolean(target.closest("[data-layers]"));
@@ -285,7 +273,7 @@ export function ArtboardStage({
         isTypingTarget(event.target)
       )
         return;
-      if (pointMenuRef.current) return;
+      if (pointMenuOpen()) return;
       const state = lineStore.get();
       if (state.activeId !== null && state.anchorIndex !== null) {
         event.preventDefault();
@@ -447,6 +435,25 @@ export function ArtboardStage({
       view.zoom,
     );
     const hit = hitTest(lineStore.get(), point.x, point.y, view.zoom);
+    if (hit?.type === "number") {
+      const layer = findLayer(lineStore.get(), hit.layerId);
+      if (!layer || layer.locked || !layer.routeNumber) {
+        setPointMenu(null);
+        return;
+      }
+      event.preventDefault();
+      selectLine(hit.layerId);
+      setPointMenu({
+        x: event.clientX,
+        y: event.clientY,
+        layerId: hit.layerId,
+        deleteIndex: null,
+        insert: null,
+        number: "remove",
+        at: point,
+      });
+      return;
+    }
     if (hit?.type === "anchor") {
       event.preventDefault();
       selectAnchor(hit.layerId, hit.index);
@@ -456,13 +463,17 @@ export function ArtboardStage({
         layerId: hit.layerId,
         deleteIndex: hit.index,
         insert: null,
+        number: null,
+        at: point,
       });
       return;
     }
     const selectedId = lineStore.get().activeId;
     if (hit?.type === "stroke" && hit.layerId === selectedId) {
+      const layer = findLayer(lineStore.get(), hit.layerId);
       const insert = pointOnLine(hit.layerId, point.x, point.y);
-      if (insert) {
+      const number = routeNumberAction(layer);
+      if (insert || number) {
         event.preventDefault();
         setPointMenu({
           x: event.clientX,
@@ -470,14 +481,14 @@ export function ArtboardStage({
           layerId: hit.layerId,
           deleteIndex: null,
           insert,
+          number,
+          at: point,
         });
         return;
       }
     }
     setPointMenu(null);
   };
-
-  const content = stylex.props(stage.content);
 
   return (
     <Layout.Box
@@ -488,8 +499,7 @@ export function ArtboardStage({
       ref={stageRef}
       role="region"
       aria-label={t("artboard")}
-      aria-keyshortcuts="Control+Equal Control+Minus Control+Digit0 Control+Digit1 Space"
-      data-grabbing={motion.grabbing ? "" : undefined}
+      aria-keyshortcuts="Control+Equal Control+Minus Control+Digit0 Control+Digit1 Control+KeyZ Control+Shift+KeyZ Control+KeyY Space"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={(event) => endDrag(event.pointerId)}
@@ -498,91 +508,57 @@ export function ArtboardStage({
       onContextMenu={onContextMenu}
       onDragStart={(event) => event.preventDefault()}
     >
-      <div
-        ref={contentRef}
-        className={content.className}
-        data-crisp={motion.crisp ? "" : undefined}
-        style={{
-          ...content.style,
-          transform: `translate3d(${motion.panX}px, ${motion.panY}px, 0) scale(${motion.zoom})`,
-          visibility: motion.placed ? "visible" : "hidden",
-        }}
-      >
+      <StagePicture contentKey={contentKey} contentRef={contentRef}>
         {children}
-      </div>
+      </StagePicture>
       <LineCanvas />
       <LayersPanel />
       <ToolSidebar />
       {navigator ? <NavigatorPanel /> : null}
-      {pointMenu ? (
-        <PointMenuFrame menu={pointMenu} onClose={closePointMenu} />
-      ) : null}
+      <PointMenuHost />
     </Layout.Box>
   );
 }
 
-const PointMenuFrame = memo(function PointMenuFrame({
-  menu,
-  onClose,
+function StagePicture({
+  contentKey,
+  contentRef,
+  children,
 }: {
-  menu: PointMenuState;
-  onClose: () => void;
+  contentKey: string;
+  contentRef: RefObject<HTMLDivElement | null>;
+  children: ReactNode;
 }) {
-  const { getState } = useViewport();
-  const index = menu.deleteIndex;
-  return (
-    <PointMenu
-      x={menu.x}
-      y={menu.y}
-      mark={index === null ? null : anchorMark(menu.layerId, index)}
-      onDelete={
-        index === null
-          ? null
-          : () => {
-              deleteAnchor(menu.layerId, index);
-              onClose();
-            }
-      }
-      onAdd={
-        menu.insert
-          ? () => {
-              const insert = menu.insert;
-              if (!insert) return;
-              insertAnchor(
-                menu.layerId,
-                insert.index,
-                insert.x,
-                insert.y,
-                magnetReach(getState().zoom, lineStore.get().scale),
-              );
-              onClose();
-            }
-          : null
-      }
-      onMark={
-        index === null
-          ? null
-          : (mark) => {
-              applyPointMark(menu.layerId, index, mark, getState().zoom);
-              onClose();
-            }
-      }
-      onClose={onClose}
-    />
+  const motion = useViewportSelector(
+    (state): StageMotion => ({
+      zoom: state.zoom,
+      panX: state.panX,
+      panY: state.panY,
+      placed: state.fittedKey === contentKey && contentKey !== "",
+      crisp: state.zoom >= 3,
+    }),
+    { compare: shallow },
   );
-});
+  const content = stylex.props(stage.content);
+  return (
+    <div
+      ref={contentRef}
+      className={content.className}
+      data-crisp={motion.crisp ? "" : undefined}
+      style={{
+        ...content.style,
+        transform: `translate3d(${motion.panX}px, ${motion.panY}px, 0) scale(${motion.zoom})`,
+        visibility: motion.placed ? "visible" : "hidden",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
-function applyPointMark(
-  layerId: string,
-  index: number,
-  mark: PointMark,
-  zoom: number,
-): void {
-  if (anchorMark(layerId, index) === mark) {
-    clearAnchorMark(layerId, index);
-    return;
-  }
-  setAnchorMark(layerId, index, mark, magnetReach(zoom, lineStore.get().scale));
+function routeNumberAction(layer: LineLayer | null): "add" | "remove" | null {
+  if (!layer || layer.locked || layer.anchors.length < 2) return null;
+  return layer.routeNumber ? "remove" : "add";
 }
 
 function stageCursor(
@@ -592,7 +568,7 @@ function stageCursor(
 ): string {
   if (panning) return "grab";
   if (!toolEditsLine(tool)) return toolCursor(tool);
-  if (hover?.type === "anchor") return "move";
+  if (hover?.type === "anchor" || hover?.type === "number") return "move";
   if (hover?.type === "stroke") return "pointer";
   return toolCursor(tool);
 }

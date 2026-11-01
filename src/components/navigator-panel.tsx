@@ -1,9 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
-import { Button, Layout, Slider, Widget } from "@ui";
+import { Button, Input, Layout, Slider, Widget } from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import { shallow } from "@tanstack/store";
 import {
-  memo,
   useId,
   useLayoutEffect,
   useRef,
@@ -30,7 +29,7 @@ import {
   type MinimapLayout,
 } from "../state/viewport.ts";
 
-export const NavigatorPanel = memo(function NavigatorPanel() {
+export function NavigatorPanel() {
   const helpId = useId();
   const frame = useWidgetFrame("navigator");
   const { keys } = useViewport();
@@ -62,9 +61,9 @@ export const NavigatorPanel = memo(function NavigatorPanel() {
       </Widget.Container>
     </Widget.Panel>
   );
-});
+}
 
-const ZoomControls = memo(function ZoomControls() {
+function ZoomControls() {
   const zoom = useViewportSelector((state) => state.zoom);
   const { actions, keys } = useViewport();
 
@@ -86,18 +85,10 @@ const ZoomControls = memo(function ZoomControls() {
           step={1}
           value={zoomToSlider(zoom)}
           sx={navigator.slider}
+          thumbLabel={t("zoomPercent")}
+          valueText={formatZoomPercent(zoom)}
           onValueChange={(value) => actions.zoomTo(sliderToZoom(value))}
-        >
-          <Slider.Control>
-            <Slider.Track>
-              <Slider.Indicator />
-              <Slider.Thumb
-                aria-label={t("zoomPercent")}
-                aria-valuetext={formatZoomPercent(zoom)}
-              />
-            </Slider.Track>
-          </Slider.Control>
-        </Slider.Root>
+        />
         <Button.Root
           sx={navigator.step}
           type="button"
@@ -135,9 +126,9 @@ const ZoomControls = memo(function ZoomControls() {
       </Layout.Stack>
     </Layout.Stack>
   );
-});
+}
 
-const Minimap = memo(function Minimap() {
+function Minimap() {
   const mapRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
     id: number;
@@ -265,7 +256,7 @@ const Minimap = memo(function Minimap() {
       {layout ? <MapPicture layout={layout} imageUrl={imageUrl} /> : null}
     </div>
   );
-});
+}
 
 function MapPicture({
   layout,
@@ -328,8 +319,8 @@ function ZoomField() {
   };
 
   return (
-    <input
-      {...stylex.props(navigator.percent, navigator.focusable)}
+    <Input.Root
+      sx={navigator.percent}
       value={shown}
       inputMode="decimal"
       autoComplete="off"
@@ -341,9 +332,9 @@ function ZoomField() {
         setDraft(formatZoomPercent(zoom).replace("%", ""));
         requestAnimationFrame(() => input.select());
       }}
-      onChange={(event) => {
+      onValueChange={(value) => {
         dirty.current = true;
-        setDraft(event.target.value);
+        setDraft(value);
       }}
       onBlur={() => {
         if (skipCommit.current) {

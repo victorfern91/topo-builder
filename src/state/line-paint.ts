@@ -5,10 +5,18 @@ import {
   LINE_STROKE,
   lineHoverStore,
   lineStore,
+  numberDragStore,
   type LineHit,
   type LineLayer,
   type LineState,
 } from "./lines.ts";
+import {
+  dropRouteSpans,
+  NUMBER_FONT,
+  numberBadge,
+  numberMagnet,
+  routeNumberPlacement,
+} from "./route-number.ts";
 import { drawPointMark, markRadius } from "./point-marks.ts";
 import { viewportStore } from "./viewport.ts";
 
@@ -47,10 +55,13 @@ export function paintLines(canvas: HTMLCanvasElement): void {
   if (!visible) {
     painted = false;
     dropLineGeometry(new Set());
+    dropRouteSpans(new Set());
     return;
   }
   painted = true;
-  dropLineGeometry(new Set(doc.layers.map((layer) => layer.id)));
+  const live = new Set(doc.layers.map((layer) => layer.id));
+  dropLineGeometry(live);
+  dropRouteSpans(live);
 
   ctx.setTransform(
     dpr * view.zoom,
@@ -62,19 +73,22 @@ export function paintLines(canvas: HTMLCanvasElement): void {
   );
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
+  const hover = lineHoverStore.get();
+  const magnetId =
+    numberDragStore.get() ?? (hover?.type === "number" ? hover.layerId : null);
+  if (magnetId) {
+    const band = findLayer(doc, magnetId);
+    if (band) paintNumberBand(ctx, band);
+  }
   let active: LineLayer | null = null;
   for (const layer of doc.layers) {
-    if (layer.id === doc.activeId) {
+    const selected = layer.id === doc.activeId;
+    if (selected) {
       active = layer;
-      continue;
+      paintSelection(ctx, layer);
     }
-    strokeLayer(ctx, layer, false);
+    strokeLayer(ctx, layer, selected);
   }
-  if (active) {
-    paintSelection(ctx, active);
-    strokeLayer(ctx, active, true);
-  }
-  const hover = lineHoverStore.get();
   paintMarks(ctx, doc, hover, view.zoom);
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -87,6 +101,7 @@ export function paintLines(canvas: HTMLCanvasElement): void {
     view.panX,
     view.panY,
   );
+  paintLineNumbers(ctx, doc.layers, hover, view.zoom, view.panX, view.panY);
 }
 
 function paintSelection(ctx: CanvasRenderingContext2D, layer: LineLayer): void {
@@ -117,6 +132,8 @@ function strokeLayer(
   ).path;
   const scale = layer.scale;
   const width = (active ? ACTIVE_STROKE : STROKE) * scale;
+  ctx.save();
+  if (layer.locked) ctx.globalAlpha = 0.55;
   ctx.setLineDash(
     layer.kind === "boulder"
       ? BOULDER_DASH.map((length) => length * scale)
@@ -128,7 +145,7 @@ function strokeLayer(
   ctx.strokeStyle = layer.color;
   ctx.lineWidth = width;
   ctx.stroke(path);
-  ctx.setLineDash([]);
+  ctx.restore();
 }
 
 function paintMarks(
@@ -179,7 +196,7 @@ function paintControls(
   panX: number,
   panY: number,
 ): void {
-  if (active && active.anchors.length > 0)
+  if (active && !active.locked && active.anchors.length > 0)
     paintAnchors(ctx, active, hover, anchorIndex, zoom, panX, panY);
   if (!hover || hover.type !== "anchor" || hover.layerId === active?.id) return;
   const layer = findLayer(lineStore.get(), hover.layerId);
@@ -252,6 +269,82 @@ function paintAnchors(
       );
     }
   }
+}
+
+/** Draws each list number inside the magnet band. Index 0 is line 1. */
+function paintLineNumbers(
+  ctx: CanvasRenderingContext2D,
+  layers: readonly LineLayer[],
+  hover: LineHit | null,
+  zoom: number,
+  panX: number,
+  panY: number,
+): void {
+  if (!(zoom > 0)) return;
+  const dragged = numberDragStore.get();
+  ctx.save();
+  ctx.font = NUMBER_FONT;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (let index = 0; index < layers.length; index += 1) {
+    const layer = layers[index];
+    if (!layer) continue;
+    const place = routeNumberPlacement(layer);
+    if (!place) continue;
+    const label = String(index + 1);
+    const badge = numberBadge(label);
+    const x = panX + place.x * zoom;
+    const y = panY + place.y * zoom;
+    const held =
+      dragged === layer.id ||
+      (hover?.type === "number" && hover.layerId === layer.id);
+    ctx.save();
+    if (layer.locked) ctx.globalAlpha = 0.55;
+    if (dragged === layer.id) {
+      ctx.beginPath();
+      ctx.moveTo(panX + place.onX * zoom, panY + place.onY * zoom);
+      ctx.lineTo(x, y);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = layer.color;
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.roundRect(
+      x - badge.width / 2,
+      y - badge.height / 2,
+      badge.width,
+      badge.height,
+      badge.height / 2,
+    );
+    ctx.fillStyle = Tokens.color.neutral[950];
+    ctx.fill();
+    ctx.lineWidth = held ? 2 : 1.5;
+    ctx.strokeStyle = held ? SELECT_BLUE : layer.color;
+    ctx.stroke();
+    ctx.fillStyle = Tokens.color.neutral[0];
+    ctx.fillText(label, x, y);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function paintNumberBand(
+  ctx: CanvasRenderingContext2D,
+  layer: LineLayer,
+): void {
+  if (layer.anchors.length < 2) return;
+  const path = lineGeometry(
+    layer.id,
+    layer.geometryRevision,
+    layer.anchors,
+  ).path;
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.lineWidth = numberMagnet().reach * 2;
+  ctx.strokeStyle = layer.color;
+  ctx.globalAlpha = 0.18;
+  ctx.stroke(path);
+  ctx.restore();
 }
 
 function fillSquare(

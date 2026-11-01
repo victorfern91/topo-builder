@@ -1,6 +1,6 @@
 # UI
 
-Import interactive controls from `@ui` (`import { Button, Layout, Slider, Widget } from '@ui'`, `import Button from '@ui/button'`, `import Layout from '@ui/layout'`, `import Slider from '@ui/slider'`, or `import Widget from '@ui/widget'`). The package exports are the components available to the app. Compose the parts those exports provide; for Button that is `Button.Root`, `Button.Icon`, and `Button.Text`. For boxes that is `Layout.Box`, `Layout.Stack`, and `Layout.Grid`. For a slider that is `Slider.Root`, `Slider.Label`, `Slider.Control`, `Slider.Track`, `Slider.Indicator`, `Slider.Thumb`, and `Slider.Value`. For a floating panel that is `Widget.Panel`, `Widget.Header`, `Widget.Container`, and `Widget.Menu`. Each of Button and Layout takes `renderAs` `div` (default) or `span`. `Widget.Panel` takes `renderAs` `div` (default), `aside`, or `section`. Prop and composition details live on the JSDoc of each part.
+Import interactive controls from `@ui` (`import { Button, Input, Layout, Slider, Table, Toast, Widget } from '@ui'`, `import Button from '@ui/button'`, `import Input from '@ui/input'`, `import Layout from '@ui/layout'`, `import Slider from '@ui/slider'`, `import Table from '@ui/table'`, `import Toast from '@ui/toast'`, or `import Widget from '@ui/widget'`). The package exports are the components available to the app. Compose the parts those exports provide; for Button that is `Button.Root`, `Button.Icon`, and `Button.Text`. For a field that is `Input.Root`. For boxes that is `Layout.Box`, `Layout.Stack`, and `Layout.Grid`. For a slider, `Slider.Root` renders the track. For a table, `Table.Root` renders the scrollport. For a toast that is `Toast.Provider`, `Toast.Portal`, `Toast.Viewport`, `Toast.Root`, `Toast.Content`, `Toast.Title`, `Toast.Description`, and `Toast.Close`. For a floating panel that is `Widget.Panel`, `Widget.Header`, `Widget.Container`, and `Widget.Menu`. Each of Button and Layout takes `renderAs` `div` (default) or `span`. `Widget.Panel` takes `renderAs` `div` (default), `aside`, or `section`. Prop and composition details live on the JSDoc of each part.
 
 Ship Button defaults. Pass `variant`, `size`, `radius`, `rounded`, or `sx` only for instance-specific layout or state.
 
@@ -10,24 +10,55 @@ Ship Layout defaults. `Layout.Box` keeps the element display. `Layout.Stack` is 
 
 A control that is not exported from `@ui` gets a wrapper in `packages/ui/components` first. Export it from that package, then use the export.
 
-# Slider
+# Input
 
-Ship Slider defaults. Pass `sx` for instance width or flex.
+Ship Input defaults. Pass `sx` for instance width or a one-off field.
 
 ```tsx
-<Slider.Root min={0} max={100} value={value} onValueChange={setValue}>
-  <Slider.Label>Scale</Slider.Label>
-  <Slider.Control>
-    <Slider.Track>
-      <Slider.Indicator />
-      <Slider.Thumb aria-valuetext="100%" />
-    </Slider.Track>
-  </Slider.Control>
-  <Slider.Value>{() => "100%"}</Slider.Value>
-</Slider.Root>
+<Input.Root value={name} aria-label="Name" onValueChange={setName} />
 ```
 
-`Label` and `Value` are optional. `Thumb` `aria-label` names the slider when there is no `Label`. `aria-valuetext` is the spoken value. `onValueChange` receives the next value while dragging and from the keyboard.
+`onValueChange` receives the next string. `onChange` stays available for a file input. Remaining props go to the input (`type`, `disabled`, `ref`).
+
+# Slider
+
+`Slider.Root` renders the track, the filled indicator, and the thumb. Pass `label` for the visible name and `readout` for the visible value. A string `readout` is also the spoken value. Pass `thumbLabel` when there is no `label`. Pass `valueText` when the spoken value differs from `readout`. Pass `sx` for the row, `controlSx` for the track width, and `readoutSx` for the value. Pass `children` to replace the track with `Control`, `Track`, `Indicator`, and `Thumb`.
+
+```tsx
+<Slider.Root
+  min={0}
+  max={100}
+  value={value}
+  onValueChange={setValue}
+  label="Scale"
+  readout="100%"
+/>
+```
+
+`onValueChange` receives the next value while dragging and from the keyboard.
+
+# Toast
+
+Ship Toast defaults. `Toast.Provider` wraps the tree that raises toasts. `Toast.useToastManager()` returns the open toasts and `add` / `close`. Pass `sx` for instance placement.
+
+```tsx
+<Toast.Provider>
+  {children}
+  <Toast.Portal>
+    <Toast.Viewport aria-label="Notifications">
+      {toasts.map((toast) => (
+        <Toast.Root key={toast.id} toast={toast}>
+          <Toast.Content>
+            <Toast.Title />
+            <Toast.Close>Dismiss</Toast.Close>
+            <Toast.Description />
+          </Toast.Content>
+        </Toast.Root>
+      ))}
+    </Toast.Viewport>
+  </Toast.Portal>
+</Toast.Provider>
+```
 
 # Widget
 
@@ -49,6 +80,29 @@ Ship Widget defaults. Pass `sx` for instance chrome such as width, z-index, or o
 `Widget.Container` is the column body. Pass Layout stack props for that instance.
 
 `Widget.Menu` is the popup chrome. Position it with `sx` or `style`. It stays at its content size. Pass `resizable` to resize from the right edge, the bottom edge, and the corner; `onResize`, `minWidth`, `minHeight`, and `resizeLabel` match the panel. The menu stops at the viewport edge.
+
+# Table
+
+`Table.Root` is a virtualized TanStack Table and the scrollport. It fills leftover space in a column flex parent. Pass `data`, `columns`, `getRowId`, and `aria-label`. `estimateSize` is the row height in pixels (default 32). `scrollToId` brings that row into view when the id changes. `getRowProps` returns `selected`, `locked`, and `onPointerDown` for each row.
+
+Build columns with `createColumnHelper<TableFeatures, Row>()` from `@tanstack/react-table`. `Table.features` is that feature set. `meta.width` sets the column width. `meta.align` is `start` (default), `center`, or `end`. `meta.headerHidden` keeps the header for assistive tech and hides it.
+
+```tsx
+const columnHelper = createColumnHelper<TableFeatures, Row>()
+const columns = columnHelper.columns([
+  columnHelper.accessor("name", {
+    header: "Name",
+    cell: (info) => info.getValue(),
+  }),
+])
+
+<Table.Root
+  data={rows}
+  columns={columns}
+  getRowId={(row) => row.id}
+  aria-label="Rows"
+/>
+```
 
 # Tokens
 

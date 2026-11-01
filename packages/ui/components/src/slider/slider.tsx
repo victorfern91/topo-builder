@@ -13,38 +13,62 @@ import type {
 } from "./types.ts";
 
 /**
- * Slider group. Compose `Control`, `Track`, `Indicator`, and `Thumb`.
- * `Label` and `Value` are optional.
+ * Slider group. Renders the track, indicator, and thumb.
+ * Pass `label` and `readout` for the text. Pass `children` to replace the track.
  *
  * The control pads by half the thumb, so the thumb stays inside the ends.
- * Pass `sx` for width or flex. Remaining props go to the Base UI root
- * (`min`, `max`, `step`, `value`, `onValueChange`, `disabled`, `orientation`).
+ * Pass `sx` for the row and `controlSx` for the track width. Remaining props
+ * go to the Base UI root (`min`, `max`, `step`, `value`, `onValueChange`,
+ * `disabled`, `orientation`).
  *
  * @example
  * ```tsx
  * import { Slider } from '@ui'
  *
- * <Slider.Root min={0} max={100} value={value} onValueChange={setValue}>
- *   <Slider.Label>Scale</Slider.Label>
- *   <Slider.Control>
- *     <Slider.Track>
- *       <Slider.Indicator />
- *       <Slider.Thumb aria-valuetext="100%" />
- *     </Slider.Track>
- *   </Slider.Control>
- *   <Slider.Value>{() => '100%'}</Slider.Value>
- * </Slider.Root>
+ * <Slider.Root
+ *   min={0}
+ *   max={100}
+ *   value={value}
+ *   onValueChange={setValue}
+ *   label="Scale"
+ *   readout="100%"
+ * />
  * ```
  */
 export function SliderRoot<Value extends number | readonly number[] = number>({
   sx,
   className,
   style,
+  label,
+  labelSx,
+  readout,
+  readoutSx,
+  controlSx,
+  thumbLabel,
+  valueText,
+  children,
   ...props
 }: SliderRootProps<Value>) {
   const chrome = sliderChrome(stylex.props(styles.root, sx), className, style);
+  const spoken =
+    valueText ?? (typeof readout === "string" ? readout : undefined);
 
-  return <BaseSlider.Root {...props} {...chrome} />;
+  return (
+    <BaseSlider.Root {...props} {...chrome}>
+      {label != null ? <SliderLabel sx={labelSx}>{label}</SliderLabel> : null}
+      {children ?? (
+        <SliderControl sx={controlSx}>
+          <SliderTrack>
+            <SliderIndicator />
+            <SliderThumb aria-label={thumbLabel} aria-valuetext={spoken} />
+          </SliderTrack>
+        </SliderControl>
+      )}
+      {readout != null ? (
+        <SliderValue sx={readoutSx}>{() => readout}</SliderValue>
+      ) : null}
+    </BaseSlider.Root>
+  );
 }
 
 /** Accessible name for the thumbs. Clicking it focuses the slider. */
