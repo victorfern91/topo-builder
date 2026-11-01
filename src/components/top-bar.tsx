@@ -1,10 +1,17 @@
 import * as stylex from "@stylexjs/stylex";
 import { Menu } from "@base-ui/react/menu";
-import { Button, Layout, Slider, Tokens } from "@ui";
+import { Button, Input, Layout, Slider, Tokens } from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import { useEffect, useRef, type ChangeEvent } from "react";
 import { formatPixelSize, formatScale, t } from "../i18n/index.ts";
 import { a11y } from "../styles/a11y.ts";
+import {
+  blocksHistoryCommand,
+  historyCommand,
+  historyStore,
+  redo,
+  undo,
+} from "../state/history.ts";
 import { lineStore, setDrawScale } from "../state/lines.ts";
 import {
   IMAGE_FILE_ACCEPT,
@@ -21,20 +28,6 @@ import {
 
 export function TopBar() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const fileName = useSelector(imageDocumentStore, (state) => state.fileName);
-  const size = useSelector(imageDocumentStore, (state) => state.size);
-  const shortcutLabel = applePlatform() ? "⌘O" : "Ctrl+O";
-  const imageReady = useSelector(
-    imageDocumentStore,
-    (state) => state.status === "ready",
-  );
-  const scale = useSelector(lineStore, (state) => state.scale);
-
-  useEffect(() => {
-    document.title = fileName
-      ? t("documentTitle", { fileName })
-      : t("appTitle");
-  }, [fileName]);
 
   useEffect(() => {
     return registerImageFilePicker(() => {
@@ -62,6 +55,18 @@ export function TopBar() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const command = historyCommand(event);
+      if (!command || blocksHistoryCommand(event.target)) return;
+      event.preventDefault();
+      if (command === "undo") undo();
+      else redo();
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, []);
+
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -80,38 +85,13 @@ export function TopBar() {
         <span {...stylex.props(styles.brandMark)} aria-hidden="true" />
         Topo
       </Layout.Stack>
-      <Menu.Root>
-        <Menu.Trigger {...stylex.props(styles.barButton)}>
-          {t("file")}
-        </Menu.Trigger>
-        <Menu.Portal>
-          <Menu.Positioner
-            {...stylex.props(styles.positioner)}
-            sideOffset={6}
-            align="start"
-          >
-            <Menu.Popup {...stylex.props(styles.popup)}>
-              <Menu.Item
-                {...stylex.props(styles.menuItem, stylex.defaultMarker())}
-                onClick={() => inputRef.current?.click()}
-              >
-                <span>{t("openEllipsis")}</span>
-                <span {...stylex.props(styles.kbd)}>{shortcutLabel}</span>
-              </Menu.Item>
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
-      </Menu.Root>
-      {imageReady ? <ScaleBar scale={scale} /> : null}
-      <p {...stylex.props(styles.docTitle)} title={fileName ?? undefined}>
-        {fileName ?? t("noDocument")}
-      </p>
+      <FileMenu />
+      <EditMenu />
+      <HistoryButtons />
+      <ScaleBar />
+      <DocumentTitle />
       <Layout.Box grow sx={styles.spacer} />
-      {size ? (
-        <p {...stylex.props(styles.dimensions)}>
-          {formatPixelSize(size.width, size.height)}
-        </p>
-      ) : null}
+      <PixelSize />
       <Button.Root
         variant="primary"
         sx={styles.openButton}
@@ -119,8 +99,8 @@ export function TopBar() {
       >
         <Button.Text>{t("open")}</Button.Text>
       </Button.Root>
-      <input
-        {...stylex.props(a11y.visuallyHidden)}
+      <Input.Root
+        sx={a11y.visuallyHidden}
         ref={inputRef}
         type="file"
         accept={IMAGE_FILE_ACCEPT}
@@ -131,27 +111,150 @@ export function TopBar() {
   );
 }
 
-function ScaleBar({ scale }: { scale: number }) {
+function FileMenu() {
+  const shortcutLabel = applePlatform() ? "⌘O" : "Ctrl+O";
+  return (
+    <Menu.Root>
+      <Menu.Trigger {...stylex.props(styles.barButton)}>
+        {t("file")}
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner
+          {...stylex.props(styles.positioner)}
+          sideOffset={6}
+          align="start"
+        >
+          <Menu.Popup {...stylex.props(styles.popup)}>
+            <Menu.Item
+              {...stylex.props(styles.menuItem, stylex.defaultMarker())}
+              onClick={requestImageFilePicker}
+            >
+              <span>{t("openEllipsis")}</span>
+              <span {...stylex.props(styles.kbd)}>{shortcutLabel}</span>
+            </Menu.Item>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
+  );
+}
+
+function EditMenu() {
+  const history = useSelector(historyStore, (state) => state);
+  const apple = applePlatform();
+  const undoShortcut = apple ? "⌘Z" : "Ctrl+Z";
+  const redoShortcut = apple ? "⌘⇧Z" : "Ctrl+Y";
+  return (
+    <Menu.Root>
+      <Menu.Trigger {...stylex.props(styles.barButton)}>
+        {t("edit")}
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner
+          {...stylex.props(styles.positioner)}
+          sideOffset={6}
+          align="start"
+        >
+          <Menu.Popup {...stylex.props(styles.popup)}>
+            <Menu.Item
+              {...stylex.props(styles.menuItem, stylex.defaultMarker())}
+              disabled={!history.canUndo}
+              onClick={undo}
+            >
+              <span>{t("undo")}</span>
+              <span {...stylex.props(styles.kbd)}>{undoShortcut}</span>
+            </Menu.Item>
+            <Menu.Item
+              {...stylex.props(styles.menuItem, stylex.defaultMarker())}
+              disabled={!history.canRedo}
+              onClick={redo}
+            >
+              <span>{t("redo")}</span>
+              <span {...stylex.props(styles.kbd)}>{redoShortcut}</span>
+            </Menu.Item>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
+  );
+}
+
+function HistoryButtons() {
+  const canUndo = useSelector(historyStore, (state) => state.canUndo);
+  const canRedo = useSelector(historyStore, (state) => state.canRedo);
+  const apple = applePlatform();
+  const undoShortcut = apple ? "⌘Z" : "Ctrl+Z";
+  const redoShortcut = apple ? "⌘⇧Z" : "Ctrl+Y";
+  return (
+    <Layout.Stack direction="row" align="center" gap="xxs" sx={styles.history}>
+      <Button.Root
+        type="button"
+        aria-label={t("undo")}
+        title={`${t("undo")} (${undoShortcut})`}
+        disabled={!canUndo}
+        sx={styles.iconButton}
+        onClick={undo}
+      >
+        <Button.Icon id="arrow-left" />
+      </Button.Root>
+      <Button.Root
+        type="button"
+        aria-label={t("redo")}
+        title={`${t("redo")} (${redoShortcut})`}
+        disabled={!canRedo}
+        sx={styles.iconButton}
+        onClick={redo}
+      >
+        <Button.Icon id="arrow-right" />
+      </Button.Root>
+    </Layout.Stack>
+  );
+}
+
+function ScaleBar() {
+  const ready = useSelector(
+    imageDocumentStore,
+    (state) => state.status === "ready",
+  );
+  const scale = useSelector(lineStore, (state) => state.scale);
+  if (!ready) return null;
   return (
     <Slider.Root
       min={0}
       max={1000}
       step={1}
       value={zoomToSlider(scale)}
+      label={t("scale")}
+      readout={formatScale(scale)}
       sx={styles.scaleSlider}
+      controlSx={styles.scaleControl}
+      readoutSx={styles.scaleReadout}
       onValueChange={(value) => setDrawScale(sliderToZoom(value))}
-    >
-      <Slider.Label>{t("scale")}</Slider.Label>
-      <Slider.Control sx={styles.scaleControl}>
-        <Slider.Track>
-          <Slider.Indicator />
-          <Slider.Thumb aria-valuetext={formatScale(scale)} />
-        </Slider.Track>
-      </Slider.Control>
-      <Slider.Value sx={styles.scaleReadout}>
-        {() => formatScale(scale)}
-      </Slider.Value>
-    </Slider.Root>
+    />
+  );
+}
+
+function DocumentTitle() {
+  const fileName = useSelector(imageDocumentStore, (state) => state.fileName);
+  useEffect(() => {
+    document.title = fileName
+      ? t("documentTitle", { fileName })
+      : t("appTitle");
+  }, [fileName]);
+  return (
+    <p {...stylex.props(styles.docTitle)} title={fileName ?? undefined}>
+      {fileName ?? t("noDocument")}
+    </p>
+  );
+}
+
+function PixelSize() {
+  const size = useSelector(imageDocumentStore, (state) => state.size);
+  if (!size) return null;
+  return (
+    <p {...stylex.props(styles.dimensions)}>
+      {formatPixelSize(size.width, size.height)}
+    </p>
   );
 }
 
@@ -244,6 +347,14 @@ const styles = stylex.create({
   },
   openButton: {
     marginLeft: Tokens.spacing.xs,
+  },
+  history: {
+    marginLeft: Tokens.spacing.xs,
+  },
+  iconButton: {
+    width: Tokens.size.md,
+    paddingInline: Tokens.spacing.none,
+    borderRadius: 4,
   },
   docTitle: {
     position: {
@@ -346,10 +457,12 @@ const styles = stylex.create({
     backgroundColor: {
       default: "transparent",
       "[data-highlighted]": Tokens.color.blue[500],
+      "[data-disabled]": "transparent",
     },
     color: {
       default: "inherit",
       "[data-highlighted]": Tokens.color.neutral[0],
+      "[data-disabled]": Tokens.color.neutral[500],
     },
   },
   kbd: {

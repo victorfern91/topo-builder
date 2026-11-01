@@ -1,7 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import { Button, Layout, Tokens, Widget } from "@ui";
 import { useSelector } from "@tanstack/react-store";
-import { memo, useEffect, useId, useRef, useState } from "react";
+import { Store } from "@tanstack/store";
+import { useEffect, useId, useRef } from "react";
 import { t } from "../i18n/index.ts";
 import type { MessageId } from "../i18n/messages.ts";
 import { imageDocumentStore } from "../state/image-document.ts";
@@ -47,48 +48,50 @@ const CREATE_TOOL_OPTIONS: { id: CreateToolId; label: MessageId }[] = [
 
 type ToolFlyout = "zoom" | "create";
 
-export const ToolSidebar = memo(function ToolSidebar() {
-  const ready = useSelector(
-    imageDocumentStore,
-    (state) => state.status === "ready",
-  );
-  const group = useSelector(toolStore, (state) => state.group);
-  const zoom = useSelector(toolStore, (state) => state.zoom);
-  const create = useSelector(toolStore, (state) => state.create);
-  const { actions, keys } = useViewport();
-  const frame = useWidgetFrame("tools");
-  const [flyout, setFlyout] = useState<ToolFlyout | null>(null);
-  const zoomSlotRef = useRef<HTMLDivElement>(null);
-  const createSlotRef = useRef<HTMLDivElement>(null);
-  const closeTimer = useRef<number | null>(null);
-  const menuId = useId();
-  const zoomOption =
-    ZOOM_TOOL_OPTIONS.find((item) => item.id === zoom) ?? ZOOM_TOOL_OPTIONS[0];
-  const createOption =
-    CREATE_TOOL_OPTIONS.find((item) => item.id === create) ??
-    CREATE_TOOL_OPTIONS[0];
+const flyoutStore = new Store<ToolFlyout | null>(null);
+let closeTimer: number | null = null;
+
+function cancelClose(): void {
+  if (closeTimer != null) window.clearTimeout(closeTimer);
+  closeTimer = null;
+}
+
+function closeFlyout(): void {
+  cancelClose();
+  flyoutStore.setState((current) => (current === null ? current : null));
+}
+
+function openFlyout(id: ToolFlyout): void {
+  cancelClose();
+  flyoutStore.setState((current) => (current === id ? current : id));
+}
+
+function scheduleClose(id: ToolFlyout): void {
+  cancelClose();
+  closeTimer = window.setTimeout(() => {
+    closeTimer = null;
+    flyoutStore.setState((current) => (current === id ? null : current));
+  }, 160);
+}
+
+function useFlyout(id: ToolFlyout) {
+  const open = useSelector(flyoutStore, (current) => current === id);
+  const slotRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    return () => {
-      if (closeTimer.current != null) window.clearTimeout(closeTimer.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (flyout == null) return;
+    if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setFlyout(null);
+      if (event.key === "Escape") closeFlyout();
     };
     const onPointerDown = (event: PointerEvent) => {
-      const slot =
-        flyout === "zoom" ? zoomSlotRef.current : createSlotRef.current;
+      const slot = slotRef.current;
       if (
         !slot ||
         !(event.target instanceof Node) ||
         slot.contains(event.target)
       )
         return;
-      setFlyout(null);
+      closeFlyout();
     };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("pointerdown", onPointerDown);
@@ -96,24 +99,26 @@ export const ToolSidebar = memo(function ToolSidebar() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("pointerdown", onPointerDown);
     };
-  }, [flyout]);
+  }, [open]);
+
+  return { open, slotRef };
+}
+
+export function ToolSidebar() {
+  const ready = useSelector(
+    imageDocumentStore,
+    (state) => state.status === "ready",
+  );
+  const frame = useWidgetFrame("tools");
+
+  useEffect(() => {
+    if (ready) return;
+    closeFlyout();
+  }, [ready]);
+
+  useEffect(() => cancelClose, []);
 
   if (!ready) return null;
-
-  const cancelClose = () => {
-    if (closeTimer.current != null) window.clearTimeout(closeTimer.current);
-    closeTimer.current = null;
-  };
-
-  const scheduleClose = () => {
-    cancelClose();
-    closeTimer.current = window.setTimeout(() => setFlyout(null), 160);
-  };
-
-  const runCommand = (id: ZoomCommandId) => {
-    setFlyout(null);
-    applyToolClick(id, actions, "center");
-  };
 
   return (
     <Widget.Panel
@@ -128,179 +133,215 @@ export const ToolSidebar = memo(function ToolSidebar() {
     >
       <Widget.Header label={t("dragTools")} />
       <Widget.Container align="center" gap="xxs">
-        <Button.Root
-          sx={styles.tool}
-          type="button"
-          aria-label={t("moveView")}
-          aria-pressed={group === "move"}
-          data-pressed={group === "move" ? "" : undefined}
-          title={`${t("moveView")} (${keys.pan})`}
-          onClick={() => {
-            setFlyout(null);
-            selectGroup("move");
-          }}
-        >
-          <Button.Icon id="move" />
-        </Button.Root>
-        <div
-          {...stylex.props(styles.slot)}
-          ref={createSlotRef}
-          onMouseLeave={scheduleClose}
-          onMouseEnter={cancelClose}
-        >
-          <Button.Root
-            sx={styles.tool}
-            type="button"
-            aria-label={t(createOption.label)}
-            aria-pressed={group === "create"}
-            data-pressed={group === "create" ? "" : undefined}
-            title={t(createOption.label)}
-            onClick={() => {
-              setFlyout(null);
-              const drawing = group === "create";
-              selectGroup("create");
-              if (drawing) beginLine(create);
-              else ensureLine(create);
-            }}
-          >
-            <Button.Icon id={create} />
-          </Button.Root>
-          <Button.Root
-            sx={styles.triangle}
-            type="button"
-            aria-label={t("createOptions")}
-            aria-haspopup="menu"
-            aria-expanded={flyout === "create"}
-            aria-controls={`${menuId}-create`}
-            onMouseEnter={() => {
-              cancelClose();
-              setFlyout("create");
-            }}
-            onClick={(event) => {
-              event.preventDefault();
-              cancelClose();
-              setFlyout("create");
-            }}
-          >
-            <Button.Icon id="options">
-              <span {...stylex.props(styles.triangleMark)} />
-            </Button.Icon>
-          </Button.Root>
-          {flyout === "create" ? (
-            <div {...stylex.props(styles.menu)}>
-              <Widget.Menu
-                id={`${menuId}-create`}
-                aria-label={t("createOptions")}
-                sx={styles.popup}
-              >
-                {CREATE_TOOLS.map((id) => (
-                  <CreateChoice
-                    key={id}
-                    id={id}
-                    checked={id === create}
-                    onSelect={() => {
-                      selectCreate(id);
-                      beginLine(id);
-                      setFlyout(null);
-                    }}
-                  />
-                ))}
-              </Widget.Menu>
-            </div>
-          ) : null}
-        </div>
-        <Button.Root
-          sx={styles.tool}
-          type="button"
-          aria-label={t("editRoute")}
-          aria-pressed={group === "edit"}
-          data-pressed={group === "edit" ? "" : undefined}
-          title={t("editRoute")}
-          onClick={() => {
-            setFlyout(null);
-            selectGroup("edit");
-          }}
-        >
-          <Button.Icon id="edit" />
-        </Button.Root>
-        <div
-          {...stylex.props(styles.slot)}
-          ref={zoomSlotRef}
-          onMouseLeave={scheduleClose}
-          onMouseEnter={cancelClose}
-        >
-          <Button.Root
-            sx={styles.tool}
-            type="button"
-            aria-label={t(zoomOption.label)}
-            aria-pressed={group === "zoom"}
-            data-pressed={group === "zoom" ? "" : undefined}
-            title={`${t(zoomOption.label)} (${keys[zoomOption.shortcut]})`}
-            onClick={() => {
-              setFlyout(null);
-              selectGroup("zoom");
-              applyToolClick(zoom, actions, "center");
-            }}
-          >
-            <Button.Icon id={zoom} />
-          </Button.Root>
-          <Button.Root
-            sx={styles.triangle}
-            type="button"
-            aria-label={t("zoomOptions")}
-            aria-haspopup="menu"
-            aria-expanded={flyout === "zoom"}
-            aria-controls={`${menuId}-zoom`}
-            onMouseEnter={() => {
-              cancelClose();
-              setFlyout("zoom");
-            }}
-            onClick={(event) => {
-              event.preventDefault();
-              cancelClose();
-              setFlyout("zoom");
-            }}
-          >
-            <Button.Icon id="options">
-              <span {...stylex.props(styles.triangleMark)} />
-            </Button.Icon>
-          </Button.Root>
-          {flyout === "zoom" ? (
-            <div {...stylex.props(styles.menu)}>
-              <Widget.Menu
-                id={`${menuId}-zoom`}
-                aria-label={t("zoomOptions")}
-                sx={styles.popup}
-              >
-                {ZOOM_TOOLS.map((id) => (
-                  <ZoomChoice
-                    key={id}
-                    id={id}
-                    keys={keys}
-                    checked={id === zoom}
-                    onSelect={() => {
-                      selectZoom(id);
-                      setFlyout(null);
-                    }}
-                  />
-                ))}
-                <Layout.Box my="xs" sx={styles.rule} />
-                {ZOOM_COMMANDS.map((id) => (
-                  <CommandChoice
-                    key={id}
-                    id={id}
-                    keys={keys}
-                    onRun={() => runCommand(id)}
-                  />
-                ))}
-              </Widget.Menu>
-            </div>
-          ) : null}
-        </div>
+        <MoveTool />
+        <CreateTool />
+        <EditTool />
+        <ZoomTool />
       </Widget.Container>
     </Widget.Panel>
   );
-});
+}
+
+function MoveTool() {
+  const group = useSelector(toolStore, (state) => state.group);
+  const { keys } = useViewport();
+  return (
+    <Button.Root
+      sx={styles.tool}
+      type="button"
+      aria-label={t("moveView")}
+      aria-pressed={group === "move"}
+      data-pressed={group === "move" ? "" : undefined}
+      title={`${t("moveView")} (${keys.pan})`}
+      onClick={() => {
+        closeFlyout();
+        selectGroup("move");
+      }}
+    >
+      <Button.Icon id="move" />
+    </Button.Root>
+  );
+}
+
+function CreateTool() {
+  const group = useSelector(toolStore, (state) => state.group);
+  const create = useSelector(toolStore, (state) => state.create);
+  const { open, slotRef } = useFlyout("create");
+  const menuId = useId();
+  const option =
+    CREATE_TOOL_OPTIONS.find((item) => item.id === create) ??
+    CREATE_TOOL_OPTIONS[0];
+  return (
+    <div
+      {...stylex.props(styles.slot)}
+      ref={slotRef}
+      onMouseLeave={() => scheduleClose("create")}
+      onMouseEnter={cancelClose}
+    >
+      <Button.Root
+        sx={styles.tool}
+        type="button"
+        aria-label={t(option.label)}
+        aria-pressed={group === "create"}
+        data-pressed={group === "create" ? "" : undefined}
+        title={t(option.label)}
+        onClick={() => {
+          closeFlyout();
+          const drawing = group === "create";
+          selectGroup("create");
+          if (drawing) beginLine(create);
+          else ensureLine(create);
+        }}
+      >
+        <Button.Icon id={create} />
+      </Button.Root>
+      <Button.Root
+        sx={styles.triangle}
+        type="button"
+        aria-label={t("createOptions")}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={menuId}
+        onMouseEnter={() => openFlyout("create")}
+        onClick={(event) => {
+          event.preventDefault();
+          openFlyout("create");
+        }}
+      >
+        <Button.Icon id="options">
+          <span {...stylex.props(styles.triangleMark)} />
+        </Button.Icon>
+      </Button.Root>
+      {open ? (
+        <div {...stylex.props(styles.menu)}>
+          <Widget.Menu
+            id={menuId}
+            aria-label={t("createOptions")}
+            sx={styles.popup}
+          >
+            {CREATE_TOOLS.map((id) => (
+              <CreateChoice
+                key={id}
+                id={id}
+                checked={id === create}
+                onSelect={() => {
+                  selectCreate(id);
+                  beginLine(id);
+                  closeFlyout();
+                }}
+              />
+            ))}
+          </Widget.Menu>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function EditTool() {
+  const group = useSelector(toolStore, (state) => state.group);
+  return (
+    <Button.Root
+      sx={styles.tool}
+      type="button"
+      aria-label={t("editRoute")}
+      aria-pressed={group === "edit"}
+      data-pressed={group === "edit" ? "" : undefined}
+      title={t("editRoute")}
+      onClick={() => {
+        closeFlyout();
+        selectGroup("edit");
+      }}
+    >
+      <Button.Icon id="edit" />
+    </Button.Root>
+  );
+}
+
+function ZoomTool() {
+  const group = useSelector(toolStore, (state) => state.group);
+  const zoom = useSelector(toolStore, (state) => state.zoom);
+  const { actions, keys } = useViewport();
+  const { open, slotRef } = useFlyout("zoom");
+  const menuId = useId();
+  const option =
+    ZOOM_TOOL_OPTIONS.find((item) => item.id === zoom) ?? ZOOM_TOOL_OPTIONS[0];
+  return (
+    <div
+      {...stylex.props(styles.slot)}
+      ref={slotRef}
+      onMouseLeave={() => scheduleClose("zoom")}
+      onMouseEnter={cancelClose}
+    >
+      <Button.Root
+        sx={styles.tool}
+        type="button"
+        aria-label={t(option.label)}
+        aria-pressed={group === "zoom"}
+        data-pressed={group === "zoom" ? "" : undefined}
+        title={`${t(option.label)} (${keys[option.shortcut]})`}
+        onClick={() => {
+          closeFlyout();
+          selectGroup("zoom");
+          applyToolClick(zoom, actions, "center");
+        }}
+      >
+        <Button.Icon id={zoom} />
+      </Button.Root>
+      <Button.Root
+        sx={styles.triangle}
+        type="button"
+        aria-label={t("zoomOptions")}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={menuId}
+        onMouseEnter={() => openFlyout("zoom")}
+        onClick={(event) => {
+          event.preventDefault();
+          openFlyout("zoom");
+        }}
+      >
+        <Button.Icon id="options">
+          <span {...stylex.props(styles.triangleMark)} />
+        </Button.Icon>
+      </Button.Root>
+      {open ? (
+        <div {...stylex.props(styles.menu)}>
+          <Widget.Menu
+            id={menuId}
+            aria-label={t("zoomOptions")}
+            sx={styles.popup}
+          >
+            {ZOOM_TOOLS.map((id) => (
+              <ZoomChoice
+                key={id}
+                id={id}
+                keys={keys}
+                checked={id === zoom}
+                onSelect={() => {
+                  selectZoom(id);
+                  closeFlyout();
+                }}
+              />
+            ))}
+            <Layout.Box my="xs" sx={styles.rule} />
+            {ZOOM_COMMANDS.map((id) => (
+              <CommandChoice
+                key={id}
+                id={id}
+                keys={keys}
+                onRun={() => {
+                  closeFlyout();
+                  applyToolClick(id, actions, "center");
+                }}
+              />
+            ))}
+          </Widget.Menu>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 function ZoomChoice({
   id,

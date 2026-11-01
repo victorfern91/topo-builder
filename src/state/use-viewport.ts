@@ -1,6 +1,5 @@
 import { useSelector, type UseSelectorOptions } from "@tanstack/react-store";
 import { shallow } from "@tanstack/store";
-import { useCallback } from "react";
 import { viewportContext } from "./viewport-context.ts";
 import {
   viewportStore,
@@ -37,27 +36,18 @@ export function useWidgetFrame(id: WidgetId) {
     }),
     { compare: shallow },
   );
-  const onResize = useCallback(
-    (width: number, height: number) => {
-      actions.resizeFrame(id, width, height);
-    },
-    [actions, id],
-  );
-  const onDragStart = useCallback(() => {
+  const onResize = (width: number, height: number) => {
+    actions.resizeFrame(id, width, height);
+  };
+  const onDragStart = () => {
     actions.setUserAction(id);
-  }, [actions, id]);
-  const onMove = useCallback(
-    (x: number, y: number) => {
-      actions.moveFrame(id, x, y);
-    },
-    [actions, id],
-  );
-  const onDragEnd = useCallback(
-    (moved: boolean) => {
-      if (moved) actions.dropFrame(id);
-      if (getState().userAction === id) actions.setUserAction("idle");
-    },
-    [actions, getState, id],
-  );
+  };
+  const onMove = (x: number, y: number) => {
+    actions.moveFrame(id, x, y);
+  };
+  const onDragEnd = (moved: boolean) => {
+    if (moved) actions.dropFrame(id);
+    if (getState().userAction === id) actions.setUserAction("idle");
+  };
   return { ...frame, onResize, onDragStart, onMove, onDragEnd };
 }

@@ -24,8 +24,9 @@ export type ButtonRootProps = Omit<ButtonProps, "className" | "style"> & {
 
 export type ButtonIconProps = {
   /**
-   * Glyph name. Built-ins: `move`, `route`, `boulder`, `edit`,
-   * `zoom-in`, `zoom-out`, `fit`. Also written to `data-icon`.
+   * Glyph name. Built-ins: `arrow-left`, `arrow-right`, `move`, `route`,
+   * `boulder`, `edit`, `zoom-in`, `zoom-out`, `fit`, `lock`, `unlock`,
+   * `copy`, `trash`, `chevron-up`, `chevron-down`. Also written to `data-icon`.
    */
   id: string;
   /** Replaces the built-in glyph. */

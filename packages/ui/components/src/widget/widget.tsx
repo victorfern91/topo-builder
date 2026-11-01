@@ -1,7 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import {
   createContext,
-  useCallback,
   useContext,
   useLayoutEffect,
   useRef,
@@ -102,9 +101,9 @@ export function WidgetPanel({
 }: WidgetPanelProps) {
   const [node, setNode] = useState<HTMLElement | null>(null);
   const [size, setSize] = useState<BoxSize | null>(null);
-  const surfaceRef = useCallback((next: HTMLElement | null) => {
+  const surfaceRef = (next: HTMLElement | null) => {
     setNode(next);
-  }, []);
+  };
 
   useLayoutEffect(() => {
     if (!node) return;
@@ -532,9 +531,9 @@ export function WidgetMenu({
 }: WidgetMenuProps) {
   const [node, setNode] = useState<HTMLDivElement | null>(null);
   const [size, setSize] = useState<BoxSize | null>(null);
-  const surfaceRef = useCallback((next: HTMLDivElement | null) => {
+  const surfaceRef = (next: HTMLDivElement | null) => {
     setNode(next);
-  }, []);
+  };
 
   useLayoutEffect(() => {
     if (!resizable || !node) return;

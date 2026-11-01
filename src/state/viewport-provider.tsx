@@ -1,15 +1,10 @@
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { t } from "../i18n/index.ts";
 import { viewportContext } from "./viewport-context.ts";
-import {
-  matchViewportKey,
-  shortcutChords,
-  viewportStore,
-  type ViewportContextValue,
-} from "./viewport.ts";
+import { matchViewportKey, shortcutChords, viewportStore } from "./viewport.ts";
 
 export function ViewportProvider({ children }: { children: ReactNode }) {
-  const keys = useMemo(() => shortcutChords(t("spaceKey")), []);
+  const keys = shortcutChords(t("spaceKey"));
 
   useEffect(() => {
     const { actions } = viewportStore;
@@ -58,14 +53,11 @@ export function ViewportProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const value = useMemo<ViewportContextValue>(
-    () => ({
-      actions: viewportStore.actions,
-      keys,
-      getState: viewportStore.get,
-    }),
-    [keys],
-  );
+  const value = {
+    actions: viewportStore.actions,
+    keys,
+    getState: viewportStore.get,
+  };
 
   return (
     <viewportContext.StoreProvider value={value}>

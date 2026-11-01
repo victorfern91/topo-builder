@@ -8,7 +8,7 @@ import {
   SliderValue,
 } from "./slider.tsx";
 
-/** Range slider. Compose `Root` with `Control`, `Track`, `Indicator`, and `Thumb`. */
+/** Range slider. `Root` renders the track. `children` replaces that track. */
 export const Slider = {
   Root: SliderRoot,
   Label: SliderLabel,
