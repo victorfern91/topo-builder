@@ -1,4 +1,5 @@
 import { Tokens } from "@ui";
+import { gradePaint } from "./grade.ts";
 import { dropLineGeometry, lineGeometry } from "./line-curve.ts";
 import {
   findLayer,
@@ -10,10 +11,12 @@ import {
   type LineLayer,
   type LineState,
 } from "./lines.ts";
+import { preferencesStore } from "./preferences.ts";
 import {
   dropRouteSpans,
   NUMBER_FONT,
   numberBadge,
+  numberLabel,
   numberMagnet,
   routeNumberPlacement,
 } from "./route-number.ts";
@@ -132,6 +135,7 @@ function strokeLayer(
   ).path;
   const scale = layer.scale;
   const width = (active ? ACTIVE_STROKE : STROKE) * scale;
+  const graded = gradePaint(layer.grade);
   ctx.save();
   if (layer.locked) ctx.globalAlpha = 0.55;
   ctx.setLineDash(
@@ -139,10 +143,10 @@ function strokeLayer(
       ? BOULDER_DASH.map((length) => length * scale)
       : [],
   );
-  ctx.strokeStyle = Tokens.color.black[55];
+  ctx.strokeStyle = graded?.stroke ?? Tokens.color.black[55];
   ctx.lineWidth = width + HALO * scale;
   ctx.stroke(path);
-  ctx.strokeStyle = layer.color;
+  ctx.strokeStyle = graded?.color ?? layer.color;
   ctx.lineWidth = width;
   ctx.stroke(path);
   ctx.restore();
@@ -291,7 +295,11 @@ function paintLineNumbers(
     if (!layer) continue;
     const place = routeNumberPlacement(layer);
     if (!place) continue;
-    const label = String(index + 1);
+    const label = numberLabel(
+      index + 1,
+      layer.grade,
+      preferencesStore.get().gradeSystem,
+    );
     const badge = numberBadge(label);
     const x = panX + place.x * zoom;
     const y = panY + place.y * zoom;

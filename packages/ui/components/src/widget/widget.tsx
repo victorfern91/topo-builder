@@ -17,6 +17,7 @@ import type {
   WidgetHeaderProps,
   WidgetMenuProps,
   WidgetPanelProps,
+  WidgetResizeSource,
   WidgetSurface,
 } from "./types.ts";
 
@@ -51,6 +52,11 @@ type BoxSize = {
   height: number;
 };
 
+function pinSize(width?: number, height?: number): BoxSize | null {
+  if (width == null || height == null) return null;
+  return { width, height };
+}
+
 type WidgetDragValue = {
   dragging: boolean;
   x: number;
@@ -65,6 +71,7 @@ const WidgetDragContext = createContext<WidgetDragValue | null>(null);
 /**
  * Floating panel. Place `Header` and `Container` inside it.
  * The header drags the panel; arrow keys nudge it.
+ * Pass `width` and `height` to pin the border box.
  * Pass `resizable` to resize from the right edge, the bottom edge, and the corner.
  *
  * @example
@@ -82,6 +89,8 @@ export function WidgetPanel({
   ref,
   x,
   y,
+  width,
+  height,
   placed = true,
   dragging = false,
   resizable = false,
@@ -101,6 +110,7 @@ export function WidgetPanel({
 }: WidgetPanelProps) {
   const [node, setNode] = useState<HTMLElement | null>(null);
   const [size, setSize] = useState<BoxSize | null>(null);
+  const fitted = size ?? pinSize(width, height);
   const surfaceRef = (next: HTMLElement | null) => {
     setNode(next);
   };
@@ -108,7 +118,7 @@ export function WidgetPanel({
   useLayoutEffect(() => {
     if (!node) return;
     const publish = () => {
-      onResize?.(node.offsetWidth, node.offsetHeight);
+      onResize?.(node.offsetWidth, node.offsetHeight, "layout");
     };
     publish();
     const observer = new ResizeObserver(publish);
@@ -151,10 +161,10 @@ export function WidgetPanel({
           ...style,
           transform: `translate3d(${x}px, ${y}px, 0)`,
           visibility: placed ? "visible" : "hidden",
-          ...(size
+          ...(fitted
             ? {
-                width: size.width,
-                height: size.height,
+                width: fitted.width,
+                height: fitted.height,
                 maxWidth: "none",
                 maxHeight: "none",
               }
@@ -334,7 +344,11 @@ function WidgetResize({
   flush?: boolean;
   /** `parent` uses the offset parent. `viewport` uses the window. */
   bound?: "parent" | "viewport";
-  onResize?: (width: number, height: number) => void;
+  onResize?: (
+    width: number,
+    height: number,
+    source?: WidgetResizeSource,
+  ) => void;
   onSize: (size: BoxSize) => void;
 }) {
   const session = useRef<ResizeSession | null>(null);
@@ -357,7 +371,7 @@ function WidgetResize({
   const publish = (next: BoxSize) => {
     live.current = next;
     onSize(next);
-    onResize?.(next.width, next.height);
+    onResize?.(next.width, next.height, "user");
   };
 
   const endResize = (pointerId: number) => {
@@ -538,7 +552,7 @@ export function WidgetMenu({
   useLayoutEffect(() => {
     if (!resizable || !node) return;
     const publish = () => {
-      onResize?.(node.offsetWidth, node.offsetHeight);
+      onResize?.(node.offsetWidth, node.offsetHeight, "layout");
     };
     publish();
     const observer = new ResizeObserver(publish);

@@ -5,6 +5,8 @@ import type { LayoutBoxProps, LayoutStackProps } from "../layout/types.ts";
 /** DOM node for a floating panel. */
 export type WidgetSurface = "div" | "aside" | "section";
 
+export type WidgetResizeSource = "layout" | "user";
+
 export type WidgetPanelProps = Omit<
   ComponentProps<"div">,
   | "className"
@@ -14,6 +16,8 @@ export type WidgetPanelProps = Omit<
   | "onDragStart"
   | "onDragEnd"
   | "onDrop"
+  | "width"
+  | "height"
 > & {
   /** `div` (default), `aside`, or `section`. */
   renderAs?: WidgetSurface;
@@ -22,6 +26,16 @@ export type WidgetPanelProps = Omit<
   x: number;
   /** Vertical offset in pixels. */
   y: number;
+  /**
+   * Pinned width in pixels.
+   * The panel keeps this size until the user resizes it.
+   */
+  width?: number;
+  /**
+   * Pinned height in pixels.
+   * The panel keeps this size until the user resizes it.
+   */
+  height?: number;
   /** Hidden until the stage has a size. Default true. */
   placed?: boolean;
   /** Sets `data-dragging` on the panel and the header. */
@@ -29,8 +43,13 @@ export type WidgetPanelProps = Omit<
   /**
    * Reports the border box after layout and while the user resizes.
    * Width and height are pixels.
+   * `source` is `"user"` while the user resizes and `"layout"` after layout.
    */
-  onResize?: (width: number, height: number) => void;
+  onResize?: (
+    width: number,
+    height: number,
+    source?: WidgetResizeSource,
+  ) => void;
   /**
    * Right edge, bottom edge, and corner resize the panel.
    * Default false; the panel stays at its layout size.
@@ -79,8 +98,13 @@ export type WidgetMenuProps = LayoutBoxProps & {
   /**
    * Reports the border box after layout and while the user resizes.
    * Width and height are pixels. Used when `resizable` is set.
+   * `source` is `"user"` while the user resizes and `"layout"` after layout.
    */
-  onResize?: (width: number, height: number) => void;
+  onResize?: (
+    width: number,
+    height: number,
+    source?: WidgetResizeSource,
+  ) => void;
   /** Minimum width while resizing, in pixels. Default 48. */
   minWidth?: number;
   /** Minimum height while resizing, in pixels. Default 48. */

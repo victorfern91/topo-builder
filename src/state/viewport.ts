@@ -3,6 +3,7 @@ import {
   flushPreferences,
   preferencesStore,
   saveWidgetPlacement,
+  type Placement,
   type WidgetPreferenceId,
 } from "./preferences.ts";
 
@@ -23,6 +24,8 @@ export type WidgetFrame = {
   width: number;
   height: number;
   custom: boolean;
+  /** True once the user has resized the widget, including a size restored from storage. */
+  resized: boolean;
 };
 
 export type ContentPlacement = "fit" | "center";
@@ -82,6 +85,7 @@ function emptyFrame(id: WidgetId): WidgetFrame {
     width: size.width,
     height: size.height,
     custom: false,
+    resized: false,
   };
 }
 
@@ -162,11 +166,33 @@ export const viewportStore = new Store(initialViewport, (store) => ({
       resizeContent(state, key, width, height, placement),
     );
   },
-  resizeFrame(id: WidgetId, width: number, height: number) {
+  resizeFrame(
+    id: WidgetId,
+    width: number,
+    height: number,
+    source: "layout" | "user" = "layout",
+  ) {
     store.setState((state) => {
       const frame = state.frames[id];
-      if (frame.width === width && frame.height === height) return state;
-      return clampFrame(writeFrame(state, id, { width, height }), id);
+      if (source !== "user" && frame.resized) return state;
+      const resized = frame.resized || source === "user";
+      if (
+        frame.width === width &&
+        frame.height === height &&
+        frame.resized === resized
+      ) {
+        return state;
+      }
+      const next = clampFrame(
+        writeFrame(state, id, {
+          width,
+          height,
+          ...(source === "user" ? { resized: true } : {}),
+        }),
+        id,
+      );
+      if (source === "user") rememberFrame(id, next);
+      return next;
     });
   },
   moveFrame(id: WidgetId, x: number, y: number) {
@@ -522,28 +548,52 @@ function writeFrame(
 
 function rememberFrame(id: WidgetId, state: ViewportState): void {
   const frame = state.frames[id];
-  saveWidgetPlacement(id, {
+  const saved = preferencesStore.get()[id];
+  const placement: Placement = {
     x: frame.x,
     y: frame.y,
     custom: frame.custom,
-  });
+  };
+  if (frame.resized) {
+    placement.width = frame.width;
+    placement.height = frame.height;
+  } else if (saved.width != null && saved.height != null) {
+    placement.width = saved.width;
+    placement.height = saved.height;
+  }
+  saveWidgetPlacement(id, placement);
+}
+
+function readSize(
+  placement: Placement,
+): { width: number; height: number } | null {
+  if (placement.width == null || placement.height == null) return null;
+  return { width: placement.width, height: placement.height };
 }
 
 function hydratePlacement(): void {
   const saved = preferencesStore.get();
-  if (WIDGET_IDS.every((id) => !saved[id].custom)) return;
+  const hasPlacement = WIDGET_IDS.some((id) => {
+    const placement = saved[id];
+    return placement.custom || readSize(placement) != null;
+  });
+  if (!hasPlacement) return;
   viewportStore.setState((state) => {
     let frames = state.frames;
     for (const id of WIDGET_IDS) {
       const placement = saved[id];
-      if (!placement.custom) continue;
+      const size = readSize(placement);
+      if (!placement.custom && size == null) continue;
       frames = {
         ...frames,
         [id]: {
           ...frames[id],
-          x: placement.x,
-          y: placement.y,
-          custom: true,
+          ...(placement.custom
+            ? { x: placement.x, y: placement.y, custom: true }
+            : null),
+          ...(size
+            ? { width: size.width, height: size.height, resized: true }
+            : null),
         },
       };
     }

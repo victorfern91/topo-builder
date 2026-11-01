@@ -5,12 +5,16 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./alert": "./src/alert/index.ts",
     "./button": "./src/button/index.ts",
     "./input": "./src/input/index.ts",
     "./layout": "./src/layout/index.ts",
+    "./popover": "./src/popover/index.ts",
+    "./select": "./src/select/index.ts",
     "./slider": "./src/slider/index.ts",
     "./table": "./src/table/index.ts",
     "./toast": "./src/toast/index.ts",
+    "./toggle": "./src/toggle/index.ts",
     "./tokens": "./src/tokens.stylex.ts",
     "./widget": "./src/widget/index.ts"
   },

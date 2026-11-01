@@ -5,6 +5,7 @@ import {
   ToastClose,
   ToastContent,
   ToastDescription,
+  ToastIcon,
   ToastPortal,
   ToastPositioner,
   ToastProvider,
@@ -15,7 +16,7 @@ import {
 
 /**
  * Toast stack. Wrap the tree in `Provider`, then compose `Portal`,
- * `Viewport`, `Root`, `Content`, `Title`, `Description`, and `Close`.
+ * `Viewport`, `Root`, `Content`, `Icon`, `Title`, `Description`, and `Close`.
  * `useToastManager()` adds and closes toasts.
  */
 export const Toast = {
@@ -26,6 +27,7 @@ export const Toast = {
   Content: ToastContent,
   Title: ToastTitle,
   Description: ToastDescription,
+  Icon: ToastIcon,
   Close: ToastClose,
   Action: ToastAction,
   Positioner: ToastPositioner,
@@ -42,6 +44,7 @@ export type {
   ToastCloseProps,
   ToastContentProps,
   ToastDescriptionProps,
+  ToastIconProps,
   ToastPortalProps,
   ToastPositionerProps,
   ToastProviderProps,

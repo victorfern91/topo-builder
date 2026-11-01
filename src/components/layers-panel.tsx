@@ -1,6 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
 import { createColumnHelper } from "@tanstack/react-table";
-import { Button, Input, Layout, Table, Widget, type TableFeatures } from "@ui";
+import {
+  Button,
+  Input,
+  Layout,
+  Select,
+  Table,
+  Widget,
+  type TableFeatures,
+} from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import { shallow } from "@tanstack/store";
 import {
@@ -12,6 +20,14 @@ import {
 } from "react";
 import { t } from "../i18n/index.ts";
 import {
+  GRADE_PAINT,
+  GRADE_STEPS,
+  gradeLabel,
+  gradePaint,
+  type GradeBand,
+  type GradeSystem,
+} from "../state/grade.ts";
+import {
   LINE_COLORS,
   copyLine,
   deleteLine,
@@ -20,9 +36,11 @@ import {
   renameLine,
   selectLine,
   setLineColor,
+  setLineGrade,
   toggleLineLock,
   type LineLayer,
 } from "../state/lines.ts";
+import { preferencesStore } from "../state/preferences.ts";
 import { useWidgetFrame } from "../state/use-viewport.ts";
 import { lineLayers } from "../styles/stage.ts";
 
@@ -46,19 +64,18 @@ const layerColumns = layerColumn.columns([
     id: "color",
     header: () => t("layerColor"),
     meta: { width: 28, align: "center", headerHidden: true },
-    cell: ({ row }) => (
-      <Layout.Box
-        renderAs="span"
-        display="inline-block"
-        sx={lineLayers.swatch}
-        style={{ backgroundColor: row.original.color }}
-      />
-    ),
+    cell: ({ row }) => <LayerColor layer={row.original} />,
   }),
   layerColumn.display({
     id: "name",
     header: () => t("layerName"),
     cell: ({ row }) => <LayerName layer={row.original} />,
+  }),
+  layerColumn.display({
+    id: "grade",
+    header: () => t("layerGrade"),
+    meta: { width: 108 },
+    cell: ({ row }) => <LayerGrade layer={row.original} />,
   }),
   layerColumn.display({
     id: "kind",
@@ -88,7 +105,7 @@ export function LayersPanel() {
       {...frame}
       renderAs="section"
       resizable
-      minWidth={320}
+      minWidth={400}
       minHeight={120}
       resizeLabel={t("resizePanel")}
       sx={lineLayers.root}
@@ -148,17 +165,96 @@ function LayerTable() {
 }
 
 function LayerColors() {
+  const kind = useSelector(lineStore, (state) => {
+    const active = state.layers.find((item) => item.id === state.activeId);
+    return active?.kind ?? null;
+  });
+  if (kind === "boulder") return <BoulderColors />;
+  return null;
+}
+
+function BoulderColors() {
   const layer = useSelector(
     lineStore,
     (state) => {
       const active = state.layers.find((item) => item.id === state.activeId);
-      if (!active) return null;
+      if (!active || active.kind !== "boulder") return null;
       return { id: active.id, color: active.color, locked: active.locked };
     },
     { compare: shallow },
   );
   if (!layer) return null;
   return <ColorSteps layer={layer} />;
+}
+
+function LayerGrade({ layer }: { layer: LineLayer }) {
+  const system = useSelector(preferencesStore, (state) => state.gradeSystem);
+  if (layer.kind !== "route") return null;
+
+  return (
+    <Select.Root
+      value={layer.grade}
+      disabled={layer.locked}
+      onValueChange={(grade) => {
+        if (typeof grade !== "number") return;
+        setLineGrade(layer.id, grade);
+      }}
+    >
+      <Select.Trigger aria-label={t("routeGrade")} sx={lineLayers.gradeTrigger}>
+        <Select.Value placeholder={t("layerGrade")}>
+          {(grade) => (
+            <GradeValue
+              grade={typeof grade === "number" ? grade : null}
+              system={system}
+            />
+          )}
+        </Select.Value>
+        <Select.Icon />
+      </Select.Trigger>
+      <Select.Portal>
+        <Select.Positioner sideOffset={4}>
+          <Select.Popup>
+            <Select.List>
+              {GRADE_STEPS.map((step, index) => (
+                <Select.Item
+                  key={step.french}
+                  value={index}
+                  label={step[system]}
+                >
+                  <Select.ItemIndicator />
+                  <GradeSwatch band={step.band} />
+                  <Select.ItemText>{step[system]}</Select.ItemText>
+                </Select.Item>
+              ))}
+            </Select.List>
+          </Select.Popup>
+        </Select.Positioner>
+      </Select.Portal>
+    </Select.Root>
+  );
+}
+
+function GradeValue({
+  grade,
+  system,
+}: {
+  grade: number | null;
+  system: GradeSystem;
+}) {
+  const label = gradeLabel(grade, system);
+  const step = grade == null ? null : GRADE_STEPS[grade];
+  if (!label || !step) return t("layerGrade");
+  return (
+    <>
+      <GradeSwatch band={step.band} />
+      <span>{label}</span>
+    </>
+  );
+}
+
+function GradeSwatch({ band }: { band: GradeBand }) {
+  const paint = GRADE_PAINT[band];
+  return <Select.Swatch color={paint.color} edge={paint.stroke} />;
 }
 
 function ColorSteps({
@@ -389,6 +485,25 @@ function setDropRow(root: Element, index: number | null): void {
       else cell.removeAttribute("data-drop");
     }
   }
+}
+
+function LayerColor({ layer }: { layer: LineLayer }) {
+  const paint = gradePaint(layer.grade);
+  return (
+    <Layout.Box
+      renderAs="span"
+      display="inline-block"
+      sx={lineLayers.swatch}
+      style={
+        paint
+          ? {
+              backgroundColor: paint.color,
+              boxShadow: `inset 0 0 0 1px ${paint.stroke}`,
+            }
+          : { backgroundColor: layer.color }
+      }
+    />
+  );
 }
 
 function layerNameId(id: string): string {

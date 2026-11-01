@@ -1,5 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import {
+  TbArrowBackUp,
+  TbArrowForwardUp,
   TbArrowLeft,
   TbArrowRight,
   TbArrowsMove,
@@ -20,6 +22,8 @@ import {
 // Named imports from `react-icons/tb`. The package is side-effect free, so
 // the bundler drops every Tabler icon that is not in this map.
 const glyphs = {
+  undo: TbArrowBackUp,
+  redo: TbArrowForwardUp,
   "arrow-left": TbArrowLeft,
   "arrow-right": TbArrowRight,
   move: TbArrowsMove,

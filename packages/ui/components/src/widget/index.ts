@@ -20,5 +20,6 @@ export type {
   WidgetHeaderProps,
   WidgetMenuProps,
   WidgetPanelProps,
+  WidgetResizeSource,
   WidgetSurface,
 } from "./types.ts";

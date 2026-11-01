@@ -1,18 +1,29 @@
 import * as stylex from "@stylexjs/stylex";
-import { Menu } from "@base-ui/react/menu";
-import { Button, Input, Layout, Slider, Tokens } from "@ui";
+import {
+  Alert,
+  Button,
+  Input,
+  Layout,
+  Popover,
+  Select,
+  Slider,
+  Tokens,
+} from "@ui";
 import { useSelector } from "@tanstack/react-store";
-import { useEffect, useRef, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { formatPixelSize, formatScale, t } from "../i18n/index.ts";
 import { a11y } from "../styles/a11y.ts";
 import {
   blocksHistoryCommand,
+  hasUnsavedHistory,
   historyCommand,
   historyStore,
   redo,
   undo,
 } from "../state/history.ts";
+import { GRADE_SYSTEMS, type GradeSystem } from "../state/grade.ts";
 import { lineStore, setDrawScale } from "../state/lines.ts";
+import { preferencesStore, setGradeSystem } from "../state/preferences.ts";
 import {
   IMAGE_FILE_ACCEPT,
   imageDocumentStore,
@@ -28,10 +39,19 @@ import {
 
 export function TopBar() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [discardOpen, setDiscardOpen] = useState(false);
+
+  const openPicker = () => {
+    inputRef.current?.click();
+  };
 
   useEffect(() => {
     return registerImageFilePicker(() => {
-      inputRef.current?.click();
+      if (hasUnsavedHistory()) {
+        setDiscardOpen(true);
+        return;
+      }
+      openPicker();
     });
   }, []);
 
@@ -48,7 +68,7 @@ export function TopBar() {
         return;
       }
       event.preventDefault();
-      inputRef.current?.click();
+      requestImageFilePicker();
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -87,8 +107,8 @@ export function TopBar() {
       </Layout.Stack>
       <FileMenu />
       <EditMenu />
+      <ViewMenu />
       <HistoryButtons />
-      <ScaleBar />
       <DocumentTitle />
       <Layout.Box grow sx={styles.spacer} />
       <PixelSize />
@@ -107,6 +127,21 @@ export function TopBar() {
         aria-label={t("chooseImage")}
         onChange={onFileChange}
       />
+      <Alert.Root open={discardOpen} onOpenChange={setDiscardOpen}>
+        <Alert.Portal>
+          <Alert.Backdrop />
+          <Alert.Popup>
+            <Alert.Title>{t("unsavedTitle")}</Alert.Title>
+            <Alert.Description>{t("unsavedOpenBody")}</Alert.Description>
+            <Layout.Stack direction="row" justify="end" gap="md">
+              <Alert.Close>{t("stay")}</Alert.Close>
+              <Alert.Close tone="warning" onClick={openPicker}>
+                {t("open")}
+              </Alert.Close>
+            </Layout.Stack>
+          </Alert.Popup>
+        </Alert.Portal>
+      </Alert.Root>
     </header>
   );
 }
@@ -114,28 +149,19 @@ export function TopBar() {
 function FileMenu() {
   const shortcutLabel = applePlatform() ? "⌘O" : "Ctrl+O";
   return (
-    <Menu.Root>
-      <Menu.Trigger {...stylex.props(styles.barButton)}>
-        {t("file")}
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner
-          {...stylex.props(styles.positioner)}
-          sideOffset={6}
-          align="start"
-        >
-          <Menu.Popup {...stylex.props(styles.popup)}>
-            <Menu.Item
-              {...stylex.props(styles.menuItem, stylex.defaultMarker())}
-              onClick={requestImageFilePicker}
-            >
+    <Popover.Root>
+      <Popover.Trigger sx={styles.barButton}>{t("file")}</Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner sideOffset={6} align="start">
+          <Popover.Popup>
+            <Popover.Close onClick={requestImageFilePicker}>
               <span>{t("openEllipsis")}</span>
               <span {...stylex.props(styles.kbd)}>{shortcutLabel}</span>
-            </Menu.Item>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
+            </Popover.Close>
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }
 
@@ -145,37 +171,39 @@ function EditMenu() {
   const undoShortcut = apple ? "⌘Z" : "Ctrl+Z";
   const redoShortcut = apple ? "⌘⇧Z" : "Ctrl+Y";
   return (
-    <Menu.Root>
-      <Menu.Trigger {...stylex.props(styles.barButton)}>
-        {t("edit")}
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner
-          {...stylex.props(styles.positioner)}
-          sideOffset={6}
-          align="start"
-        >
-          <Menu.Popup {...stylex.props(styles.popup)}>
-            <Menu.Item
-              {...stylex.props(styles.menuItem, stylex.defaultMarker())}
-              disabled={!history.canUndo}
-              onClick={undo}
-            >
+    <Popover.Root>
+      <Popover.Trigger sx={styles.barButton}>{t("edit")}</Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner sideOffset={6} align="start">
+          <Popover.Popup>
+            <Popover.Close disabled={!history.canUndo} onClick={undo}>
               <span>{t("undo")}</span>
               <span {...stylex.props(styles.kbd)}>{undoShortcut}</span>
-            </Menu.Item>
-            <Menu.Item
-              {...stylex.props(styles.menuItem, stylex.defaultMarker())}
-              disabled={!history.canRedo}
-              onClick={redo}
-            >
+            </Popover.Close>
+            <Popover.Close disabled={!history.canRedo} onClick={redo}>
               <span>{t("redo")}</span>
               <span {...stylex.props(styles.kbd)}>{redoShortcut}</span>
-            </Menu.Item>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
+            </Popover.Close>
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
+function ViewMenu() {
+  return (
+    <Popover.Root>
+      <Popover.Trigger sx={styles.barButton}>{t("view")}</Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner sideOffset={6} align="start">
+          <Popover.Popup sx={styles.viewPopup}>
+            <ScaleBar />
+            <GradeSystemOptions />
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }
 
@@ -195,7 +223,7 @@ function HistoryButtons() {
         sx={styles.iconButton}
         onClick={undo}
       >
-        <Button.Icon id="arrow-left" />
+        <Button.Icon id="undo" />
       </Button.Root>
       <Button.Root
         type="button"
@@ -205,7 +233,7 @@ function HistoryButtons() {
         sx={styles.iconButton}
         onClick={redo}
       >
-        <Button.Icon id="arrow-right" />
+        <Button.Icon id="redo" />
       </Button.Root>
     </Layout.Stack>
   );
@@ -226,12 +254,50 @@ function ScaleBar() {
       value={zoomToSlider(scale)}
       label={t("scale")}
       readout={formatScale(scale)}
-      sx={styles.scaleSlider}
+      sx={styles.scaleRow}
       controlSx={styles.scaleControl}
       readoutSx={styles.scaleReadout}
       onValueChange={(value) => setDrawScale(sliderToZoom(value))}
     />
   );
+}
+
+function GradeSystemOptions() {
+  const system = useSelector(preferencesStore, (state) => state.gradeSystem);
+  return (
+    <Layout.Stack gap="xs" sx={styles.gradeField}>
+      <span {...stylex.props(styles.gradeLabel)}>{t("gradeSystem")}</span>
+      <Select.Root<GradeSystem>
+        value={system}
+        onValueChange={(next) => {
+          if (next) setGradeSystem(next);
+        }}
+      >
+        <Select.Trigger aria-label={t("gradeSystem")} sx={styles.gradeTrigger}>
+          <Select.Value>{(value) => gradeSystemLabel(value)}</Select.Value>
+          <Select.Icon />
+        </Select.Trigger>
+        <Select.Portal>
+          <Select.Positioner sideOffset={4}>
+            <Select.Popup>
+              <Select.List>
+                {GRADE_SYSTEMS.map((id) => (
+                  <Select.Item key={id} value={id} label={gradeSystemLabel(id)}>
+                    <Select.ItemIndicator />
+                    <Select.ItemText>{gradeSystemLabel(id)}</Select.ItemText>
+                  </Select.Item>
+                ))}
+              </Select.List>
+            </Select.Popup>
+          </Select.Positioner>
+        </Select.Portal>
+      </Select.Root>
+    </Layout.Stack>
+  );
+}
+
+function gradeSystemLabel(system: GradeSystem | null): string {
+  return t(system === "yds" ? "americanGrade" : "frenchGrade");
 }
 
 function DocumentTitle() {
@@ -427,62 +493,40 @@ const styles = stylex.create({
     color: Tokens.color.neutral[400],
     whiteSpace: "nowrap",
   },
-  positioner: {
-    zIndex: 30,
-  },
-  popup: {
-    minWidth: 220,
-    padding: Tokens.spacing.xs,
-    backgroundColor: Tokens.color.neutral[750],
-    color: Tokens.color.neutral[100],
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: Tokens.color.neutral[950],
-    borderRadius: 6,
-    boxShadow: `0 8px 24px ${Tokens.color.black[45]}`,
-    outlineStyle: "none",
-  },
-  menuItem: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: Tokens.spacing.xxxxl,
-    paddingBlock: Tokens.spacing.sm,
-    paddingInline: Tokens.spacing.lg,
-    borderRadius: 4,
-    fontSize: 13,
-    lineHeight: 1.3,
-    cursor: "default",
-    outlineStyle: "none",
-    userSelect: "none",
-    backgroundColor: {
-      default: "transparent",
-      "[data-highlighted]": Tokens.color.blue[500],
-      "[data-disabled]": "transparent",
-    },
-    color: {
-      default: "inherit",
-      "[data-highlighted]": Tokens.color.neutral[0],
-      "[data-disabled]": Tokens.color.neutral[500],
-    },
-  },
   kbd: {
     color: {
       default: Tokens.color.neutral[400],
-      [stylex.when.ancestor("[data-highlighted]")]: "inherit",
+      [stylex.when.ancestor(":hover")]: "inherit",
+      [stylex.when.ancestor(":focus-visible")]: "inherit",
     },
   },
-  scaleSlider: {
-    flexGrow: 0,
-    flexShrink: 0,
-    marginLeft: Tokens.spacing.md,
+  viewPopup: {
+    minWidth: 280,
+    gap: Tokens.spacing.xxs,
+  },
+  scaleRow: {
+    width: "100%",
+    paddingBlock: Tokens.spacing.sm,
+    paddingInline: Tokens.spacing.lg,
   },
   scaleControl: {
     width: 120,
-    flexGrow: 0,
-    flexShrink: 0,
+    flexGrow: 1,
+    flexShrink: 1,
   },
   scaleReadout: {
     width: 42,
     textAlign: "end",
+  },
+  gradeField: {
+    paddingBlock: Tokens.spacing.sm,
+    paddingInline: Tokens.spacing.lg,
+  },
+  gradeLabel: {
+    fontSize: 13,
+    color: Tokens.color.neutral[400],
+  },
+  gradeTrigger: {
+    width: "100%",
   },
 });

@@ -1,11 +1,25 @@
+export { Alert } from "./alert/index.ts";
 export { Button } from "./button/index.ts";
 export { Input } from "./input/index.ts";
 export { Layout } from "./layout/index.ts";
+export { Popover } from "./popover/index.ts";
+export { Select } from "./select/index.ts";
 export { Slider } from "./slider/index.ts";
 export { Table, tableColumnFeatures } from "./table/index.ts";
 export { Toast } from "./toast/index.ts";
+export { Toggle } from "./toggle/index.ts";
 export { Tokens } from "./tokens.stylex.ts";
 export { Widget } from "./widget/index.ts";
+export type {
+  AlertBackdropProps,
+  AlertCloseProps,
+  AlertCloseTone,
+  AlertDescriptionProps,
+  AlertPopupProps,
+  AlertPortalProps,
+  AlertRootProps,
+  AlertTitleProps,
+} from "./alert/index.ts";
 export type {
   ButtonIconProps,
   ButtonRootProps,
@@ -34,6 +48,29 @@ export type {
   StackDisplay,
 } from "./layout/index.ts";
 export type {
+  PopoverCloseProps,
+  PopoverPopupProps,
+  PopoverPortalProps,
+  PopoverPositionerProps,
+  PopoverRootProps,
+  PopoverTitleProps,
+  PopoverTriggerProps,
+} from "./popover/index.ts";
+export type {
+  SelectIconProps,
+  SelectItemIndicatorProps,
+  SelectItemProps,
+  SelectItemTextProps,
+  SelectListProps,
+  SelectPopupProps,
+  SelectPortalProps,
+  SelectPositionerProps,
+  SelectRootProps,
+  SelectSwatchProps,
+  SelectTriggerProps,
+  SelectValueProps,
+} from "./select/index.ts";
+export type {
   TableAlign,
   TableColumnMeta,
   TableFeatures,
@@ -49,12 +86,14 @@ export type {
   SliderTrackProps,
   SliderValueProps,
 } from "./slider/index.ts";
+export type { ToggleOptionProps, ToggleRootProps } from "./toggle/index.ts";
 export type {
   ToastActionProps,
   ToastArrowProps,
   ToastCloseProps,
   ToastContentProps,
   ToastDescriptionProps,
+  ToastIconProps,
   ToastPortalProps,
   ToastPositionerProps,
   ToastProviderProps,
@@ -67,5 +106,6 @@ export type {
   WidgetHeaderProps,
   WidgetMenuProps,
   WidgetPanelProps,
+  WidgetResizeSource,
   WidgetSurface,
 } from "./widget/index.ts";

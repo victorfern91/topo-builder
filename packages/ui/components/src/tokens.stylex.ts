@@ -69,6 +69,16 @@ export const Tokens = stylex.unstable_defineConstsNested({
       600: "#0d66d0",
       700: "#0b4fa8",
     },
+    orange: {
+      500: "#b45309",
+      600: "#9a3412",
+    },
+    yellow: {
+      100: "#f8e7b0",
+      300: "#e7c56a",
+      500: "#d4a84a",
+      700: "#a07b2c",
+    },
     red: {
       500: "#b40000",
     },

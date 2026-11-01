@@ -2,12 +2,14 @@ import { useEffect, type ReactNode } from "react";
 import { Layout, Toast } from "@ui";
 import { t } from "../i18n/index.ts";
 import { preferencesSchemaReset } from "../state/preferences.ts";
+import { ReleaseNotice } from "./release-notice.tsx";
 
 export function SettingsNotice({ children }: { children: ReactNode }) {
   return (
     <Toast.Provider>
       {children}
       <SchemaResetToast />
+      <ReleaseNotice />
       <Toast.Portal>
         <ToastList />
       </Toast.Portal>
@@ -41,16 +43,26 @@ function ToastList() {
       {toasts.map((toast) => (
         <Toast.Root key={toast.id} toast={toast}>
           <Toast.Content>
-            <Layout.Stack
-              direction="row"
-              align="center"
-              justify="space-between"
-              gap="xl"
-            >
-              <Toast.Title />
-              <Toast.Close>{t("dismiss")}</Toast.Close>
+            <Layout.Stack direction="row" align="start" gap="lg">
+              <Toast.Icon type={toast.type} />
+              <Layout.Stack gap="sm" grow>
+                <Layout.Stack
+                  direction="row"
+                  align="center"
+                  justify="space-between"
+                  gap="xl"
+                >
+                  <Toast.Title />
+                  <Toast.Close>{t("dismiss")}</Toast.Close>
+                </Layout.Stack>
+                <Toast.Description />
+                {toast.actionProps ? (
+                  <Layout.Stack direction="row" justify="end">
+                    <Toast.Action />
+                  </Layout.Stack>
+                ) : null}
+              </Layout.Stack>
             </Layout.Stack>
-            <Toast.Description />
           </Toast.Content>
         </Toast.Root>
       ))}
