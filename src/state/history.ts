@@ -116,6 +116,11 @@ export function redo(): void {
   publishAvailability();
 }
 
+/** True when a reload would drop drawing steps still on the undo stack. */
+export function hasUnsavedHistory(): boolean {
+  return historyStore.get().canUndo;
+}
+
 /** Drops every step. Opening another photo starts a blank history. */
 export function resetHistory(): void {
   undoStack = [];

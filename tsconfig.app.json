@@ -22,12 +22,15 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@ui/tokens": ["./packages/ui/components/src/tokens.stylex.ts"],
+      "@ui/alert": ["./packages/ui/components/src/alert/index.ts"],
       "@ui/button": ["./packages/ui/components/src/button/index.ts"],
       "@ui/input": ["./packages/ui/components/src/input/index.ts"],
       "@ui/layout": ["./packages/ui/components/src/layout/index.ts"],
+      "@ui/select": ["./packages/ui/components/src/select/index.ts"],
       "@ui/slider": ["./packages/ui/components/src/slider/index.ts"],
       "@ui/table": ["./packages/ui/components/src/table/index.ts"],
       "@ui/toast": ["./packages/ui/components/src/toast/index.ts"],
+      "@ui/toggle": ["./packages/ui/components/src/toggle/index.ts"],
       "@ui": ["./packages/ui/components/src/index.ts"]
     }
   },

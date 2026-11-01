@@ -1,6 +1,7 @@
 import { Toast as BaseToast } from "@base-ui/react/toast";
 import * as stylex from "@stylexjs/stylex";
 import type { CSSProperties } from "react";
+import { TbAlertTriangle, TbInfoCircle } from "react-icons/tb";
 import { Tokens } from "../tokens.stylex.ts";
 import type {
   ToastActionProps,
@@ -8,6 +9,7 @@ import type {
   ToastCloseProps,
   ToastContentProps,
   ToastDescriptionProps,
+  ToastIconProps,
   ToastPortalProps,
   ToastPositionerProps,
   ToastRootProps,
@@ -69,6 +71,18 @@ export function ToastContent({
   );
 
   return <BaseToast.Content {...props} {...chrome} />;
+}
+
+/** Mark for the toast type. `warning` is the alert glyph. Other types use info. */
+export function ToastIcon({ type, sx, className, style }: ToastIconProps) {
+  const Glyph = type === "warning" ? TbAlertTriangle : TbInfoCircle;
+  const chrome = toastChrome(stylex.props(styles.icon, sx), className, style);
+
+  return (
+    <span {...chrome} data-type={type} aria-hidden="true">
+      <Glyph {...iconGlyph} />
+    </span>
+  );
 }
 
 /** Title. Renders the toast's `title` when children are omitted. */
@@ -190,11 +204,17 @@ const styles = stylex.create({
   toast: {
     width: "100%",
     pointerEvents: "auto",
-    backgroundColor: Tokens.color.neutral[750],
+    backgroundColor: {
+      default: Tokens.color.neutral[750],
+      '[data-type="warning"]': `color-mix(in srgb, ${Tokens.color.yellow[300]} 22%, ${Tokens.color.neutral[750]})`,
+    },
     color: Tokens.color.neutral[100],
     borderWidth: 1,
     borderStyle: "solid",
-    borderColor: Tokens.color.neutral[950],
+    borderColor: {
+      default: Tokens.color.neutral[950],
+      '[data-type="warning"]': Tokens.color.yellow[500],
+    },
     borderRadius: 6,
     boxShadow: `0 12px 28px ${Tokens.color.black[45]}`,
     opacity: {
@@ -243,7 +263,10 @@ const styles = stylex.create({
     margin: Tokens.spacing.none,
     fontSize: 13,
     lineHeight: 1.4,
-    color: Tokens.color.neutral[400],
+    color: {
+      default: Tokens.color.neutral[400],
+      '[data-type="warning"]': Tokens.color.yellow[100],
+    },
   },
   close: {
     appearance: "none",
@@ -278,8 +301,16 @@ const styles = stylex.create({
   action: {
     appearance: "none",
     borderWidth: 0,
-    backgroundColor: Tokens.color.blue[500],
-    color: Tokens.color.neutral[0],
+    backgroundColor: {
+      default: Tokens.color.blue[500],
+      ":hover": Tokens.color.blue[600],
+      '[data-type="warning"]': Tokens.color.yellow[300],
+      '[data-type="warning"]:hover': Tokens.color.yellow[500],
+    },
+    color: {
+      default: Tokens.color.neutral[0],
+      '[data-type="warning"]': Tokens.color.neutral[1000],
+    },
     height: Tokens.size.md,
     paddingBlock: Tokens.spacing.none,
     paddingInline: Tokens.spacing.lg,
@@ -287,6 +318,39 @@ const styles = stylex.create({
     cursor: "pointer",
     fontSize: 13,
     fontWeight: 650,
+    outlineWidth: {
+      default: 0,
+      ":focus-visible": 2,
+    },
+    outlineStyle: {
+      default: "none",
+      ":focus-visible": "solid",
+    },
+    outlineColor: {
+      default: "transparent",
+      ":focus-visible": Tokens.color.blue[100],
+    },
+    outlineOffset: 1,
+  },
+  icon: {
+    display: "inline-flex",
+    flexGrow: 0,
+    flexShrink: 0,
+    marginTop: 1,
+    color: {
+      default: Tokens.color.neutral[400],
+      '[data-type="warning"]': Tokens.color.yellow[300],
+    },
+  },
+  glyph: {
+    width: 20,
+    height: 20,
+    display: "block",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.5,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
   },
   arrow: {
     display: "block",
@@ -295,3 +359,8 @@ const styles = stylex.create({
     backgroundColor: Tokens.color.neutral[750],
   },
 });
+
+const iconGlyph = {
+  ...stylex.props(styles.glyph),
+  "aria-hidden": true as const,
+};

@@ -20,6 +20,9 @@ const reactIconsRoot = path.dirname(
 );
 const tablerEntry = path.join(reactIconsRoot, "tb/index.mjs");
 const iconBaseEntry = path.join(reactIconsRoot, "lib/iconBase.mjs");
+const alertEntry = fileURLToPath(
+  new URL("./packages/ui/components/src/alert/index.ts", import.meta.url),
+);
 const buttonEntry = fileURLToPath(
   new URL("./packages/ui/components/src/button/index.ts", import.meta.url),
 );
@@ -38,6 +41,9 @@ const tableEntry = fileURLToPath(
 const toastEntry = fileURLToPath(
   new URL("./packages/ui/components/src/toast/index.ts", import.meta.url),
 );
+const toggleEntry = fileURLToPath(
+  new URL("./packages/ui/components/src/toggle/index.ts", import.meta.url),
+);
 const widgetEntry = fileURLToPath(
   new URL("./packages/ui/components/src/widget/index.ts", import.meta.url),
 );
@@ -53,12 +59,14 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /^@ui\/tokens$/, replacement: tokensEntry },
+      { find: /^@ui\/alert$/, replacement: alertEntry },
       { find: /^@ui\/button$/, replacement: buttonEntry },
       { find: /^@ui\/input$/, replacement: inputEntry },
       { find: /^@ui\/layout$/, replacement: layoutEntry },
       { find: /^@ui\/slider$/, replacement: sliderEntry },
       { find: /^@ui\/table$/, replacement: tableEntry },
       { find: /^@ui\/toast$/, replacement: toastEntry },
+      { find: /^@ui\/toggle$/, replacement: toggleEntry },
       { find: /^@ui\/widget$/, replacement: widgetEntry },
       { find: /^@ui$/, replacement: uiEntry },
     ],
@@ -67,6 +75,7 @@ export default defineConfig({
     exclude: ["@ui", "react-icons/tb"],
   },
   plugins: [
+    appBuildVersion(),
     tablerIcons(tablerEntry, iconBaseEntry),
     stylex.vite({
       useCSSLayers: { before: ["base"] },
@@ -88,6 +97,54 @@ export default defineConfig({
     strictPort: true,
   },
 });
+
+// Each production build writes `version.json` and bakes the same id into the
+// bundle. A running tab compares them to notice a newer Pages deploy.
+function appBuildVersion(): Plugin {
+  const build =
+    process.env.GITHUB_SHA ??
+    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  // Dev can publish a different id without restarting, which would rebake `build`.
+  let served = build;
+
+  return {
+    name: "app-build-version",
+    config() {
+      return {
+        define: {
+          __APP_BUILD__: JSON.stringify(build),
+        },
+      };
+    },
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const url = req.url?.split("?")[0];
+        if (url !== "/version.json" && url !== "/__release") {
+          next();
+          return;
+        }
+        if (url === "/__release") {
+          if (req.method !== "POST") {
+            next();
+            return;
+          }
+          served = `sim-${Date.now().toString(36)}`;
+          server.hot.send("topo:release");
+        }
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Cache-Control", "no-store");
+        res.end(`${JSON.stringify({ build: served })}\n`);
+      });
+    },
+    generateBundle() {
+      this.emitFile({
+        type: "asset",
+        fileName: "version.json",
+        source: `${JSON.stringify({ build })}\n`,
+      });
+    },
+  };
+}
 
 function stylexTokenPath(
   importPath: string,
@@ -114,7 +171,7 @@ function normalizeBase(value: string | undefined): string {
 
 const TABLER_VIRTUAL = "virtual:react-icons/tb/";
 const TABLER_IMPORT =
-  /import\s*\{([\s\S]*?)\}\s*from\s*["']react-icons\/tb["'];?/g;
+  /import\s*\{([^}]*)\}\s*from\s*["']react-icons\/tb["'];?/g;
 
 // `react-icons/tb` is one module of every Tabler icon. Vite's dep
 // prebundle keeps every export of that entry. Split each named import

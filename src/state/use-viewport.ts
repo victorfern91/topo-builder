@@ -24,20 +24,29 @@ export function useUserAction(): UserAction {
   return useViewportSelector((state) => state.userAction);
 }
 
-/** Position, drag flags, and move/drop handlers for one floating widget. */
+/** Position, size, drag flags, and move/resize/drop handlers for one floating widget. */
 export function useWidgetFrame(id: WidgetId) {
   const { actions, getState } = useViewport();
   const frame = useViewportSelector(
-    (state) => ({
-      x: state.frames[id].x,
-      y: state.frames[id].y,
-      placed: state.viewWidth > 0,
-      dragging: state.userAction === id,
-    }),
+    (state) => {
+      const item = state.frames[id];
+      return {
+        x: item.x,
+        y: item.y,
+        width: item.resized ? item.width : undefined,
+        height: item.resized ? item.height : undefined,
+        placed: state.viewWidth > 0,
+        dragging: state.userAction === id,
+      };
+    },
     { compare: shallow },
   );
-  const onResize = (width: number, height: number) => {
-    actions.resizeFrame(id, width, height);
+  const onResize = (
+    width: number,
+    height: number,
+    source?: "layout" | "user",
+  ) => {
+    actions.resizeFrame(id, width, height, source ?? "layout");
   };
   const onDragStart = () => {
     actions.setUserAction(id);

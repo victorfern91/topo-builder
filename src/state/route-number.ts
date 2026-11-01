@@ -1,3 +1,4 @@
+import { gradeLabel, type GradeSystem } from "./grade.ts";
 import { curveSpan, frameAt, lineGeometry, projectSpan } from "./line-curve.ts";
 import type { LineLayer } from "./lines.ts";
 
@@ -84,6 +85,17 @@ export function routeNumberPlacement(layer: LineLayer): NumberPlacement | null {
     onX: frame.x,
     onY: frame.y,
   };
+}
+
+/** List number, plus the grade when the route has one. */
+export function numberLabel(
+  order: number,
+  grade: number | null | undefined,
+  system: GradeSystem,
+): string {
+  const name = gradeLabel(grade, system);
+  const text = String(order);
+  return name ? `${text} ${name}` : text;
 }
 
 export function numberBadge(label: string): { width: number; height: number } {

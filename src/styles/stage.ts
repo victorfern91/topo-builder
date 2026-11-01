@@ -62,7 +62,7 @@ export const stage = stylex.create({
 export const lineLayers = stylex.create({
   root: {
     zIndex: 4,
-    width: "min(340px, calc(100% - 24px))",
+    width: "min(460px, calc(100% - 24px))",
     maxHeight: "min(360px, 46%)",
     overflow: "hidden",
     cursor: "default",
@@ -70,6 +70,7 @@ export const lineLayers = stylex.create({
     touchAction: "auto",
   },
   colors: {
+    minWidth: 0,
     borderBottomWidth: 1,
     borderBottomStyle: "solid",
     borderBottomColor: Tokens.color.neutral[850],
@@ -106,6 +107,12 @@ export const lineLayers = stylex.create({
     borderRadius: 2,
     boxShadow: `inset 0 0 0 1px ${Tokens.color.black[45]}`,
     verticalAlign: "middle",
+  },
+  gradeTrigger: {
+    height: 22,
+    paddingInline: Tokens.spacing.sm,
+    fontSize: 12,
+    gap: Tokens.spacing.xs,
   },
   name: {
     appearance: "none",

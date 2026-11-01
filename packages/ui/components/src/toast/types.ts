@@ -31,6 +31,10 @@ export type ToastViewportProps = WithChrome<BaseToastViewportProps>;
 export type ToastRootProps = WithChrome<BaseToastRootProps>;
 export type ToastContentProps = WithChrome<BaseToastContentProps>;
 export type ToastTitleProps = WithChrome<BaseToastTitleProps>;
+export type ToastIconProps = ToastChrome & {
+  /** Toast `type`. `warning` uses the alert mark. Any other type uses info. */
+  type?: string;
+};
 export type ToastDescriptionProps = WithChrome<BaseToastDescriptionProps>;
 export type ToastCloseProps = WithChrome<BaseToastCloseProps>;
 export type ToastActionProps = WithChrome<BaseToastActionProps>;

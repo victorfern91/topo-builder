@@ -14,13 +14,16 @@ import {
   resetHistory,
   type LineCheckpoint,
 } from "./history.ts";
+import { gradePaint } from "./grade.ts";
 import { markRadius, type PointMark } from "./point-marks.ts";
+import { preferencesStore } from "./preferences.ts";
 import {
   clearRouteNumberCache,
   defaultRouteNumber,
   insideNumberBadge,
   numberBadge,
   numberFromPointer,
+  numberLabel,
   readRouteNumber,
   routeNumberPlacement,
   type RouteNumber,
@@ -72,6 +75,8 @@ export type LineLayer = {
   locked: boolean;
   /** Null hides the list number. A value sits in the magnet band beside the route. */
   routeNumber: RouteNumber | null;
+  /** Index into the grade scale. Null until a route grade is chosen. */
+  grade: number | null;
 };
 
 export type LineHit =
@@ -215,6 +220,21 @@ export function setLineColor(id: string, color: LineColor): void {
   });
 }
 
+/** Paints the route with that grade's fill and outline. Boulders ignore it. */
+export function setLineGrade(id: string, grade: number): void {
+  edit(() => {
+    const paint = gradePaint(grade);
+    patch((draft) => {
+      const layer = draft.layers.find((item) => item.id === id);
+      if (!layer || layer.locked || layer.kind !== "route" || !paint) return;
+      if (layer.grade === grade && layer.color === paint.color) return;
+      layer.grade = grade;
+      layer.color = paint.color;
+      draft.revision += 1;
+    });
+  });
+}
+
 export function renameLine(id: string, name: string): void {
   edit(() => {
     patch((draft) => {
@@ -324,6 +344,7 @@ function copyLineNow(id: string): string | null {
     routeNumber: source.routeNumber
       ? { t: source.routeNumber.t, side: source.routeNumber.side }
       : null,
+    grade: source.grade ?? null,
   };
   patch((draft) => {
     draft.layers.splice(index + 1, 0, copy);
@@ -735,6 +756,7 @@ function createLayer(kind: LineKind, layers: readonly LineLayer[]): LineLayer {
     geometryRevision: 0,
     locked: false,
     routeNumber: null,
+    grade: null,
   };
 }
 
@@ -785,7 +807,13 @@ function nearestNumber(
     if (!layer || layer.locked) continue;
     const place = routeNumberPlacement(layer);
     if (!place) continue;
-    const badge = numberBadge(String(layerIndex + 1));
+    const badge = numberBadge(
+      numberLabel(
+        layerIndex + 1,
+        layer.grade,
+        preferencesStore.get().gradeSystem,
+      ),
+    );
     const dx = (x - place.x) * zoom;
     const dy = (y - place.y) * zoom;
     if (!insideNumberBadge(dx, dy, badge.width, badge.height)) continue;
@@ -968,6 +996,7 @@ function cloneLayer(layer: LineLayer): LineLayer {
     routeNumber: layer.routeNumber
       ? { t: layer.routeNumber.t, side: layer.routeNumber.side }
       : null,
+    grade: layer.grade ?? null,
   };
 }
 
@@ -987,6 +1016,7 @@ function sameLayer(saved: LineLayer, live: LineLayer): boolean {
     saved.color !== live.color ||
     saved.scale !== live.scale ||
     saved.locked !== live.locked ||
+    (saved.grade ?? null) !== (live.grade ?? null) ||
     !sameRouteNumber(saved.routeNumber, live.routeNumber) ||
     saved.anchors.length !== live.anchors.length
   ) {

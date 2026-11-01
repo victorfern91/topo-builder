@@ -10,12 +10,15 @@ const STORAGE_KEY = "topo.preferences";
 const WRITE_DELAY = 200;
 
 /** Bump when the stored shape changes. Snapshots that fail this schema reset to defaults. */
-export const PREFERENCES_SCHEMA_VERSION = 2;
+export const PREFERENCES_SCHEMA_VERSION = 3;
 
 const placementSchema = z.strictObject({
   x: z.number(),
   y: z.number(),
   custom: z.boolean(),
+  /** Present after the user resizes the widget. Older snapshots omit both. */
+  width: z.number().optional(),
+  height: z.number().optional(),
 });
 
 export const preferencesSchema = z.strictObject({
@@ -24,6 +27,8 @@ export const preferencesSchema = z.strictObject({
   navigator: placementSchema,
   tools: placementSchema,
   layers: placementSchema,
+  /** Which grade names the route list shows. The step on the route stays put. */
+  gradeSystem: z.enum(["french", "yds"]),
 });
 
 export type Preferences = z.infer<typeof preferencesSchema>;
@@ -45,21 +50,37 @@ function defaultPreferences(): Preferences {
     navigator: dockedPlacement(),
     tools: dockedPlacement(),
     layers: dockedPlacement(),
+    gradeSystem: "french",
   };
 }
 
-/** Version 1 stored tools and the navigator. Layers joined in version 2. */
+/**
+ * Version 1 stored tools and the navigator. Layers joined in version 2.
+ * The grade system joined in version 3. A snapshot that omits it keeps the
+ * other fields and stores French.
+ * Width and height are optional on each placement; older snapshots omit them.
+ */
 function migrate(json: unknown): unknown {
   if (json == null || typeof json !== "object") return json;
   const value = json as Record<string, unknown>;
-  if (value.schemaVersion !== 1) return json;
-  return {
-    schemaVersion: PREFERENCES_SCHEMA_VERSION,
-    locale: value.locale,
-    navigator: value.navigator,
-    tools: value.tools,
-    layers: dockedPlacement(),
-  };
+  if (value.schemaVersion === 1) {
+    return {
+      schemaVersion: PREFERENCES_SCHEMA_VERSION,
+      locale: value.locale,
+      navigator: value.navigator,
+      tools: value.tools,
+      layers: dockedPlacement(),
+      gradeSystem: "french",
+    };
+  }
+  if (value.schemaVersion === 2 || value.gradeSystem == null) {
+    return {
+      ...value,
+      schemaVersion: PREFERENCES_SCHEMA_VERSION,
+      gradeSystem: value.gradeSystem === "yds" ? "yds" : "french",
+    };
+  }
+  return json;
 }
 
 function readRaw(): string | null {
@@ -92,10 +113,18 @@ function loadPreferences(): LoadedPreferences {
     writePreferences(fallback);
     return { preferences: fallback, schemaReset: true };
   }
-  const parsed = preferencesSchema.safeParse(migrate(json));
+  const migrated = migrate(json);
+  const parsed = preferencesSchema.safeParse(migrated);
   if (!parsed.success) {
     writePreferences(fallback);
     return { preferences: fallback, schemaReset: true };
+  }
+  const stored = json as Record<string, unknown>;
+  if (
+    stored.schemaVersion !== parsed.data.schemaVersion ||
+    stored.gradeSystem !== parsed.data.gradeSystem
+  ) {
+    writePreferences(parsed.data);
   }
   return { preferences: parsed.data, schemaReset: false };
 }
@@ -143,7 +172,7 @@ if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     window.removeEventListener("pagehide", onPageHide);
     document.removeEventListener("visibilitychange", onVisibilityChange);
-    if (writeTimer != null) window.clearTimeout(writeTimer);
+    flushPreferences();
   });
 }
 
@@ -155,7 +184,9 @@ function savePlacement(key: WidgetPreferenceId, placement: Placement): void {
     if (
       current.x === placement.x &&
       current.y === placement.y &&
-      current.custom === placement.custom
+      current.custom === placement.custom &&
+      current.width === placement.width &&
+      current.height === placement.height
     ) {
       return state;
     }
@@ -168,4 +199,11 @@ export function saveWidgetPlacement(
   placement: Placement,
 ): void {
   savePlacement(id, placement);
+}
+
+export function setGradeSystem(system: Preferences["gradeSystem"]): void {
+  preferencesStore.setState((state) =>
+    state.gradeSystem === system ? state : { ...state, gradeSystem: system },
+  );
+  flushPreferences();
 }
