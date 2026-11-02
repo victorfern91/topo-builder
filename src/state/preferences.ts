@@ -10,7 +10,7 @@ const STORAGE_KEY = "topo.preferences";
 const WRITE_DELAY = 200;
 
 /** Bump when the stored shape changes. Snapshots that fail this schema reset to defaults. */
-export const PREFERENCES_SCHEMA_VERSION = 3;
+export const PREFERENCES_SCHEMA_VERSION = 4;
 
 const placementSchema = z.strictObject({
   x: z.number(),
@@ -27,6 +27,7 @@ export const preferencesSchema = z.strictObject({
   navigator: placementSchema,
   tools: placementSchema,
   layers: placementSchema,
+  marks: placementSchema,
   /** Which grade names the route list shows. The step on the route stays put. */
   gradeSystem: z.enum(["french", "yds"]),
 });
@@ -50,6 +51,7 @@ function defaultPreferences(): Preferences {
     navigator: dockedPlacement(),
     tools: dockedPlacement(),
     layers: dockedPlacement(),
+    marks: dockedPlacement(),
     gradeSystem: "french",
   };
 }
@@ -57,7 +59,8 @@ function defaultPreferences(): Preferences {
 /**
  * Version 1 stored tools and the navigator. Layers joined in version 2.
  * The grade system joined in version 3. A snapshot that omits it keeps the
- * other fields and stores French.
+ * other fields and stores French. The marks palette joined in version 4 and
+ * starts docked.
  * Width and height are optional on each placement; older snapshots omit them.
  */
 function migrate(json: unknown): unknown {
@@ -70,13 +73,19 @@ function migrate(json: unknown): unknown {
       navigator: value.navigator,
       tools: value.tools,
       layers: dockedPlacement(),
+      marks: dockedPlacement(),
       gradeSystem: "french",
     };
   }
-  if (value.schemaVersion === 2 || value.gradeSystem == null) {
+  if (
+    value.schemaVersion === 2 ||
+    value.schemaVersion === 3 ||
+    value.gradeSystem == null
+  ) {
     return {
       ...value,
       schemaVersion: PREFERENCES_SCHEMA_VERSION,
+      marks: value.marks ?? dockedPlacement(),
       gradeSystem: value.gradeSystem === "yds" ? "yds" : "french",
     };
   }
@@ -176,7 +185,7 @@ if (import.meta.hot) {
   });
 }
 
-export type WidgetPreferenceId = "navigator" | "tools" | "layers";
+export type WidgetPreferenceId = "navigator" | "tools" | "layers" | "marks";
 
 function savePlacement(key: WidgetPreferenceId, placement: Placement): void {
   preferencesStore.setState((state) => {

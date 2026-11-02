@@ -3,7 +3,6 @@ import { Button, Layout, Tokens, Widget } from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { t } from "../i18n/index.ts";
-import type { MessageId } from "../i18n/messages.ts";
 import {
   pointMenuStore,
   setPointMenu,
@@ -12,21 +11,24 @@ import {
 import {
   addRouteNumber,
   anchorMark,
-  clearAnchorMark,
   clearRouteNumber,
   deleteAnchor,
   insertAnchor,
   lineStore,
-  setAnchorMark,
+  toggleAnchorMark,
 } from "../state/lines.ts";
 import {
-  drawPointMark,
+  isFreeMark,
   magnetReach,
+  MARK_LABEL,
   POINT_MARKS,
   type PointMark,
 } from "../state/point-marks.ts";
 import { useViewport } from "../state/use-viewport.ts";
 import { isPlainDelete } from "../state/viewport.ts";
+import { MarkGlyph } from "./mark-glyph.tsx";
+
+const ROUTE_MARKS = POINT_MARKS.filter((mark) => !isFreeMark(mark));
 
 /** Subscribes to the point menu on its own, so the stage does not hold it. */
 export function PointMenuHost() {
@@ -35,13 +37,6 @@ export function PointMenuHost() {
   if (!menu) return null;
   return <PointMenuFrame menu={menu} />;
 }
-
-const MARK_LABEL = {
-  bolt: "boltMark",
-  ring: "ringMark",
-  belay: "belayMark",
-  rappel: "rappelMark",
-} as const satisfies Record<PointMark, MessageId>;
 
 type PointMenuProps = {
   x: number;
@@ -141,10 +136,10 @@ export function PointMenu({
           role="group"
           aria-label={t("pointMarks")}
         >
-          {POINT_MARKS.map((id) => {
+          {ROUTE_MARKS.map((id) => {
             const pressed = mark === id;
             const focusHere =
-              pressed || (mark === null && id === POINT_MARKS[0] && !onDelete);
+              pressed || (mark === null && id === ROUTE_MARKS[0] && !onDelete);
             return (
               <Button.Root
                 key={id}
@@ -159,7 +154,7 @@ export function PointMenu({
                 onClick={() => onMark(id)}
               >
                 <Button.Icon id={id}>
-                  <MarkIcon mark={id} />
+                  <MarkGlyph mark={id} size={22} />
                 </Button.Icon>
               </Button.Root>
             );
@@ -267,51 +262,16 @@ function PointMenuFrame({ menu }: { menu: PointMenuState }) {
         index === null
           ? null
           : (mark) => {
-              applyPointMark(menu.layerId, index, mark, getState().zoom);
+              toggleAnchorMark(
+                menu.layerId,
+                index,
+                mark,
+                magnetReach(getState().zoom, lineStore.get().scale),
+              );
               close();
             }
       }
       onClose={close}
-    />
-  );
-}
-
-function applyPointMark(
-  layerId: string,
-  index: number,
-  mark: PointMark,
-  zoom: number,
-): void {
-  if (anchorMark(layerId, index) === mark) {
-    clearAnchorMark(layerId, index);
-    return;
-  }
-  setAnchorMark(layerId, index, mark, magnetReach(zoom, lineStore.get().scale));
-}
-
-function MarkIcon({ mark }: { mark: PointMark }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useLayoutEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const size = 22;
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    canvas.width = Math.round(size * dpr);
-    canvas.height = Math.round(size * dpr);
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, size, size);
-    ctx.translate(size / 2, size / 2);
-    drawPointMark(ctx, mark, 8, 1);
-  }, [mark]);
-  return (
-    <canvas
-      {...stylex.props(styles.icon)}
-      ref={ref}
-      width={22}
-      height={22}
-      aria-hidden="true"
     />
   );
 }
@@ -359,10 +319,5 @@ const styles = stylex.create({
       ":focus-visible": Tokens.color.blue[500],
       "[data-selected]": Tokens.color.blue[500],
     },
-  },
-  icon: {
-    display: "block",
-    width: 22,
-    height: 22,
   },
 });

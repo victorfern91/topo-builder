@@ -8,7 +8,12 @@ import {
   type LineState,
   type MarkedPoint,
 } from "./lines.ts";
-import { POINT_MARKS, type PointMark } from "./point-marks.ts";
+import {
+  canStandFree,
+  clampMarkSize,
+  POINT_MARKS,
+  type PointMark,
+} from "./point-marks.ts";
 import { escapeXml } from "./svg.ts";
 import { CREATE_TOOLS, type CreateToolId } from "./tools.ts";
 
@@ -22,6 +27,9 @@ export const TOPO_PHOTO_ID = "topo-photo";
 const TOPO_VERSION = 1;
 
 const XLINK_NAMESPACE = "http://www.w3.org/1999/xlink";
+
+/** Marks older files may hold. Their anchors open as plain points. */
+const RETIRED_MARKS = new Set(["bolt", "ring", "belay", "rappel"]);
 
 export function isTopoFile(file: File): boolean {
   return file.name.toLowerCase().endsWith(`.${TOPO_EXTENSION}`);
@@ -46,10 +54,10 @@ export function topoMetadata(doc: LineState, source: string): string {
       `</topo:line>`,
     ].join("\n");
   });
-  const points = doc.points.map(
-    (point) =>
-      `<topo:point id="${escapeXml(point.id)}" x="${String(point.x)}" y="${String(point.y)}" mark="${point.mark}"/>`,
-  );
+  const points = doc.points.map((point) => {
+    const size = point.size === 1 ? "" : ` size="${String(point.size)}"`;
+    return `<topo:point id="${escapeXml(point.id)}" x="${String(point.x)}" y="${String(point.y)}" mark="${point.mark}"${size}/>`;
+  });
   return [
     `<metadata>`,
     `<topo:document version="${TOPO_VERSION}" source="${escapeXml(source)}" scale="${String(doc.scale)}">`,
@@ -85,6 +93,7 @@ async function readTopoFile(
 
   const points = new Map<string, MarkedPoint>();
   for (const node of children(root, "point")) {
+    if (RETIRED_MARKS.has(node.getAttribute("mark") ?? "")) continue;
     const id = text(node, "id");
     if (points.has(id)) invalid();
     points.set(id, {
@@ -92,6 +101,7 @@ async function readTopoFile(
       x: number(node, "x"),
       y: number(node, "y"),
       mark: oneOf<PointMark>(node, "mark", POINT_MARKS),
+      size: node.hasAttribute("size") ? clampMarkSize(number(node, "size")) : 1,
     });
   }
 
@@ -133,7 +143,9 @@ async function readTopoFile(
     photo: await embeddedPhoto(xml, text(root, "source")),
     drawing: {
       layers,
-      points: [...points.values()].filter((point) => used.has(point.id)),
+      points: [...points.values()].filter(
+        (point) => used.has(point.id) || canStandFree(point.mark),
+      ),
       scale: clampDrawScale(number(root, "scale")),
     },
   };

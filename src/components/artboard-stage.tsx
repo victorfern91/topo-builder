@@ -24,6 +24,7 @@ import {
 } from "../state/line-editor.ts";
 import {
   deleteAnchor,
+  deleteMark,
   deleteLastAnchor,
   findLayer,
   finishLine,
@@ -57,9 +58,15 @@ import {
   type ContentPlacement,
 } from "../state/viewport.ts";
 import { useViewport, useViewportSelector } from "../state/use-viewport.ts";
+import {
+  clipboardCommand,
+  runClipboardCommand,
+} from "../state/mark-clipboard.ts";
+import { markDragActive } from "../state/mark-drag.ts";
 import { stage } from "../styles/stage.ts";
 import { LayersPanel } from "./layers-panel.tsx";
 import { LineCanvas } from "./line-canvas.tsx";
+import { MarkDragGhost, MarksPanel } from "./marks-panel.tsx";
 import { NavigatorPanel } from "./navigator-panel.tsx";
 import { pointMenuOpen, setPointMenu } from "../state/point-menu.ts";
 import { PointMenuHost } from "./point-menu.tsx";
@@ -74,6 +81,9 @@ const STAGE_SHORTCUTS: readonly ShortcutId[] = [
   "actual-size",
   "undo",
   "redo",
+  "cut",
+  "copy",
+  "paste",
   "pan",
 ];
 
@@ -186,7 +196,8 @@ export function ArtboardStage({
         target instanceof Element &&
         Boolean(target.closest("[data-navigator]"));
       const onTools =
-        target instanceof Element && Boolean(target.closest("[data-tools]"));
+        target instanceof Element &&
+        Boolean(target.closest("[data-tools], [data-marks]"));
       const onLayers =
         target instanceof Element && Boolean(target.closest("[data-layers]"));
       const onMenu =
@@ -257,7 +268,7 @@ export function ArtboardStage({
     const node = stageRef.current;
     if (!node) return;
     const onMove = (event: PointerEvent) => {
-      if (lineGestureActive()) return;
+      if (lineGestureActive() || markDragActive()) return;
       if (
         !toolEditsLine(activeTool(toolStore.get())) ||
         isChromeTarget(event.target)
@@ -276,8 +287,22 @@ export function ArtboardStage({
       );
       hoverLine(point.x, point.y, view.zoom);
     };
-    const onLeave = () => clearLineHover();
+    const onLeave = () => {
+      if (!markDragActive()) clearLineHover();
+    };
     const onKeyDown = (event: KeyboardEvent) => {
+      const clipboard = clipboardCommand(event);
+      if (clipboard) {
+        if (
+          lineGestureActive() ||
+          pointMenuOpen() ||
+          isTypingTarget(event.target) ||
+          !toolEditsLine(activeTool(toolStore.get()))
+        )
+          return;
+        if (runClipboardCommand(clipboard)) event.preventDefault();
+        return;
+      }
       if (
         lineGestureActive() ||
         !isPlainDelete(event) ||
@@ -286,6 +311,11 @@ export function ArtboardStage({
         return;
       if (pointMenuOpen()) return;
       const state = lineStore.get();
+      if (state.markId !== null) {
+        event.preventDefault();
+        deleteMark(state.markId);
+        return;
+      }
       if (state.activeId !== null && state.anchorIndex !== null) {
         event.preventDefault();
         deleteAnchor(state.activeId, state.anchorIndex);
@@ -339,6 +369,7 @@ export function ArtboardStage({
       isNavigatorTarget(event.target) ||
       isToolsTarget(event.target) ||
       isLayersTarget(event.target) ||
+      isMarksTarget(event.target) ||
       isPointMenuTarget(event.target) ||
       isInteractiveTarget(event.target)
     ) {
@@ -426,7 +457,8 @@ export function ArtboardStage({
     if (
       isNavigatorTarget(event.target) ||
       isToolsTarget(event.target) ||
-      isLayersTarget(event.target)
+      isLayersTarget(event.target) ||
+      isMarksTarget(event.target)
     ) {
       setPointMenu(null);
       return;
@@ -526,8 +558,10 @@ export function ArtboardStage({
       <LineCanvas />
       <LayersPanel />
       <ToolSidebar />
+      <MarksPanel stageRef={stageRef} />
       {navigator ? <NavigatorPanel /> : null}
       <PointMenuHost />
+      <MarkDragGhost />
     </Layout.Box>
   );
 }
@@ -580,13 +614,26 @@ function stageCursor(
 ): string {
   if (panning) return "grab";
   if (!toolEditsLine(tool)) return toolCursor(tool);
-  if (hover?.type === "anchor" || hover?.type === "number") return "move";
+  if (hover?.type === "markCorner")
+    return hover.corner === "nw" || hover.corner === "se"
+      ? "nwse-resize"
+      : "nesw-resize";
+  if (
+    hover?.type === "anchor" ||
+    hover?.type === "number" ||
+    hover?.type === "mark"
+  )
+    return "move";
   if (hover?.type === "stroke") return "pointer";
   return toolCursor(tool);
 }
 
 function isLayersTarget(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest("[data-layers]"));
+}
+
+function isMarksTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest("[data-marks]"));
 }
 
 function isChromeTarget(target: EventTarget | null): boolean {

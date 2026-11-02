@@ -67,12 +67,14 @@ const FRAME_SIZE: Record<WidgetId, { width: number; height: number }> = {
   tools: { width: 48, height: 120 },
   navigator: { width: 216, height: 248 },
   layers: { width: 340, height: 220 },
+  marks: { width: 196, height: 150 },
 };
 
 const WIDGET_IDS = [
   "tools",
   "navigator",
   "layers",
+  "marks",
 ] as const satisfies readonly WidgetId[];
 
 function emptyFrame(id: WidgetId): WidgetFrame {
@@ -104,6 +106,7 @@ const initialViewport: ViewportState = {
     tools: emptyFrame("tools"),
     navigator: emptyFrame("navigator"),
     layers: emptyFrame("layers"),
+    marks: emptyFrame("marks"),
   },
 };
 
@@ -590,12 +593,13 @@ function hydratePlacement(): void {
 
 hydratePlacement();
 
-type WidgetDock = "top-start" | "top-end" | "bottom-start";
+type WidgetDock = "top-start" | "top-end" | "bottom-start" | "bottom-end";
 
 const WIDGET_DOCK: Record<WidgetId, WidgetDock> = {
   tools: "top-start",
   navigator: "top-end",
   layers: "bottom-start",
+  marks: "bottom-end",
 };
 
 function dockedOrigin(
@@ -613,8 +617,8 @@ function dockedOrigin(
   );
   const dock = WIDGET_DOCK[id];
   return {
-    x: dock === "top-end" ? maxX : PANEL_MARGIN,
-    y: dock === "bottom-start" ? maxY : PANEL_MARGIN,
+    x: dock === "top-end" || dock === "bottom-end" ? maxX : PANEL_MARGIN,
+    y: dock === "bottom-start" || dock === "bottom-end" ? maxY : PANEL_MARGIN,
   };
 }
 
