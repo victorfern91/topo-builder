@@ -1,3 +1,4 @@
+import { t } from "../i18n/index.ts";
 import { TopoError } from "./errors.ts";
 import { failImageFile, openImageFile } from "./image-document.ts";
 import {
@@ -9,11 +10,12 @@ import {
   type MarkedPoint,
 } from "./lines.ts";
 import {
-  canStandFree,
   clampMarkSize,
+  MARK_LABEL,
   POINT_MARKS,
   type PointMark,
 } from "./point-marks.ts";
+import { DEFAULT_NUMBER_TEXT, type RouteNumber } from "./route-number.ts";
 import { escapeXml } from "./svg.ts";
 import { CREATE_TOOLS, type CreateToolId } from "./tools.ts";
 
@@ -38,9 +40,11 @@ export function isTopoFile(file: File): boolean {
 /** `<metadata>` with every line, anchor, and mark at full precision. */
 export function topoMetadata(doc: LineState, source: string): string {
   const lines = doc.layers.map((layer) => {
-    const number = layer.routeNumber
-      ? ` number-t="${String(layer.routeNumber.t)}" number-side="${String(layer.routeNumber.side)}"`
-      : "";
+    const numbers = layer.routeNumbers.map(
+      (spot) => `<topo:number${spotAttributes("", spot)}/>`,
+    );
+    const numberText = ` number-text="${escapeXml(layer.numberText)}"`;
+    const gradeBadge = spotAttributes("grade", layer.gradeBadge);
     const grade = layer.grade === null ? "" : ` grade="${layer.grade}"`;
     const anchors = layer.anchors.map((anchor) => {
       const point = anchor.pointId
@@ -49,14 +53,16 @@ export function topoMetadata(doc: LineState, source: string): string {
       return `<topo:anchor x="${String(anchor.x)}" y="${String(anchor.y)}"${point}/>`;
     });
     return [
-      `<topo:line id="${escapeXml(layer.id)}" kind="${layer.kind}" name="${escapeXml(layer.name)}" color="${escapeXml(layer.color)}" scale="${String(layer.scale)}" locked="${layer.locked}"${grade}${number}>`,
+      `<topo:line id="${escapeXml(layer.id)}" kind="${layer.kind}" name="${escapeXml(layer.name)}" color="${escapeXml(layer.color)}" scale="${String(layer.scale)}" locked="${layer.locked}"${grade}${numberText}${gradeBadge}>`,
       ...anchors,
+      ...numbers,
       `</topo:line>`,
     ].join("\n");
   });
   const points = doc.points.map((point) => {
     const size = point.size === 1 ? "" : ` size="${String(point.size)}"`;
-    return `<topo:point id="${escapeXml(point.id)}" x="${String(point.x)}" y="${String(point.y)}" mark="${point.mark}"${size}/>`;
+    const locked = point.locked ? ` locked="true"` : "";
+    return `<topo:point id="${escapeXml(point.id)}" x="${String(point.x)}" y="${String(point.y)}" mark="${point.mark}" name="${escapeXml(point.name)}"${size}${locked}/>`;
   });
   return [
     `<metadata>`,
@@ -96,24 +102,25 @@ async function readTopoFile(
     if (RETIRED_MARKS.has(node.getAttribute("mark") ?? "")) continue;
     const id = text(node, "id");
     if (points.has(id)) invalid();
+    const mark = oneOf<PointMark>(node, "mark", POINT_MARKS);
     points.set(id, {
       id,
       x: number(node, "x"),
       y: number(node, "y"),
-      mark: oneOf<PointMark>(node, "mark", POINT_MARKS),
+      mark,
       size: node.hasAttribute("size") ? clampMarkSize(number(node, "size")) : 1,
+      name: node.getAttribute("name") ?? t(MARK_LABEL[mark]),
+      locked: node.getAttribute("locked") === "true",
     });
   }
 
   const ids = new Set<string>();
-  const used = new Set<string>();
   const layers = children(root, "line").map((node): LineLayer => {
     const id = text(node, "id");
     if (ids.has(id)) invalid();
     ids.add(id);
     const anchors = children(node, "anchor").map((anchorNode): Anchor => {
       const point = points.get(anchorNode.getAttribute("point") ?? "");
-      if (point) used.add(point.id);
       return point
         ? { x: point.x, y: point.y, pointId: point.id }
         : {
@@ -132,9 +139,9 @@ async function readTopoFile(
       scale: clampDrawScale(number(node, "scale")),
       geometryRevision: 0,
       locked: node.getAttribute("locked") === "true",
-      routeNumber: node.hasAttribute("number-t")
-        ? { t: number(node, "number-t"), side: number(node, "number-side") }
-        : null,
+      routeNumbers: readNumbers(node),
+      numberText: node.getAttribute("number-text") ?? DEFAULT_NUMBER_TEXT,
+      gradeBadge: readSpot(node, "grade"),
       grade: grade === null ? null : integer(grade),
     };
   });
@@ -143,9 +150,7 @@ async function readTopoFile(
     photo: await embeddedPhoto(xml, text(root, "source")),
     drawing: {
       layers,
-      points: [...points.values()].filter(
-        (point) => used.has(point.id) || canStandFree(point.mark),
-      ),
+      points: [...points.values()],
       scale: clampDrawScale(number(root, "scale")),
     },
   };
@@ -159,6 +164,35 @@ async function embeddedPhoto(xml: Document, source: string): Promise<File> {
   if (!href?.startsWith("data:image/")) invalid();
   const blob = await (await fetch(href)).blob();
   return new File([blob], source, { type: blob.type });
+}
+
+/** An empty prefix writes plain `t`, `side`, `along`. `along` is written only past a route end. */
+function spotAttributes(prefix: string, spot: RouteNumber | null): string {
+  if (!spot) return "";
+  const name = (key: string) => (prefix ? `${prefix}-${key}` : key);
+  const along =
+    spot.along === 0 ? "" : ` ${name("along")}="${String(spot.along)}"`;
+  return ` ${name("t")}="${String(spot.t)}" ${name("side")}="${String(spot.side)}"${along}`;
+}
+
+function readSpot(node: Element, prefix: string): RouteNumber | null {
+  const name = (key: string) => (prefix ? `${prefix}-${key}` : key);
+  if (!node.hasAttribute(name("t"))) return null;
+  return {
+    t: number(node, name("t")),
+    side: number(node, name("side")),
+    along: node.hasAttribute(name("along")) ? number(node, name("along")) : 0,
+  };
+}
+
+/** `<topo:number>` children. Older files hold one badge as `number-*` attributes on the line. */
+function readNumbers(node: Element): RouteNumber[] {
+  const legacy = readSpot(node, "number");
+  const spots = children(node, "number").map((child) => readSpot(child, ""));
+  return [
+    ...(legacy ? [legacy] : []),
+    ...spots.filter((spot) => spot !== null),
+  ];
 }
 
 function children(parent: Element, name: string): Element[] {

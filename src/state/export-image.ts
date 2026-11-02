@@ -1,15 +1,14 @@
-import type { GradeSystem } from "./grade.ts";
 import { TopoError } from "./errors.ts";
 import { imageDocumentStore } from "./image-document.ts";
 import { lineGeometry, type CurveOp } from "./line-curve.ts";
 import {
   BADGE_EDGE,
+  BADGE_EDGE_COLOR,
   BADGE_FILL,
   BADGE_TEXT,
-  exportInk,
-  lineStroke,
-  paintArtwork,
-} from "./line-paint.ts";
+} from "../components/canvas/paint/badges.ts";
+import { exportInk, paintArtwork } from "../components/canvas/paint/artwork.ts";
+import { lineStroke } from "../components/canvas/paint/routes.ts";
 import { lineStore, type LineState } from "./lines.ts";
 import {
   MARK_LABEL,
@@ -19,15 +18,18 @@ import {
   pointMarkSvg,
   type PointMark,
 } from "./point-marks.ts";
-import { preferencesStore } from "./preferences.ts";
 import {
-  NUMBER_FONT_FAMILY,
-  NUMBER_FONT_SIZE,
-  NUMBER_FONT_WEIGHT,
+  BADGE_TYPE,
+  badgeInk,
+  badgeLabel,
+  badgeSpots,
+  loadBadgeFonts,
   numberBadge,
-  numberLabel,
+  ROUTE_BADGES,
   routeNumberPlacement,
 } from "./route-number.ts";
+import { preferencesStore } from "./preferences.ts";
+import type { GradeSystem } from "./grade.ts";
 import { escapeXml, svgIdFactory, svgNumber as n, svgPaint } from "./svg.ts";
 import { t } from "../i18n/index.ts";
 import { rgbaToTiffBlob } from "./tiff.ts";
@@ -52,12 +54,34 @@ const EXTENSION: Record<ExportFormat, string> = {
   topo: TOPO_EXTENSION,
 };
 
+const MIME: Record<ExportFormat, string> = {
+  png: "image/png",
+  jpeg: "image/jpeg",
+  tiff: "image/tiff",
+  svg: "image/svg+xml",
+  topo: "image/svg+xml",
+};
+
+const FORMAT_LABEL: Record<ExportFormat, string> = {
+  png: "PNG",
+  jpeg: "JPEG",
+  tiff: "TIFF",
+  svg: "SVG",
+  topo: "Topo",
+};
+
 const JPEG_QUALITY = 0.92;
 
-/** Photo with every line, mark, and number at the photo's own pixel size. Downloads the file. */
+type SaveTarget = FileSystemFileHandle | "download";
+
+/** Photo with every line, mark, and number at the photo's own pixel size. Asks where to save. */
 export async function exportTopo(format: ExportFormat): Promise<void> {
   const image = imageDocumentStore.get();
   if (image.status !== "ready") throw new TopoError("EXPORT_NO_IMAGE");
+  const fileName = exportName(image.fileName, format);
+  // Pick the path while the click still counts as a user gesture.
+  const target = await resolveSaveTarget(fileName, format);
+  if (!target) return;
   const photo = await loadPhoto(image.objectUrl);
   const doc = lineStore.get();
   const system = preferencesStore.get().gradeSystem;
@@ -72,7 +96,7 @@ export async function exportTopo(format: ExportFormat): Promise<void> {
           format,
         )
       : await markArtReady.then(() => rasterBlob(photo, doc, system, format));
-  download(blob, exportName(image.fileName, format));
+  await saveBlob(blob, fileName, target);
 }
 
 export function exportExtension(format: ExportFormat): string {
@@ -103,6 +127,7 @@ async function rasterBlob(
     ctx.fillRect(0, 0, width, height);
   }
   ctx.drawImage(photo, 0, 0, width, height);
+  await loadBadgeFonts();
   paintArtwork(ctx, doc, system);
   if (format === "tiff") {
     return rgbaToTiffBlob(
@@ -181,16 +206,35 @@ async function svgBlob(
       `</g>`,
     );
 
-    const place = routeNumberPlacement(layer);
-    if (place) {
-      const label = numberLabel(index + 1, layer.grade, system);
-      const badge = numberBadge(label);
-      parts.push(
-        `<g id="${id(`${routeId}-number`, "number")}" inkscape:label="${escapeXml(t("numberLayer"))}" transform="translate(${n(place.x)} ${n(place.y)}) scale(${n(ink)})">`,
-        `<rect x="${n(-badge.width / 2)}" y="${n(-badge.height / 2)}" width="${n(badge.width)}" height="${n(badge.height)}" rx="${n(badge.height / 2)}" ry="${n(badge.height / 2)}" ${svgPaint("fill", BADGE_FILL)} ${svgPaint("stroke", layer.color)} stroke-width="${n(BADGE_EDGE)}"/>`,
-        `<text x="0" y="${n(NUMBER_FONT_SIZE * 0.35)}" text-anchor="middle" font-family="${escapeXml(NUMBER_FONT_FAMILY.replace(/"/g, "'"))}" font-size="${NUMBER_FONT_SIZE}" font-weight="${Math.round(NUMBER_FONT_WEIGHT / 100) * 100}" ${svgPaint("fill", BADGE_TEXT)}>${escapeXml(label)}</text>`,
-        `</g>`,
-      );
+    for (const kind of ROUTE_BADGES) {
+      const label = badgeLabel(layer, kind, system);
+      if (!label) continue;
+      const badge = numberBadge(label, kind);
+      const type = BADGE_TYPE[kind];
+      const text = badgeInk(label, kind);
+      const count = badgeSpots(layer, kind).length;
+      for (let index = 0; index < count; index += 1) {
+        const place = routeNumberPlacement(layer, kind, index);
+        if (!place) continue;
+        const key =
+          index === 0
+            ? `${routeId}-${kind}`
+            : `${routeId}-${kind}-${String(index + 1)}`;
+        const rim = BADGE_EDGE / 2;
+        parts.push(
+          `<g id="${id(key, kind)}" inkscape:label="${escapeXml(t(kind === "number" ? "numberLayer" : "layerGrade"))}" transform="translate(${n(place.x)} ${n(place.y)}) scale(${n(ink)})">`,
+          `<rect x="${n(-badge.width / 2)}" y="${n(-badge.height / 2)}" width="${n(badge.width)}" height="${n(badge.height)}" rx="${n(badge.height / 2)}" ry="${n(badge.height / 2)}" ${svgPaint("fill", BADGE_FILL)}/>`,
+        );
+        if (kind === "number") {
+          parts.push(
+            `<rect x="${n(-badge.width / 2 - rim)}" y="${n(-badge.height / 2 - rim)}" width="${n(badge.width + BADGE_EDGE)}" height="${n(badge.height + BADGE_EDGE)}" rx="${n(badge.height / 2 + rim)}" ry="${n(badge.height / 2 + rim)}" fill="none" ${svgPaint("stroke", BADGE_EDGE_COLOR)} stroke-width="${n(BADGE_EDGE)}"/>`,
+          );
+        }
+        parts.push(
+          `<text x="${n(text.x)}" y="${n(text.y)}" text-anchor="middle" font-family="${escapeXml(type.family.replace(/"/g, "'"))}" font-size="${type.size}" font-weight="${Math.round(type.weight / 100) * 100}" ${svgPaint("fill", BADGE_TEXT)}>${escapeXml(label)}</text>`,
+          `</g>`,
+        );
+      }
     }
     parts.push(`</g>`);
   }
@@ -283,6 +327,74 @@ function blobToDataUrl(blob: Blob): Promise<string> {
     reader.readAsDataURL(blob);
   });
 }
+
+/** `null` when the user dismisses the save dialog. */
+async function resolveSaveTarget(
+  fileName: string,
+  format: ExportFormat,
+): Promise<SaveTarget | null> {
+  if (!canShowSaveFilePicker()) return "download";
+  try {
+    const handle = await showSaveFilePicker({
+      suggestedName: fileName,
+      excludeAcceptAllOption: true,
+      types: [
+        {
+          description: FORMAT_LABEL[format],
+          accept: { [MIME[format]]: [`.${EXTENSION[format]}`] },
+        },
+      ],
+    });
+    return handle;
+  } catch (error) {
+    if (isAbortError(error)) return null;
+    return "download";
+  }
+}
+
+async function saveBlob(
+  blob: Blob,
+  fileName: string,
+  target: SaveTarget,
+): Promise<void> {
+  if (target === "download") {
+    download(blob, fileName);
+    return;
+  }
+  const writable = await target.createWritable();
+  try {
+    await writable.write(blob);
+  } finally {
+    await writable.close();
+  }
+}
+
+function canShowSaveFilePicker(): boolean {
+  if (!("showSaveFilePicker" in window)) return false;
+  try {
+    return window.self === window.top;
+  } catch {
+    return false;
+  }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+/** Declared here: TypeScript’s DOM lib has the handle types but not this method yet. */
+declare function showSaveFilePicker(
+  options?: SaveFilePickerOptions,
+): Promise<FileSystemFileHandle>;
+
+type SaveFilePickerOptions = {
+  suggestedName?: string;
+  excludeAcceptAllOption?: boolean;
+  types?: Array<{
+    description?: string;
+    accept: Record<string, string[]>;
+  }>;
+};
 
 function download(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);

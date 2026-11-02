@@ -10,10 +10,28 @@ import {
 import { t } from "../i18n/index.ts";
 import type { MessageId } from "../i18n/messages.ts";
 import {
+  badgeDragStore,
+  badgeDropTarget,
+  dropBadgeDrag,
+  endBadgeDrag,
+  moveBadgeDrag,
+} from "../state/badge-drag.ts";
+import { gradeLabel, type GradeSystem } from "../state/grade.ts";
+import {
+  findLayer,
   lineStore,
   selectedAnchorMark,
   toggleAnchorMark,
 } from "../state/lines.ts";
+import { addRouteNumber, clearRouteNumbers } from "../state/route-badge.ts";
+import { preferencesStore } from "../state/preferences.ts";
+import {
+  badgeLabel,
+  badgeSpots,
+  DEFAULT_NUMBER_TEXT,
+  ROUTE_BADGES,
+  type RouteBadge,
+} from "../state/route-number.ts";
 import {
   dropMarkDrag,
   endMarkDrag,
@@ -32,19 +50,23 @@ import {
   type MarkKind,
   type PointMark,
 } from "../state/point-marks.ts";
-import { useViewport, useWidgetFrame } from "../state/use-viewport.ts";
+import {
+  useViewport,
+  useViewportSelector,
+  useWidgetFrame,
+} from "../state/use-viewport.ts";
+import { BadgePill } from "./canvas/badge-pill.tsx";
 import { MarkGlyph } from "./mark-glyph.tsx";
 
 const DRAG_SLOP = 3;
 
 type StageRef = RefObject<HTMLDivElement | null>;
 
-/** Palette of point marks. Drag one onto a route point to mark it. */
+/** Palette of point marks. Drag one onto the photo or a route point to place it. */
 export function MarksPanel({ stageRef }: { stageRef: StageRef }) {
   const frame = useWidgetFrame("marks");
-  const visible = useSelector(lineStore, (state) => state.layers.length > 0);
   useEffect(() => endMarkDrag, []);
-  if (!visible) return null;
+  useEffect(() => endBadgeDrag, []);
   return (
     <Widget.Panel
       {...frame}
@@ -71,6 +93,11 @@ export function MarksPanel({ stageRef }: { stageRef: StageRef }) {
                   <MarkTile key={mark} mark={mark} stageRef={stageRef} />
                 ),
               )}
+              {kind === "characteristic"
+                ? ROUTE_BADGES.map((badge) => (
+                    <BadgeTile key={badge} badge={badge} stageRef={stageRef} />
+                  ))
+                : null}
             </Layout.Stack>
           </Layout.Stack>
         ))}
@@ -87,17 +114,19 @@ const DROP_HINT = {
 
 type Press = { id: number; x: number; y: number; dragging: boolean };
 
-function MarkTile({ mark, stageRef }: { mark: PointMark; stageRef: StageRef }) {
-  const { getState } = useViewport();
-  const free = isFreeMark(mark);
-  const pressed = useSelector(
-    lineStore,
-    (state) => !free && selectedAnchorMark(state) === mark,
-  );
-  const dragging = useSelector(markDragStore, (drag) => drag?.mark === mark);
+type PaletteDrag = {
+  /** True while this tile's drag is live. Escape then cancels it. */
+  dragging: boolean;
+  move: (clientX: number, clientY: number) => void;
+  drop: () => void;
+  cancel: () => void;
+  click: () => void;
+};
+
+/** Pointer handlers for a palette tile: a press past the slop drags, a plain press clicks. */
+function usePaletteDrag({ dragging, move, drop, cancel, click }: PaletteDrag) {
   const press = useRef<Press | null>(null);
   const skipClick = useRef(false);
-  const label = t(MARK_LABEL[mark]);
 
   useEffect(() => {
     if (!dragging) return;
@@ -106,28 +135,11 @@ function MarkTile({ mark, stageRef }: { mark: PointMark; stageRef: StageRef }) {
       event.preventDefault();
       event.stopPropagation();
       press.current = null;
-      endMarkDrag();
+      cancel();
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [dragging]);
-
-  const track = (event: ReactPointerEvent<HTMLElement>) => {
-    const view = getState();
-    moveMarkDrag(
-      mark,
-      event.clientX,
-      event.clientY,
-      markDropTarget(
-        mark,
-        event.clientX,
-        event.clientY,
-        stageRef.current,
-        view,
-      ),
-      view.zoom,
-    );
-  };
+  }, [dragging, cancel]);
 
   const release = (event: ReactPointerEvent<HTMLElement>) => {
     const current = press.current;
@@ -136,6 +148,88 @@ function MarkTile({ mark, stageRef }: { mark: PointMark; stageRef: StageRef }) {
     return current.dragging;
   };
 
+  return {
+    onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      skipClick.current = false;
+      press.current = {
+        id: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        dragging: false,
+      };
+    },
+    onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
+      const current = press.current;
+      if (!current || current.id !== event.pointerId) return;
+      if (
+        !current.dragging &&
+        Math.hypot(event.clientX - current.x, event.clientY - current.y) <
+          DRAG_SLOP
+      )
+        return;
+      current.dragging = true;
+      skipClick.current = true;
+      move(event.clientX, event.clientY);
+    },
+    onPointerUp: (event: ReactPointerEvent<HTMLElement>) => {
+      if (!release(event)) return;
+      move(event.clientX, event.clientY);
+      drop();
+    },
+    onPointerCancel: (event: ReactPointerEvent<HTMLElement>) => {
+      if (release(event)) cancel();
+    },
+    onLostPointerCapture: (event: ReactPointerEvent<HTMLElement>) => {
+      if (release(event)) cancel();
+    },
+    onClick: () => {
+      if (skipClick.current) {
+        skipClick.current = false;
+        return;
+      }
+      click();
+    },
+  };
+}
+
+function MarkTile({ mark, stageRef }: { mark: PointMark; stageRef: StageRef }) {
+  const { getState } = useViewport();
+  const free = isFreeMark(mark);
+  const pressed = useSelector(
+    lineStore,
+    (state) => !free && selectedAnchorMark(state) === mark,
+  );
+  const dragging = useSelector(markDragStore, (drag) => drag?.mark === mark);
+  const label = t(MARK_LABEL[mark]);
+  const handlers = usePaletteDrag({
+    dragging,
+    move: (clientX, clientY) => {
+      const view = getState();
+      moveMarkDrag(
+        mark,
+        clientX,
+        clientY,
+        markDropTarget(mark, clientX, clientY, stageRef.current, view),
+        view.zoom,
+      );
+    },
+    drop: () => dropMarkDrag(getState().zoom),
+    cancel: endMarkDrag,
+    click: () => {
+      const state = lineStore.get();
+      if (free || state.activeId === null || state.anchorIndex === null) return;
+      toggleAnchorMark(
+        state.activeId,
+        state.anchorIndex,
+        mark,
+        magnetReach(getState().zoom, state.scale),
+      );
+    },
+  });
+
   return (
     <Button.Root
       sx={styles.tile}
@@ -143,62 +237,110 @@ function MarkTile({ mark, stageRef }: { mark: PointMark; stageRef: StageRef }) {
       aria-label={label}
       aria-pressed={free ? undefined : pressed}
       title={`${label}. ${t(DROP_HINT[MARK_KIND[mark]])}`}
-      onPointerDown={(event) => {
-        if (event.button !== 0) return;
-        event.preventDefault();
-        event.currentTarget.setPointerCapture(event.pointerId);
-        skipClick.current = false;
-        press.current = {
-          id: event.pointerId,
-          x: event.clientX,
-          y: event.clientY,
-          dragging: false,
-        };
-      }}
-      onPointerMove={(event) => {
-        const current = press.current;
-        if (!current || current.id !== event.pointerId) return;
-        if (
-          !current.dragging &&
-          Math.hypot(event.clientX - current.x, event.clientY - current.y) <
-            DRAG_SLOP
-        )
-          return;
-        current.dragging = true;
-        skipClick.current = true;
-        track(event);
-      }}
-      onPointerUp={(event) => {
-        if (!release(event)) return;
-        track(event);
-        dropMarkDrag(getState().zoom);
-      }}
-      onPointerCancel={(event) => {
-        if (release(event)) endMarkDrag();
-      }}
-      onLostPointerCapture={(event) => {
-        if (release(event)) endMarkDrag();
-      }}
-      onClick={() => {
-        if (skipClick.current) {
-          skipClick.current = false;
-          return;
-        }
-        const state = lineStore.get();
-        if (free || state.activeId === null || state.anchorIndex === null)
-          return;
-        toggleAnchorMark(
-          state.activeId,
-          state.anchorIndex,
-          mark,
-          magnetReach(getState().zoom, state.scale),
-        );
-      }}
+      {...handlers}
     >
       <Button.Icon id={mark}>
         <MarkGlyph mark={mark} size={22} />
       </Button.Icon>
     </Button.Root>
+  );
+}
+
+const BADGE_LABEL = {
+  number: "numberBadge",
+  grade: "gradeBadge",
+} as const satisfies Record<RouteBadge, MessageId>;
+
+const BADGE_HINT = {
+  number: "dropNumberHint",
+  grade: "dropGradeHint",
+} as const satisfies Record<RouteBadge, MessageId>;
+
+/** Sample text on a palette badge, before it lands beside a route. */
+function sampleBadgeText(badge: RouteBadge, system: GradeSystem): string {
+  if (badge === "number") return DEFAULT_NUMBER_TEXT;
+  return gradeLabel(SAMPLE_GRADE, system) ?? "";
+}
+
+const SAMPLE_GRADE = 9;
+
+/** Number or grade pill. Drag it beside a route, or click to toggle it on the selected line. */
+function BadgeTile({
+  badge,
+  stageRef,
+}: {
+  badge: RouteBadge;
+  stageRef: StageRef;
+}) {
+  const { getState } = useViewport();
+  const system = useSelector(preferencesStore, (state) => state.gradeSystem);
+  const pressed = useSelector(lineStore, (state) => {
+    const layer = findLayer(state, state.activeId);
+    return layer ? badgeSpots(layer, badge).length > 0 : false;
+  });
+  const dragging = useSelector(badgeDragStore, (drag) => drag?.badge === badge);
+  const label = t(BADGE_LABEL[badge]);
+  const handlers = usePaletteDrag({
+    dragging,
+    move: (clientX, clientY) =>
+      moveBadgeDrag(
+        badge,
+        clientX,
+        clientY,
+        badgeDropTarget(badge, clientX, clientY, stageRef.current, getState()),
+      ),
+    drop: dropBadgeDrag,
+    cancel: endBadgeDrag,
+    click: () => {
+      const layer = findLayer(lineStore.get(), lineStore.get().activeId);
+      const start = layer?.anchors[0];
+      if (!layer || !start) return;
+      if (badgeSpots(layer, badge).length > 0)
+        clearRouteNumbers(layer.id, badge);
+      else addRouteNumber(layer.id, badge, start.x, start.y);
+    },
+  });
+
+  return (
+    <Button.Root
+      sx={styles.badgeTile}
+      type="button"
+      aria-label={label}
+      aria-pressed={pressed}
+      title={`${label}. ${t(BADGE_HINT[badge])}`}
+      {...handlers}
+    >
+      <BadgePill badge={badge}>{sampleBadgeText(badge, system)}</BadgePill>
+    </Button.Root>
+  );
+}
+
+/** The badge under the pointer while it is dragged from the palette. */
+export function BadgeDragGhost() {
+  const drag = useSelector(badgeDragStore, (state) => state);
+  const system = useSelector(preferencesStore, (state) => state.gradeSystem);
+  const text = useSelector(lineStore, (state) => {
+    if (!drag?.layerId) return null;
+    const layer = findLayer(state, drag.layerId);
+    return layer ? badgeLabel(layer, drag.badge, system) : null;
+  });
+  const drawScale = useSelector(lineStore, (state) => state.scale);
+  const zoom = useViewportSelector((state) => state.zoom);
+  if (!drag) return null;
+  const size = Math.min(4, Math.max(0.5, zoom * drawScale));
+  return (
+    <div
+      {...stylex.props(styles.ghost)}
+      data-over={drag.layerId ? "" : undefined}
+      style={{
+        transform: `translate3d(${drag.x}px, ${drag.y}px, 0) translate(-50%, -50%) scale(${size})`,
+      }}
+      aria-hidden="true"
+    >
+      <BadgePill badge={drag.badge}>
+        {text ?? sampleBadgeText(drag.badge, system)}
+      </BadgePill>
+    </div>
   );
 }
 
@@ -235,6 +377,14 @@ const styles = stylex.create({
     height: Tokens.size.lg,
     paddingBlock: Tokens.spacing.none,
     paddingInline: Tokens.spacing.none,
+    touchAction: "none",
+    cursor: "grab",
+  },
+  badgeTile: {
+    minWidth: Tokens.size.lg,
+    height: Tokens.size.lg,
+    paddingBlock: Tokens.spacing.none,
+    paddingInline: Tokens.spacing.xs,
     touchAction: "none",
     cursor: "grab",
   },

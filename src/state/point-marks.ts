@@ -26,9 +26,10 @@ export const MARK_LABEL = {
 } as const satisfies Record<PointMark, MessageId>;
 
 /**
- * Anchors sit on route points. Characteristics sit anywhere on the photo.
- * Material sits on route points, on the line, which gains a point there, or
- * free inside a band beside a route.
+ * Anchors are layers of their own: they sit anywhere on the photo, route points
+ * glue to them, and they stay when their routes go. Characteristics sit
+ * anywhere on the photo. Material sits on route points, on the line, which
+ * gains a point there, or free inside a band beside a route.
  */
 export type MarkKind = "anchor" | "characteristic" | "material";
 
@@ -62,9 +63,9 @@ export function isFreeMark(mark: PointMark): boolean {
   return MARK_KIND[mark] === "characteristic";
 }
 
-/** True for marks that may stand on the photo without a route point. */
-export function canStandFree(mark: PointMark): boolean {
-  return MARK_KIND[mark] !== "anchor";
+/** True for marks that stay on the photo after their last route point lets go. */
+export function standsAlone(mark: PointMark): boolean {
+  return MARK_KIND[mark] === "anchor";
 }
 
 /** How far from a route free material may sit, in image pixels. */

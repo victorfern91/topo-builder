@@ -14,6 +14,7 @@ import { shallow } from "@tanstack/store";
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
@@ -29,53 +30,97 @@ import {
 } from "../state/grade.ts";
 import {
   LINE_COLORS,
+  anchorPoints,
   copyLine,
   deleteLine,
+  deleteMark,
   lineStore,
   moveLine,
   renameLine,
+  renameMark,
+  selectedPointId,
   selectLine,
+  selectMark,
   setLineColor,
   setLineGrade,
   toggleLineLock,
+  toggleMarkLock,
   type LineLayer,
+  type LineState,
+  type MarkedPoint,
 } from "../state/lines.ts";
+import { standsAlone } from "../state/point-marks.ts";
+import { setNumberText } from "../state/route-badge.ts";
+import { DEFAULT_NUMBER_TEXT } from "../state/route-number.ts";
 import { preferencesStore } from "../state/preferences.ts";
 import { useWidgetFrame } from "../state/use-viewport.ts";
 import { lineLayers } from "../styles/stage.ts";
+import { MarkGlyph } from "./mark-glyph.tsx";
 
-const layerColumn = createColumnHelper<TableFeatures, LineLayer>();
+/** Anchors lead the list, then the lines in store order. */
+type LayerRow = LineLayer | MarkedPoint;
 
-/** Store order. `row.index` is the line number, and the same number is drawn on the photo. */
+function isAnchorRow(row: LayerRow): row is MarkedPoint {
+  return "mark" in row;
+}
+
+function anchorCount(state: LineState): number {
+  let count = 0;
+  for (const point of state.points) if (standsAlone(point.mark)) count += 1;
+  return count;
+}
+
+const layerColumn = createColumnHelper<TableFeatures, LayerRow>();
+
+/** Below the anchors, a line's place is its number, and the same number is drawn on the photo. */
 const layerColumns = layerColumn.columns([
   layerColumn.display({
     id: "order",
     header: () => t("layerOrder"),
     meta: { width: 80, align: "end" },
-    cell: ({ row, table }) => (
-      <LayerOrder
-        layer={row.original}
-        index={row.index}
-        count={table.options.data.length}
-      />
-    ),
+    cell: ({ row, table }) =>
+      isAnchorRow(row.original) ? null : (
+        <LayerOrder
+          layer={row.original}
+          row={row.index}
+          rows={table.options.data.length}
+        />
+      ),
   }),
   layerColumn.display({
     id: "color",
     header: () => t("layerColor"),
     meta: { width: 28, align: "center", headerHidden: true },
-    cell: ({ row }) => <LayerColor layer={row.original} />,
+    cell: ({ row }) =>
+      isAnchorRow(row.original) ? (
+        <AnchorGlyph point={row.original} />
+      ) : (
+        <LayerColor layer={row.original} />
+      ),
   }),
   layerColumn.display({
     id: "name",
     header: () => t("layerName"),
-    cell: ({ row }) => <LayerName layer={row.original} />,
+    cell: ({ row }) =>
+      isAnchorRow(row.original) ? (
+        <AnchorName point={row.original} />
+      ) : (
+        <LayerName layer={row.original} />
+      ),
+  }),
+  layerColumn.display({
+    id: "number",
+    header: () => t("layerNumber"),
+    meta: { width: 64 },
+    cell: ({ row }) =>
+      isAnchorRow(row.original) ? null : <LayerNumber layer={row.original} />,
   }),
   layerColumn.display({
     id: "grade",
     header: () => t("layerGrade"),
     meta: { width: 108 },
-    cell: ({ row }) => <LayerGrade layer={row.original} />,
+    cell: ({ row }) =>
+      isAnchorRow(row.original) ? null : <LayerGrade layer={row.original} />,
   }),
   layerColumn.display({
     id: "kind",
@@ -83,7 +128,13 @@ const layerColumns = layerColumn.columns([
     meta: { width: 72, align: "end" },
     cell: ({ row }) => (
       <span {...stylex.props(lineLayers.kind)}>
-        {t(row.original.kind === "route" ? "routeKind" : "boulderKind")}
+        {t(
+          isAnchorRow(row.original)
+            ? "anchorKind"
+            : row.original.kind === "route"
+              ? "routeKind"
+              : "boulderKind",
+        )}
       </span>
     ),
   }),
@@ -91,13 +142,21 @@ const layerColumns = layerColumn.columns([
     id: "actions",
     header: () => t("layerActions"),
     meta: { width: 88, align: "end", headerHidden: true },
-    cell: ({ row }) => <LayerActions layer={row.original} />,
+    cell: ({ row }) =>
+      isAnchorRow(row.original) ? (
+        <AnchorActions point={row.original} />
+      ) : (
+        <LayerActions layer={row.original} />
+      ),
   }),
 ]);
 
 export function LayersPanel() {
   const frame = useWidgetFrame("layers");
-  const visible = useSelector(lineStore, (state) => state.layers.length > 0);
+  const visible = useSelector(
+    lineStore,
+    (state) => state.layers.length > 0 || anchorCount(state) > 0,
+  );
   if (!visible) return null;
 
   return (
@@ -120,8 +179,18 @@ export function LayersPanel() {
 }
 
 function LayerTable() {
+  const anchors = useSelector(lineStore, anchorPoints, { compare: shallow });
   const layers = useSelector(lineStore, (state) => state.layers);
+  const rows = useMemo<LayerRow[]>(
+    () => [...anchors, ...layers],
+    [anchors, layers],
+  );
   const activeId = useSelector(lineStore, (state) => state.activeId);
+  const pointId = useSelector(lineStore, selectedPointId);
+  const scrollId = useSelector(
+    lineStore,
+    (state) => state.markId ?? state.activeId,
+  );
   const focusId = useSelector(lineStore, (state) => {
     const active = state.layers.find((item) => item.id === state.activeId);
     if (!active || active.anchors.length > 0) return null;
@@ -149,16 +218,24 @@ function LayerTable() {
 
   return (
     <Table.Root
-      data={layers}
+      data={rows}
       columns={layerColumns}
       getRowId={layerRowId}
-      getRowProps={(layer) => ({
-        selected: layer.id === activeId,
-        locked: layer.locked,
-        onPointerDown: () => selectLine(layer.id),
-      })}
+      getRowProps={(row) =>
+        isAnchorRow(row)
+          ? {
+              selected: row.id === pointId,
+              locked: row.locked,
+              onPointerDown: () => selectMark(row.id),
+            }
+          : {
+              selected: row.id === activeId,
+              locked: row.locked,
+              onPointerDown: () => selectLine(row.id),
+            }
+      }
       estimateSize={28}
-      scrollToId={activeId}
+      scrollToId={scrollId}
       aria-label={t("layers")}
     />
   );
@@ -309,15 +386,19 @@ type OrderDrag = {
   done: boolean;
 };
 
+/** `row` and `rows` count table rows. Anchor rows above the lines are skipped. */
 function LayerOrder({
   layer,
-  index,
-  count,
+  row,
+  rows,
 }: {
   layer: LineLayer;
-  index: number;
-  count: number;
+  row: number;
+  rows: number;
 }) {
+  const lead = useSelector(lineStore, anchorCount);
+  const index = row - lead;
+  const count = rows - lead;
   const drag = useRef<OrderDrag | null>(null);
   const upLabel = t("moveLayerUp");
   const downLabel = t("moveLayerDown");
@@ -400,8 +481,8 @@ function LayerOrder({
       return;
     }
     current.over = true;
-    current.to = next;
-    setDropRow(root, next);
+    current.to = Math.max(0, next - lead);
+    setDropRow(root, current.to + lead);
   };
 
   const onReorderPointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -510,8 +591,71 @@ function layerNameId(id: string): string {
   return `layer-name-${id}`;
 }
 
-function layerRowId(layer: LineLayer): string {
-  return layer.id;
+function layerRowId(row: LayerRow): string {
+  return row.id;
+}
+
+function AnchorGlyph({ point }: { point: MarkedPoint }) {
+  return (
+    <Layout.Box renderAs="span" display="inline-block">
+      <MarkGlyph mark={point.mark} size={16} />
+    </Layout.Box>
+  );
+}
+
+function AnchorName({ point }: { point: MarkedPoint }) {
+  return (
+    <Input.Root
+      sx={lineLayers.name}
+      id={layerNameId(point.id)}
+      aria-label={t("layerName")}
+      value={point.name}
+      disabled={point.locked}
+      spellCheck={false}
+      autoComplete="off"
+      onValueChange={(value) => renameMark(point.id, value)}
+      onFocus={() => selectMark(point.id)}
+    />
+  );
+}
+
+function AnchorActions({ point }: { point: MarkedPoint }) {
+  const lockLabel = t(point.locked ? "unlockLayer" : "lockLayer");
+  const deleteLabel = t("deleteLayer");
+  return (
+    <Layout.Stack
+      direction="row"
+      gap="xs"
+      justify="end"
+      align="center"
+      grow={false}
+      shrink={false}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <Button.Root
+        type="button"
+        size="sm"
+        sx={lineLayers.action}
+        aria-pressed={point.locked}
+        aria-label={lockLabel}
+        title={lockLabel}
+        onClick={() => toggleMarkLock(point.id)}
+      >
+        <Button.Icon id={point.locked ? "unlock" : "lock"} />
+      </Button.Root>
+      <Button.Root
+        type="button"
+        size="sm"
+        sx={lineLayers.action}
+        aria-label={deleteLabel}
+        title={deleteLabel}
+        disabled={point.locked}
+        onClick={() => deleteMark(point.id)}
+      >
+        <Button.Icon id="trash" />
+      </Button.Root>
+    </Layout.Stack>
+  );
 }
 
 function LayerName({ layer }: { layer: LineLayer }) {
@@ -525,6 +669,22 @@ function LayerName({ layer }: { layer: LineLayer }) {
       spellCheck={false}
       autoComplete="off"
       onValueChange={(value) => renameLine(layer.id, value)}
+      onFocus={() => selectLine(layer.id)}
+    />
+  );
+}
+
+function LayerNumber({ layer }: { layer: LineLayer }) {
+  return (
+    <Input.Root
+      sx={lineLayers.name}
+      aria-label={t("numberBadge")}
+      value={layer.numberText}
+      placeholder={DEFAULT_NUMBER_TEXT}
+      disabled={layer.locked}
+      spellCheck={false}
+      autoComplete="off"
+      onValueChange={(value) => setNumberText(layer.id, value)}
       onFocus={() => selectLine(layer.id)}
     />
   );

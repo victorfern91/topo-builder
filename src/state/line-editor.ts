@@ -5,6 +5,8 @@ import {
   MARK_KIND,
   markRadius,
 } from "./point-marks.ts";
+import { moveRouteNumber, setNumberDrag } from "./route-badge.ts";
+import { badgeSpot, type RouteBadge } from "./route-number.ts";
 import type { CreateToolId } from "./tools.ts";
 import { viewportStore } from "./viewport.ts";
 import {
@@ -21,7 +23,6 @@ import {
   markFrame,
   materialLanding,
   moveMarkedPoint,
-  moveRouteNumber,
   nearestMarkedPoint,
   placeAnchor,
   resizeMark,
@@ -30,7 +31,6 @@ import {
   selectMark,
   setLineHover,
   setMaterialGrab,
-  setNumberDrag,
   type MarkLanding,
 } from "./lines.ts";
 
@@ -51,6 +51,8 @@ type AnchorGesture = {
 type NumberGesture = {
   kind: "number";
   layerId: string;
+  badge: RouteBadge;
+  index: number;
 };
 
 type MarkGesture = {
@@ -147,7 +149,7 @@ export function pointerMoveLine(x: number, y: number, zoom: number): void {
     return;
   }
   if (gesture.kind === "number") {
-    moveRouteNumber(gesture.layerId, x, y);
+    moveRouteNumber(gesture.layerId, gesture.badge, gesture.index, x, y);
     return;
   }
   if (gesture.kind === "resize") {
@@ -274,9 +276,11 @@ function beginEdit(x: number, y: number, zoom: number): boolean {
   if (hit?.type === "number") {
     selectLine(hit.layerId);
     const layer = findLayer(lineStore.get(), hit.layerId);
-    if (!layer || layer.locked || !layer.routeNumber) return true;
-    gesture = { kind: "number", layerId: hit.layerId };
-    setNumberDrag(hit.layerId);
+    if (!layer || layer.locked || !badgeSpot(layer, hit.badge, hit.index))
+      return true;
+    const spot = { layerId: hit.layerId, badge: hit.badge, index: hit.index };
+    gesture = { kind: "number", ...spot };
+    setNumberDrag(spot);
     setLineHover(hit);
     return true;
   }

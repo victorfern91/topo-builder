@@ -16,27 +16,24 @@ import {
 } from "./history.ts";
 import { gradePaint } from "./grade.ts";
 import {
-  canStandFree,
   clampMarkSize,
   isFreeMark,
   magnetReach,
+  MARK_LABEL,
   markRadius,
   materialReach,
+  standsAlone,
   type PointMark,
 } from "./point-marks.ts";
-import { preferencesStore } from "./preferences.ts";
-import { LINE_STROKE } from "./stroke.ts";
 import {
   clearRouteNumberCache,
-  defaultRouteNumber,
-  insideNumberBadge,
-  numberBadge,
-  numberFromPointer,
-  numberLabel,
-  readRouteNumber,
-  routeNumberPlacement,
+  DEFAULT_NUMBER_TEXT,
+  nearestNumber,
+  sameRouteNumber,
+  type RouteBadge,
   type RouteNumber,
 } from "./route-number.ts";
+import { LINE_STROKE } from "./stroke.ts";
 import type { CreateToolId } from "./tools.ts";
 import { MAX_ZOOM, MIN_ZOOM } from "./viewport.ts";
 
@@ -57,6 +54,10 @@ export type MarkedPoint = {
   mark: PointMark;
   /** Multiplier on the draw size. Characteristics change it from their frame; route marks keep 1. */
   size: number;
+  /** Shown on an anchor's row in the layers list. */
+  name: string;
+  /** Locked marks stay put. Moves, renames, and deletes are refused. */
+  locked: boolean;
 };
 
 /** A corner of a characteristic's frame. */
@@ -90,8 +91,12 @@ export type LineLayer = {
   geometryRevision: number;
   /** Locked lines stay visible and keep their number. Geometry edits are refused. */
   locked: boolean;
-  /** Null hides the list number. A value sits in the magnet band beside the route. */
-  routeNumber: RouteNumber | null;
+  /** Number badges in the magnet band beside the route. Each shows `numberText`. */
+  routeNumbers: RouteNumber[];
+  /** Text on every number badge. */
+  numberText: string;
+  /** Null hides the grade badge. A value sits in the magnet band beside the route. */
+  gradeBadge: RouteNumber | null;
   /** Index into the grade scale. Null until a route grade is chosen. */
   grade: number | null;
 };
@@ -99,7 +104,7 @@ export type LineLayer = {
 export type LineHit =
   | { type: "anchor"; layerId: string; index: number }
   | { type: "stroke"; layerId: string }
-  | { type: "number"; layerId: string }
+  | { type: "number"; layerId: string; badge: RouteBadge; index: number }
   | { type: "mark"; pointId: string }
   | { type: "markCorner"; pointId: string; corner: MarkCorner };
 
@@ -137,7 +142,7 @@ export const LINE_COLORS = [
 
 export type LineColor = (typeof LINE_COLORS)[number];
 
-const HIT_PX = 8;
+export const HIT_PX = 8;
 
 let sequence = 0;
 let pointSequence = 0;
@@ -162,25 +167,22 @@ export const lineStore = new Store<LineState>({
 /** Pointer target. Its own store so a hover does not publish the line document. */
 export const lineHoverStore = new Store<LineHit | null>(null);
 
-/** Layer whose route number is being dragged. Drives the magnet band. */
-export const numberDragStore = new Store<string | null>(null);
-
 /** True while a placed free material is held. Drives the material band. */
 export const materialGrabStore = new Store(false);
 
-function patch(recipe: (draft: LineState) => void): void {
+export function patch(recipe: (draft: LineState) => void): void {
   lineStore.setState((state) => produce(state, recipe));
 }
 
 /** Notifies canvas subscribers. The layer list keeps its identity. */
-function publish(): void {
+export function publish(): void {
   patch((draft) => {
     draft.revision += 1;
   });
 }
 
 /** One undo step. Nested calls join the step a pointer gesture already opened. */
-function edit<T>(run: () => T, coalesceKey?: string): T {
+export function edit<T>(run: () => T, coalesceKey?: string): T {
   beginHistory(coalesceKey);
   try {
     return run();
@@ -270,22 +272,15 @@ export function selectMark(id: string): void {
   });
 }
 
-/** Places a characteristic or material on the photo, off every route point, and selects it. */
+/** Places a mark on the photo, off every route point, and selects it. */
 export function addFreeMark(
   mark: PointMark,
   x: number,
   y: number,
   size = 1,
 ): void {
-  if (!canStandFree(mark)) return;
   edit(() => {
-    const point: MarkedPoint = {
-      id: nextPointId(),
-      x,
-      y,
-      mark,
-      size: clampMarkSize(size),
-    };
+    const point = createPoint(mark, x, y, clampMarkSize(size));
     patch((draft) => {
       draft.points.push(point);
       draft.activeId = null;
@@ -300,7 +295,8 @@ export function addFreeMark(
 export function deleteMark(id: string): void {
   edit(() => {
     const state = lineStore.get();
-    if (!state.points.some((point) => point.id === id)) return;
+    const point = state.points.find((item) => item.id === id);
+    if (!point || point.locked) return;
     for (const layer of state.layers) {
       if (layer.locked && layer.anchors.some((a) => a.pointId === id)) return;
     }
@@ -322,6 +318,30 @@ export function deleteMark(id: string): void {
       const hover = lineHoverStore.get();
       if (hover?.type === "mark" && hover.pointId === id) setLineHover(null);
     });
+  });
+}
+
+export function renameMark(id: string, name: string): void {
+  edit(() => {
+    patch((draft) => {
+      const point = draft.points.find((item) => item.id === id);
+      if (!point || point.locked || point.name === name) return;
+      point.name = name;
+      draft.revision += 1;
+    });
+  });
+}
+
+export function toggleMarkLock(id: string): void {
+  edit(() => {
+    patch((draft) => {
+      const point = draft.points.find((item) => item.id === id);
+      if (!point) return;
+      point.locked = !point.locked;
+      draft.revision += 1;
+    });
+    const hover = lineHoverStore.get();
+    if (hover?.type === "mark" && hover.pointId === id) setLineHover(null);
   });
 }
 
@@ -393,6 +413,9 @@ function deleteLineNow(id: string): void {
   for (const anchor of layer.anchors) {
     if (anchor.pointId) removedPoints.add(anchor.pointId);
   }
+  for (const point of state.points) {
+    if (standsAlone(point.mark)) removedPoints.delete(point.id);
+  }
   batch(() => {
     patch((draft) => {
       draft.layers.splice(index, 1);
@@ -438,14 +461,9 @@ function copyLineNow(id: string): string | null {
     if (existing) return { x: anchor.x, y: anchor.y, pointId: existing.id };
     const point = state.points.find((item) => item.id === anchor.pointId);
     if (!point) return { x: anchor.x, y: anchor.y, pointId: null };
-    pointSequence += 1;
-    const clone: MarkedPoint = {
-      id: `point-${pointSequence}`,
-      x: point.x,
-      y: point.y,
-      mark: point.mark,
-      size: point.size,
-    };
+    if (standsAlone(point.mark))
+      return { x: anchor.x, y: anchor.y, pointId: point.id };
+    const clone: MarkedPoint = { ...clonePoint(point), id: nextPointId() };
     clones.set(anchor.pointId, clone);
     return { x: anchor.x, y: anchor.y, pointId: clone.id };
   });
@@ -458,9 +476,9 @@ function copyLineNow(id: string): string | null {
     scale: source.scale,
     geometryRevision: 0,
     locked: false,
-    routeNumber: source.routeNumber
-      ? { t: source.routeNumber.t, side: source.routeNumber.side }
-      : null,
+    routeNumbers: source.routeNumbers.map(cloneSpot),
+    numberText: source.numberText,
+    gradeBadge: source.gradeBadge ? cloneSpot(source.gradeBadge) : null,
     grade: source.grade ?? null,
   };
   patch((draft) => {
@@ -556,59 +574,14 @@ export function setMaterialGrab(held: boolean): void {
   materialGrabStore.setState((current) => (current === held ? current : held));
 }
 
-export function setNumberDrag(layerId: string | null): void {
-  numberDragStore.setState((current) =>
-    current === layerId ? current : layerId,
-  );
-}
-
 /** Appends a corner. Mutates the layer list in place so the table does not re-render. */
 export function appendAnchor(layerId: string, x: number, y: number): number {
   return edit(() => {
     const layer = findLayer(lineStore.get(), layerId);
     if (!layer || layer.locked) return -1;
-    const opening = layer.anchors.length < 2;
     layer.anchors.push({ x, y, pointId: null });
-    if (opening && layer.anchors.length >= 2 && layer.routeNumber == null) {
-      layer.routeNumber = defaultRouteNumber();
-    }
     touch(layer);
     return layer.anchors.length - 1;
-  });
-}
-
-/** Slides the badge along the route and keeps it inside the magnet band. */
-export function moveRouteNumber(layerId: string, x: number, y: number): void {
-  edit(() => {
-    const layer = findLayer(lineStore.get(), layerId);
-    const current = layer ? readRouteNumber(layer) : null;
-    if (!layer || layer.locked || !current) return;
-    const next = numberFromPointer(layer, x, y, current.side);
-    if (!next || sameNumber(layer.routeNumber, next)) return;
-    layer.routeNumber = next;
-    publish();
-  }, `number:${layerId}`);
-}
-
-/** Places the list number where the pointer sits inside the magnet band. */
-export function addRouteNumber(layerId: string, x: number, y: number): void {
-  edit(() => {
-    const layer = findLayer(lineStore.get(), layerId);
-    if (!layer || layer.locked || layer.anchors.length < 2 || layer.routeNumber)
-      return;
-    const next = numberFromPointer(layer, x, y, 1);
-    if (!next) return;
-    layer.routeNumber = next;
-    publish();
-  });
-}
-
-export function clearRouteNumber(layerId: string): void {
-  edit(() => {
-    const layer = findLayer(lineStore.get(), layerId);
-    if (!layer || layer.locked || !layer.routeNumber) return;
-    layer.routeNumber = null;
-    publish();
   });
 }
 
@@ -634,7 +607,7 @@ export function placeAnchor(
 export function moveMarkedPoint(id: string, x: number, y: number): void {
   edit(() => {
     const point = lineStore.get().points.find((item) => item.id === id);
-    if (!point || (point.x === x && point.y === y)) return;
+    if (!point || point.locked || (point.x === x && point.y === y)) return;
     for (const layer of lineStore.get().layers) {
       if (!layer.locked) continue;
       if (layer.anchors.some((anchor) => anchor.pointId === id)) return;
@@ -664,7 +637,7 @@ export function resizeMark(
 ): void {
   edit(() => {
     const point = lineStore.get().points.find((item) => item.id === id);
-    if (!point || !isFreeMark(point.mark)) return;
+    if (!point || point.locked || !isFreeMark(point.mark)) return;
     const next = clampMarkSize(size);
     if (point.size === next && point.x === x && point.y === y) return;
     point.size = next;
@@ -734,7 +707,8 @@ export function nearestMarkedPoint(
   let best: MarkedPoint | null = null;
   let bestDist = reach * reach;
   for (const point of state.points) {
-    if (used?.has(point.id) || !attached.has(point.id)) continue;
+    if (used?.has(point.id)) continue;
+    if (!attached.has(point.id) && !standsAlone(point.mark)) continue;
     const dist = distance2(point.x, point.y, x, y);
     if (dist > bestDist) continue;
     best = point;
@@ -796,13 +770,13 @@ export function setAnchorMark(
       const point = lineStore
         .get()
         .points.find((item) => item.id === anchor.pointId);
-      if (!point || point.mark === mark) return;
+      if (!point || point.locked || point.mark === mark) return;
       point.mark = mark;
       publish();
       return;
     }
     const nearby = nearestMarkedPoint(anchor.x, anchor.y, magnet, layerId);
-    if (nearby) {
+    if (nearby && (!nearby.locked || nearby.mark === mark)) {
       if (nearby.mark !== mark) nearby.mark = mark;
       anchor.pointId = nearby.id;
       const moved = anchor.x !== nearby.x || anchor.y !== nearby.y;
@@ -812,13 +786,7 @@ export function setAnchorMark(
       publish();
       return;
     }
-    const point: MarkedPoint = {
-      id: nextPointId(),
-      x: anchor.x,
-      y: anchor.y,
-      mark,
-      size: 1,
-    };
+    const point = createPoint(mark, anchor.x, anchor.y, 1);
     anchor.pointId = point.id;
     patch((draft) => {
       draft.points.push(point);
@@ -968,7 +936,6 @@ export function insertAnchor(
   edit(() => {
     const layer = findLayer(lineStore.get(), layerId);
     if (!layer || layer.locked) return;
-    const opening = layer.anchors.length < 2;
     const nearby = nearestMarkedPoint(x, y, magnet, layerId);
     const at = Math.max(0, Math.min(index, layer.anchors.length));
     layer.anchors.splice(
@@ -978,9 +945,6 @@ export function insertAnchor(
         ? { x: nearby.x, y: nearby.y, pointId: nearby.id }
         : { x, y, pointId: null },
     );
-    if (opening && layer.anchors.length >= 2 && layer.routeNumber == null) {
-      layer.routeNumber = defaultRouteNumber();
-    }
     layer.geometryRevision += 1;
     const hover = bumpHover(lineHoverStore.get(), layerId, at);
     batch(() => {
@@ -1052,7 +1016,7 @@ function nearestFreeMark(
   const attached = attachedPointIds(state);
   let best: { hit: LineHit; dist: number } | null = null;
   for (const point of state.points) {
-    if (attached.has(point.id)) continue;
+    if (point.locked || attached.has(point.id)) continue;
     const limit = Math.max(
       handle,
       markRadius(state.scale, point.mark, point.size) * 1.1,
@@ -1115,7 +1079,9 @@ function createLayer(kind: LineKind, layers: readonly LineLayer[]): LineLayer {
     scale: lineStore.get().scale,
     geometryRevision: 0,
     locked: false,
-    routeNumber: null,
+    routeNumbers: [],
+    numberText: DEFAULT_NUMBER_TEXT,
+    gradeBadge: null,
     grade: null,
   };
 }
@@ -1129,6 +1095,38 @@ function touch(layer: LineLayer | null): void {
 function nextPointId(): string {
   pointSequence += 1;
   return `point-${pointSequence}`;
+}
+
+function createPoint(
+  mark: PointMark,
+  x: number,
+  y: number,
+  size: number,
+): MarkedPoint {
+  return {
+    id: nextPointId(),
+    x,
+    y,
+    mark,
+    size,
+    name: t(MARK_LABEL[mark]),
+    locked: false,
+  };
+}
+
+/** Anchors in placement order. They lead the layers list. */
+export function anchorPoints(state: LineState): MarkedPoint[] {
+  return state.points.filter((point) => standsAlone(point.mark));
+}
+
+/** Mark the selection points at: the chosen mark, or the one on the chosen route point. */
+export function selectedPointId(state: LineState): string | null {
+  if (state.markId !== null) return state.markId;
+  if (state.anchorIndex === null) return null;
+  return (
+    findLayer(state, state.activeId)?.anchors[state.anchorIndex]?.pointId ??
+    null
+  );
 }
 
 function pointIdsOnLayer(layer: LineLayer | null): Set<string> | null {
@@ -1176,47 +1174,14 @@ function closestOnRoutes(
 
 function unusedPoint(state: LineState, pointId: string | null): MarkedPoint[] {
   if (!pointId) return state.points;
+  const point = state.points.find((item) => item.id === pointId);
+  if (point && standsAlone(point.mark)) return state.points;
   for (const layer of state.layers) {
     for (const anchor of layer.anchors) {
       if (anchor.pointId === pointId) return state.points;
     }
   }
   return state.points.filter((point) => point.id !== pointId);
-}
-
-function nearestNumber(
-  state: LineState,
-  x: number,
-  y: number,
-  zoom: number,
-): { hit: LineHit; dist: number } | null {
-  if (!(zoom > 0)) return null;
-  let best: { hit: LineHit; dist: number } | null = null;
-  for (
-    let layerIndex = state.layers.length - 1;
-    layerIndex >= 0;
-    layerIndex -= 1
-  ) {
-    const layer = state.layers[layerIndex];
-    if (!layer || layer.locked) continue;
-    const place = routeNumberPlacement(layer);
-    if (!place) continue;
-    const badge = numberBadge(
-      numberLabel(
-        layerIndex + 1,
-        layer.grade,
-        preferencesStore.get().gradeSystem,
-      ),
-    );
-    const dx = (x - place.x) * zoom;
-    const dy = (y - place.y) * zoom;
-    if (!insideNumberBadge(dx, dy, badge.width, badge.height)) continue;
-    const dist = distance2(place.x, place.y, x, y);
-    if (!best || dist < best.dist) {
-      best = { hit: { type: "number", layerId: layer.id }, dist };
-    }
-  }
-  return best;
 }
 
 function nearestPoint(
@@ -1281,7 +1246,11 @@ function nearestStroke(
   return bestId ? { type: "stroke", layerId: bestId } : null;
 }
 
-function strokeDistance2(layer: LineLayer, x: number, y: number): number {
+export function strokeDistance2(
+  layer: LineLayer,
+  x: number,
+  y: number,
+): number {
   return curveDistance2(
     lineGeometry(layer.id, layer.geometryRevision, layer.anchors).ops,
     x,
@@ -1325,15 +1294,13 @@ function distance2(ax: number, ay: number, bx: number, by: number): number {
   return dx * dx + dy * dy;
 }
 
-function sameNumber(a: RouteNumber | null, b: RouteNumber): boolean {
-  return a !== null && a.t === b.t && a.side === b.side;
-}
-
 function sameHit(a: LineHit | null, b: LineHit | null): boolean {
   if (a === b) return true;
   if (!a || !b || a.type !== b.type || hitLayerId(a) !== hitLayerId(b))
     return false;
   if (a.type === "anchor" && b.type === "anchor") return a.index === b.index;
+  if (a.type === "number" && b.type === "number")
+    return a.badge === b.badge && a.index === b.index;
   if (a.type === "mark" && b.type === "mark") return a.pointId === b.pointId;
   if (a.type === "markCorner" && b.type === "markCorner")
     return a.pointId === b.pointId && a.corner === b.corner;
@@ -1400,11 +1367,15 @@ function cloneLayer(layer: LineLayer): LineLayer {
     scale: layer.scale,
     geometryRevision: layer.geometryRevision,
     locked: layer.locked,
-    routeNumber: layer.routeNumber
-      ? { t: layer.routeNumber.t, side: layer.routeNumber.side }
-      : null,
+    routeNumbers: layer.routeNumbers.map(cloneSpot),
+    numberText: layer.numberText,
+    gradeBadge: layer.gradeBadge ? cloneSpot(layer.gradeBadge) : null,
     grade: layer.grade ?? null,
   };
+}
+
+function cloneSpot(spot: RouteNumber): RouteNumber {
+  return { t: spot.t, side: spot.side, along: spot.along };
 }
 
 function cloneAnchor(anchor: Anchor): Anchor {
@@ -1418,6 +1389,8 @@ function clonePoint(point: MarkedPoint): MarkedPoint {
     y: point.y,
     mark: point.mark,
     size: point.size,
+    name: point.name,
+    locked: point.locked,
   };
 }
 
@@ -1430,7 +1403,12 @@ function sameLayer(saved: LineLayer, live: LineLayer): boolean {
     saved.scale !== live.scale ||
     saved.locked !== live.locked ||
     (saved.grade ?? null) !== (live.grade ?? null) ||
-    !sameRouteNumber(saved.routeNumber, live.routeNumber) ||
+    saved.routeNumbers.length !== live.routeNumbers.length ||
+    saved.routeNumbers.some(
+      (spot, index) => !sameRouteNumber(spot, live.routeNumbers[index] ?? null),
+    ) ||
+    saved.numberText !== live.numberText ||
+    !sameRouteNumber(saved.gradeBadge, live.gradeBadge) ||
     saved.anchors.length !== live.anchors.length
   ) {
     return false;
@@ -1466,21 +1444,14 @@ function samePoints(
       left.x !== right.x ||
       left.y !== right.y ||
       left.mark !== right.mark ||
-      left.size !== right.size
+      left.size !== right.size ||
+      left.name !== right.name ||
+      left.locked !== right.locked
     ) {
       return false;
     }
   }
   return true;
-}
-
-function sameRouteNumber(
-  a: RouteNumber | null,
-  b: RouteNumber | null,
-): boolean {
-  if (a === b) return true;
-  if (!a || !b) return false;
-  return a.t === b.t && a.side === b.side;
 }
 
 function adoptSequences(checkpoint: LineCheckpoint): void {
