@@ -66,7 +66,7 @@ export const stage = stylex.create({
 export const lineLayers = stylex.create({
   root: {
     zIndex: 4,
-    width: "min(460px, calc(100% - 24px))",
+    width: "min(540px, calc(100% - 24px))",
     maxHeight: "min(360px, 46%)",
     overflow: "hidden",
     cursor: "default",

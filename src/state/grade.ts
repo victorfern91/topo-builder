@@ -5,7 +5,7 @@ export const GRADE_SYSTEMS = ["french", "yds"] as const;
 export type GradeSystem = (typeof GRADE_SYSTEMS)[number];
 
 export type GradeBand =
-  "green" | "yellow" | "orange" | "red" | "purple" | "blue" | "black";
+  "white" | "green" | "yellow" | "orange" | "red" | "purple" | "blue" | "black";
 
 /** Fill and the darker edge around each swatch. */
 export type GradePaint = {
@@ -14,6 +14,7 @@ export type GradePaint = {
 };
 
 export const GRADE_PAINT = {
+  white: { color: "#e8e4da", stroke: "#7d7768" },
   green: { color: "#6e9439", stroke: "#2a472f" },
   yellow: { color: "#edbb54", stroke: "#9b5329" },
   orange: { color: "#de763c", stroke: "#803a23" },
@@ -34,9 +35,9 @@ type GradeStep = {
  * as the French grade they usually stand in for.
  */
 export const GRADE_STEPS = [
-  { french: "1", yds: "5.2", band: "green" },
-  { french: "2", yds: "5.3", band: "green" },
-  { french: "3", yds: "5.4", band: "green" },
+  { french: "1", yds: "5.2", band: "white" },
+  { french: "2", yds: "5.3", band: "white" },
+  { french: "3", yds: "5.4", band: "white" },
   { french: "4a", yds: "5.5", band: "green" },
   { french: "4b", yds: "5.6", band: "green" },
   { french: "4c", yds: "5.7", band: "green" },

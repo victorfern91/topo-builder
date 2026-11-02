@@ -59,6 +59,14 @@ const enUS = {
   addPoint: "Add point",
   addNumber: "Add number",
   removeNumber: "Remove number",
+  removeGrade: "Remove grade",
+  editNumber: "Edit number",
+  numberBadge: "Route number",
+  gradeBadge: "Grade",
+  dropNumberHint:
+    "Drag beside a route, or click to show it on the selected line",
+  dropGradeHint:
+    "Drag beside a graded route, or click to show it on the selected route",
   pointMenu: "Point",
   pointMarks: "Point marks",
   crossMark: "Bolt",
@@ -71,7 +79,8 @@ const enUS = {
   materialMarks: "Material",
   marks: "Marks",
   dragMarks: "Drag to move the marks",
-  dropMarkHint: "Drag onto a route point, or click to mark the selected point",
+  dropMarkHint:
+    "Drag anywhere on the photo or onto a route point, or click to mark the selected point",
   dropMaterialHint:
     "Drag beside a route. It snaps onto a nearby point or the line. Or click to mark the selected point",
   dropCharacteristicHint: "Drag anywhere on the photo",
@@ -81,6 +90,7 @@ const enUS = {
   layerKind: "Kind",
   layerColor: "Color",
   layerOrder: "No.",
+  layerNumber: "Number",
   layerActions: "Actions",
   moveLayerUp: "Move up",
   moveLayerDown: "Move down",
@@ -100,6 +110,7 @@ const enUS = {
   gradeValue: "Grade {grade}",
   routeKind: "Route",
   boulderKind: "Boulder",
+  anchorKind: "Anchor",
   moveView: "Move",
   spaceKey: "Space",
   navigatorHelp:
@@ -176,6 +187,14 @@ const ptPT = {
   addPoint: "Adicionar ponto",
   addNumber: "Adicionar número",
   removeNumber: "Remover número",
+  removeGrade: "Remover cotação",
+  editNumber: "Editar número",
+  numberBadge: "Número da via",
+  gradeBadge: "Cotação",
+  dropNumberHint:
+    "Arraste para junto de uma via, ou clique para o mostrar na linha selecionada",
+  dropGradeHint:
+    "Arraste para junto de uma via com cotação, ou clique para a mostrar na via selecionada",
   pointMenu: "Ponto",
   pointMarks: "Marcas do ponto",
   crossMark: "Chapa",
@@ -189,7 +208,7 @@ const ptPT = {
   marks: "Marcas",
   dragMarks: "Arrastar para mover as marcas",
   dropMarkHint:
-    "Arraste para um ponto da via, ou clique para marcar o ponto selecionado",
+    "Arraste para qualquer sítio da foto ou para um ponto da via, ou clique para marcar o ponto selecionado",
   dropMaterialHint:
     "Arraste para junto de uma via. Prende-se a um ponto ou à linha por perto. Ou clique para marcar o ponto selecionado",
   dropCharacteristicHint: "Arraste para qualquer sítio da foto",
@@ -199,6 +218,7 @@ const ptPT = {
   layerKind: "Tipo",
   layerColor: "Cor",
   layerOrder: "N.º",
+  layerNumber: "Número",
   layerActions: "Ações",
   moveLayerUp: "Mover para cima",
   moveLayerDown: "Mover para baixo",
@@ -218,6 +238,7 @@ const ptPT = {
   gradeValue: "Cotação {grade}",
   routeKind: "Via",
   boulderKind: "Bloco",
+  anchorKind: "Reunião",
   moveView: "Mover",
   spaceKey: "Espaço",
   navigatorHelp:

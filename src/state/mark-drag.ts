@@ -45,14 +45,13 @@ export function markDragActive(): boolean {
   return markDragStore.get() !== null;
 }
 
-/** Where `mark` would land under the client point. Null off the artboard or over a panel. */
-export function markDropTarget(
-  mark: PointMark,
+/** Image point under the client point. Null off the artboard or over a panel. */
+export function stageDropPoint(
   clientX: number,
   clientY: number,
   stage: HTMLElement | null,
   view: Pick<ViewportState, "panX" | "panY" | "zoom">,
-): MarkDropTarget | null {
+): { x: number; y: number } | null {
   if (!stage) return null;
   const rect = stage.getBoundingClientRect();
   if (
@@ -65,19 +64,30 @@ export function markDropTarget(
   const under = document.elementFromPoint(clientX, clientY);
   if (!under || !stage.contains(under)) return null;
   if (under.closest("[data-widget], [data-point-menu]")) return null;
-  const point = viewToContent(
-    clientX,
-    clientY,
-    rect,
-    view.panX,
-    view.panY,
-    view.zoom,
-  );
+  return viewToContent(clientX, clientY, rect, view.panX, view.panY, view.zoom);
+}
+
+/** Where `mark` would land under the client point. Null off the artboard or over a panel. */
+export function markDropTarget(
+  mark: PointMark,
+  clientX: number,
+  clientY: number,
+  stage: HTMLElement | null,
+  view: Pick<ViewportState, "panX" | "panY" | "zoom">,
+): MarkDropTarget | null {
+  const point = stageDropPoint(clientX, clientY, stage, view);
+  if (!point) return null;
   if (isFreeMark(mark)) return { type: "free", x: point.x, y: point.y };
   const state = lineStore.get();
   if (MARK_KIND[mark] === "material")
     return materialLanding(state, point.x, point.y, view.zoom);
-  return anchorAt(state, point.x, point.y, view.zoom);
+  return (
+    anchorAt(state, point.x, point.y, view.zoom) ?? {
+      type: "free",
+      x: point.x,
+      y: point.y,
+    }
+  );
 }
 
 /** Moves the ghost and highlights where the mark would land. */

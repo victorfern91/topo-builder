@@ -3,20 +3,20 @@ import { Button, Layout, Tokens, Widget } from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { t } from "../i18n/index.ts";
+import type { MessageId } from "../i18n/messages.ts";
 import {
   pointMenuStore,
   setPointMenu,
   type PointMenuState,
 } from "../state/point-menu.ts";
 import {
-  addRouteNumber,
   anchorMark,
-  clearRouteNumber,
   deleteAnchor,
   insertAnchor,
   lineStore,
   toggleAnchorMark,
 } from "../state/lines.ts";
+import { addRouteNumber, clearRouteNumber } from "../state/route-badge.ts";
 import {
   isFreeMark,
   magnetReach,
@@ -24,6 +24,7 @@ import {
   POINT_MARKS,
   type PointMark,
 } from "../state/point-marks.ts";
+import { setNumberEdit } from "../state/number-edit.ts";
 import { useViewport } from "../state/use-viewport.ts";
 import { isPlainDelete } from "../state/viewport.ts";
 import { MarkGlyph } from "./mark-glyph.tsx";
@@ -46,6 +47,9 @@ type PointMenuProps = {
   onAdd: (() => void) | null;
   onAddNumber: (() => void) | null;
   onRemoveNumber: (() => void) | null;
+  onEditNumber: (() => void) | null;
+  /** Names the badge `onRemoveNumber` removes. */
+  removeLabel: MessageId;
   onMark: ((mark: PointMark) => void) | null;
   onClose: () => void;
 };
@@ -58,6 +62,8 @@ export function PointMenu({
   onAdd,
   onAddNumber,
   onRemoveNumber,
+  onEditNumber,
+  removeLabel,
   onMark,
   onClose,
 }: PointMenuProps) {
@@ -183,15 +189,28 @@ export function PointMenu({
           <Button.Text>{t("addNumber")}</Button.Text>
         </Button.Root>
       ) : null}
-      {onRemoveNumber ? (
+      {onEditNumber ? (
         <Button.Root
           sx={styles.item}
           ref={onAdd || onDelete || onMark ? undefined : focusRef}
           type="button"
           role="menuitem"
+          onClick={onEditNumber}
+        >
+          <Button.Text>{t("editNumber")}</Button.Text>
+        </Button.Root>
+      ) : null}
+      {onRemoveNumber ? (
+        <Button.Root
+          sx={styles.item}
+          ref={
+            onAdd || onDelete || onMark || onEditNumber ? undefined : focusRef
+          }
+          type="button"
+          role="menuitem"
           onClick={onRemoveNumber}
         >
-          <Button.Text>{t("removeNumber")}</Button.Text>
+          <Button.Text>{t(removeLabel)}</Button.Text>
         </Button.Root>
       ) : null}
       {onDelete ? (
@@ -245,7 +264,7 @@ function PointMenuFrame({ menu }: { menu: PointMenuState }) {
       onAddNumber={
         menu.number === "add"
           ? () => {
-              addRouteNumber(menu.layerId, menu.at.x, menu.at.y);
+              addRouteNumber(menu.layerId, menu.badge, menu.at.x, menu.at.y);
               close();
             }
           : null
@@ -253,11 +272,20 @@ function PointMenuFrame({ menu }: { menu: PointMenuState }) {
       onRemoveNumber={
         menu.number === "remove"
           ? () => {
-              clearRouteNumber(menu.layerId);
+              clearRouteNumber(menu.layerId, menu.badge, menu.badgeIndex);
               close();
             }
           : null
       }
+      onEditNumber={
+        menu.number === "remove" && menu.badge === "number"
+          ? () => {
+              close();
+              setNumberEdit({ layerId: menu.layerId, index: menu.badgeIndex });
+            }
+          : null
+      }
+      removeLabel={menu.badge === "grade" ? "removeGrade" : "removeNumber"}
       onMark={
         index === null
           ? null

@@ -37,6 +37,8 @@ import {
   type LineHit,
   type LineLayer,
 } from "../state/lines.ts";
+import { clearRouteNumber } from "../state/route-badge.ts";
+import { badgeSpot } from "../state/route-number.ts";
 import {
   activeTool,
   applyToolClick,
@@ -65,11 +67,13 @@ import {
 import { markDragActive } from "../state/mark-drag.ts";
 import { stage } from "../styles/stage.ts";
 import { LayersPanel } from "./layers-panel.tsx";
-import { LineCanvas } from "./line-canvas.tsx";
-import { MarkDragGhost, MarksPanel } from "./marks-panel.tsx";
+import { LineCanvas } from "./canvas/line-canvas.tsx";
+import { BadgeDragGhost, MarkDragGhost, MarksPanel } from "./marks-panel.tsx";
 import { NavigatorPanel } from "./navigator-panel.tsx";
 import { pointMenuOpen, setPointMenu } from "../state/point-menu.ts";
 import { PointMenuHost } from "./point-menu.tsx";
+import { NumberEditor } from "./number-editor.tsx";
+import { setNumberEdit } from "../state/number-edit.ts";
 import { ToolSidebar } from "./tool-sidebar.tsx";
 
 const DRAG_SLOP = 3;
@@ -311,6 +315,16 @@ export function ArtboardStage({
         return;
       if (pointMenuOpen()) return;
       const state = lineStore.get();
+      const badge = lineHoverStore.get();
+      if (
+        badge?.type === "number" &&
+        toolEditsLine(activeTool(toolStore.get()))
+      ) {
+        event.preventDefault();
+        clearRouteNumber(badge.layerId, badge.badge, badge.index);
+        clearLineHover();
+        return;
+      }
       if (state.markId !== null) {
         event.preventDefault();
         deleteMark(state.markId);
@@ -481,7 +495,7 @@ export function ArtboardStage({
     const hit = hitTest(lineStore.get(), point.x, point.y, view.zoom);
     if (hit?.type === "number") {
       const layer = findLayer(lineStore.get(), hit.layerId);
-      if (!layer || layer.locked || !layer.routeNumber) {
+      if (!layer || layer.locked || !badgeSpot(layer, hit.badge, hit.index)) {
         setPointMenu(null);
         return;
       }
@@ -494,6 +508,8 @@ export function ArtboardStage({
         deleteIndex: null,
         insert: null,
         number: "remove",
+        badge: hit.badge,
+        badgeIndex: hit.index,
         at: point,
       });
       return;
@@ -508,6 +524,8 @@ export function ArtboardStage({
         deleteIndex: hit.index,
         insert: null,
         number: null,
+        badge: "number",
+        badgeIndex: 0,
         at: point,
       });
       return;
@@ -526,12 +544,34 @@ export function ArtboardStage({
           deleteIndex: null,
           insert,
           number,
+          badge: "number",
+          badgeIndex: 0,
           at: point,
         });
         return;
       }
     }
     setPointMenu(null);
+  };
+
+  const onDoubleClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!toolEditsLine(activeTool(toolStore.get()))) return;
+    const node = stageRef.current;
+    if (!node || isChromeTarget(event.target)) return;
+    const view = getState();
+    const point = viewToContent(
+      event.clientX,
+      event.clientY,
+      node.getBoundingClientRect(),
+      view.panX,
+      view.panY,
+      view.zoom,
+    );
+    const hit = hitTest(lineStore.get(), point.x, point.y, view.zoom);
+    if (hit?.type !== "number" || hit.badge !== "number") return;
+    if (findLayer(lineStore.get(), hit.layerId)?.locked) return;
+    event.preventDefault();
+    setNumberEdit({ layerId: hit.layerId, index: hit.index });
   };
 
   return (
@@ -550,6 +590,7 @@ export function ArtboardStage({
       onPointerCancel={(event) => endDrag(event.pointerId)}
       onLostPointerCapture={(event) => endDrag(event.pointerId)}
       onContextMenu={onContextMenu}
+      onDoubleClick={onDoubleClick}
       onDragStart={(event) => event.preventDefault()}
     >
       <StagePicture contentKey={contentKey} contentRef={contentRef}>
@@ -558,10 +599,12 @@ export function ArtboardStage({
       <LineCanvas />
       <LayersPanel />
       <ToolSidebar />
-      <MarksPanel stageRef={stageRef} />
+      {navigator ? <MarksPanel stageRef={stageRef} /> : null}
       {navigator ? <NavigatorPanel /> : null}
       <PointMenuHost />
+      <NumberEditor />
       <MarkDragGhost />
+      <BadgeDragGhost />
     </Layout.Box>
   );
 }
@@ -602,9 +645,10 @@ function StagePicture({
   );
 }
 
-function routeNumberAction(layer: LineLayer | null): "add" | "remove" | null {
+/** A route takes another number badge from any spot on its stroke. */
+function routeNumberAction(layer: LineLayer | null): "add" | null {
   if (!layer || layer.locked || layer.anchors.length < 2) return null;
-  return layer.routeNumber ? "remove" : "add";
+  return "add";
 }
 
 function stageCursor(
