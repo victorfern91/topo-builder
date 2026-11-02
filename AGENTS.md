@@ -1,6 +1,6 @@
 # UI
 
-Import interactive controls from `@ui` (`import { Alert, Button, Input, Layout, Menu, Popover, Select, Slider, Table, Toast, Toggle, Widget } from '@ui'`, `import Alert from '@ui/alert'`, `import Button from '@ui/button'`, `import Input from '@ui/input'`, `import Layout from '@ui/layout'`, `import Menu from '@ui/menu'`, `import Popover from '@ui/popover'`, `import Select from '@ui/select'`, `import Slider from '@ui/slider'`, `import Table from '@ui/table'`, `import Toast from '@ui/toast'`, `import Toggle from '@ui/toggle'`, or `import Widget from '@ui/widget'`). The package exports are the components available to the app. Compose the parts those exports provide; for an alert that is `Alert.Root`, `Alert.Portal`, `Alert.Backdrop`, `Alert.Popup`, `Alert.Title`, `Alert.Description`, and `Alert.Close`. For Button that is `Button.Root`, `Button.Icon`, and `Button.Text`. For a field that is `Input.Root`. For a select that is `Select.Root`, `Select.Trigger`, `Select.Value`, `Select.Icon`, `Select.Portal`, `Select.Positioner`, `Select.Popup`, `Select.List`, `Select.Item`, `Select.ItemIndicator`, `Select.Swatch`, and `Select.ItemText`. For a popover that is `Popover.Root`, `Popover.Trigger`, `Popover.Portal`, `Popover.Positioner`, `Popover.Popup`, `Popover.Title`, and `Popover.Close`. For a command menu that is `Menu.Root`, `Menu.Trigger`, `Menu.Portal`, `Menu.Positioner`, `Menu.Popup`, `Menu.Item`, `Menu.Separator`, `Menu.SubmenuRoot`, and `Menu.SubmenuTrigger`. For boxes that is `Layout.Box`, `Layout.Stack`, and `Layout.Grid`. For a slider, `Slider.Root` renders the track. For a toggle group that is `Toggle.Root` and `Toggle.Option`. For a table, `Table.Root` renders the scrollport. For a toast that is `Toast.Provider`, `Toast.Portal`, `Toast.Viewport`, `Toast.Root`, `Toast.Content`, `Toast.Icon`, `Toast.Title`, `Toast.Description`, `Toast.Action`, and `Toast.Close`. For a floating panel that is `Widget.Panel`, `Widget.Header`, `Widget.Container`, and `Widget.Menu`. Each of Button and Layout takes `renderAs` `div` (default) or `span`. `Widget.Panel` takes `renderAs` `div` (default), `aside`, or `section`. Prop and composition details live on the JSDoc of each part.
+Import interactive controls from `@ui` (`import { Alert, Button, Input, Kbd, Layout, Menu, Menubar, Popover, Select, Slider, Table, Toast, Toggle, Widget } from '@ui'`, `import Alert from '@ui/alert'`, `import Button from '@ui/button'`, `import Input from '@ui/input'`, `import Kbd from '@ui/kbd'`, `import Layout from '@ui/layout'`, `import Menu from '@ui/menu'`, `import Menubar from '@ui/menubar'`, `import Popover from '@ui/popover'`, `import Select from '@ui/select'`, `import Slider from '@ui/slider'`, `import Table from '@ui/table'`, `import Toast from '@ui/toast'`, `import Toggle from '@ui/toggle'`, or `import Widget from '@ui/widget'`). The package exports are the components available to the app. Compose the parts those exports provide; for an alert that is `Alert.Root`, `Alert.Portal`, `Alert.Backdrop`, `Alert.Popup`, `Alert.Title`, `Alert.Description`, and `Alert.Close`. For Button that is `Button.Root`, `Button.Icon`, and `Button.Text`. For a field that is `Input.Root`. For keyboard keys that is `Kbd.Root`, `Kbd.Group`, and `Kbd.Shortcut`. For a select that is `Select.Root`, `Select.Trigger`, `Select.Value`, `Select.Icon`, `Select.Portal`, `Select.Positioner`, `Select.Popup`, `Select.List`, `Select.Item`, `Select.ItemIndicator`, `Select.Swatch`, and `Select.ItemText`. For a popover that is `Popover.Root`, `Popover.Trigger`, `Popover.Portal`, `Popover.Positioner`, `Popover.Popup`, `Popover.Title`, and `Popover.Close`. For a command menu that is `Menu.Root`, `Menu.Trigger`, `Menu.Portal`, `Menu.Positioner`, `Menu.Popup`, `Menu.Item`, `Menu.Separator`, `Menu.SubmenuRoot`, `Menu.SubmenuTrigger`, `Menu.Group`, `Menu.GroupLabel`, `Menu.RadioGroup`, `Menu.RadioItem`, and `Menu.RadioItemIndicator`. For a row of menus that is `Menubar.Root`. For boxes that is `Layout.Box`, `Layout.Stack`, and `Layout.Grid`. For a slider, `Slider.Root` renders the track. For a toggle group that is `Toggle.Root` and `Toggle.Option`. For a table, `Table.Root` renders the scrollport. For a toast that is `Toast.Provider`, `Toast.Portal`, `Toast.Viewport`, `Toast.Root`, `Toast.Content`, `Toast.Icon`, `Toast.Title`, `Toast.Description`, `Toast.Action`, and `Toast.Close`. For a floating panel that is `Widget.Panel`, `Widget.Header`, `Widget.Container`, and `Widget.Menu`. Each of Button and Layout takes `renderAs` `div` (default) or `span`. `Widget.Panel` takes `renderAs` `div` (default), `aside`, or `section`. Prop and composition details live on the JSDoc of each part.
 
 Ship Button defaults. Pass `variant`, `size`, `radius`, `rounded`, or `sx` only for instance-specific layout or state.
 
@@ -95,6 +95,40 @@ Ship Menu defaults. Use Menu for a list of commands, and Popover when the popup 
 ```
 
 A disabled `Item` or `SubmenuTrigger` stays in the menu.
+
+`RadioGroup` holds `RadioItem` rows and picks one value; `onValueChange` receives the next value. Put a `RadioItemIndicator` before each label: it keeps its slot and shows a check on the chosen row. A `RadioItem` keeps the menu open. `GroupLabel` is a muted heading inside a `Group` or a `RadioGroup`.
+
+# Menubar
+
+`Menubar.Root` is a row of menus. Place one `Menu.Root` per menu inside it. Arrow keys move between the triggers, and once a menu is open, hovering another trigger opens it.
+
+```tsx
+<Menubar.Root>
+  <Menu.Root>
+    <Menu.Trigger>File</Menu.Trigger>
+    <Menu.Portal>…</Menu.Portal>
+  </Menu.Root>
+  <Menu.Root>
+    <Menu.Trigger>Edit</Menu.Trigger>
+    <Menu.Portal>…</Menu.Portal>
+  </Menu.Root>
+</Menubar.Root>
+```
+
+The app's top menu is config: `src/components/top-menu/top-menu.ts` lists the menus and entries, and `src/components/top-menu/registry.ts` maps each name the config uses (`action`, `enabledWhen`, `visibleWhen`, `busy.when`, `binding`, `widget`) to code. Add a command by adding it to the registry, then naming it in the config. The type check rejects an unknown name, a `value` the action does not take, and a radio option the binding does not hold.
+
+# Kbd
+
+`Kbd.Shortcut` renders a chord as key caps in the reader's platform notation. A chord is modifiers then one key, joined with `+`. `Mod` is `⌘` on Apple and `Ctrl` elsewhere; `Meta`, `Ctrl`, `Alt`, and `Shift` name the same key everywhere. Write `Plus` and `Minus` for those keys. `{ apple, other }` sets a different chord per platform. `KbdChord` types the notation, so a typo fails the type check.
+
+```tsx
+<Kbd.Shortcut keys="Mod+Shift+Z" />
+<Kbd.Shortcut keys={{ apple: "Mod+Shift+Z", other: "Mod+Y" }} />
+```
+
+`Kbd.format` returns the same chord as text for a `title` (`⇧⌘Z`, `Ctrl+Shift+Z`). `Kbd.aria` returns the `aria-keyshortcuts` value. `Kbd.Root` is one cap and `Kbd.Group` is a row of caps.
+
+The app's shortcuts are config: `src/shortcuts.ts` lists every chord by id. Read them with `<Shortcut id="undo" />`, `shortcutText(id)`, `titleWithShortcut(label, id)`, or `shortcutAria(ids)`. `top-menu.ts` names a shortcut by its id.
 
 # Slider
 

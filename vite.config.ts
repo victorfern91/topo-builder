@@ -29,8 +29,14 @@ const buttonEntry = fileURLToPath(
 const inputEntry = fileURLToPath(
   new URL("./packages/ui/components/src/input/index.ts", import.meta.url),
 );
+const kbdEntry = fileURLToPath(
+  new URL("./packages/ui/components/src/kbd/index.ts", import.meta.url),
+);
 const layoutEntry = fileURLToPath(
   new URL("./packages/ui/components/src/layout/index.ts", import.meta.url),
+);
+const menubarEntry = fileURLToPath(
+  new URL("./packages/ui/components/src/menubar/index.ts", import.meta.url),
 );
 const sliderEntry = fileURLToPath(
   new URL("./packages/ui/components/src/slider/index.ts", import.meta.url),
@@ -62,7 +68,9 @@ export default defineConfig({
       { find: /^@ui\/alert$/, replacement: alertEntry },
       { find: /^@ui\/button$/, replacement: buttonEntry },
       { find: /^@ui\/input$/, replacement: inputEntry },
+      { find: /^@ui\/kbd$/, replacement: kbdEntry },
       { find: /^@ui\/layout$/, replacement: layoutEntry },
+      { find: /^@ui\/menubar$/, replacement: menubarEntry },
       { find: /^@ui\/slider$/, replacement: sliderEntry },
       { find: /^@ui\/table$/, replacement: tableEntry },
       { find: /^@ui\/toast$/, replacement: toastEntry },

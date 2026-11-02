@@ -1,8 +1,13 @@
 import type {
+  MenuGroupLabelProps as BaseMenuGroupLabelProps,
+  MenuGroupProps as BaseMenuGroupProps,
   MenuItemProps as BaseMenuItemProps,
   MenuPopupProps as BaseMenuPopupProps,
   MenuPortalProps as BaseMenuPortalProps,
   MenuPositionerProps as BaseMenuPositionerProps,
+  MenuRadioGroupProps as BaseMenuRadioGroupProps,
+  MenuRadioItemIndicatorProps as BaseMenuRadioItemIndicatorProps,
+  MenuRadioItemProps as BaseMenuRadioItemProps,
   MenuRootProps as BaseMenuRootProps,
   MenuSubmenuRootProps as BaseMenuSubmenuRootProps,
   MenuSubmenuTriggerProps as BaseMenuSubmenuTriggerProps,
@@ -34,3 +39,9 @@ export type MenuItemProps = WithChrome<BaseMenuItemProps>;
 export type MenuSubmenuRootProps = BaseMenuSubmenuRootProps;
 export type MenuSubmenuTriggerProps = WithChrome<BaseMenuSubmenuTriggerProps>;
 export type MenuSeparatorProps = WithChrome<BaseSeparatorProps>;
+export type MenuGroupProps = WithChrome<BaseMenuGroupProps>;
+export type MenuGroupLabelProps = WithChrome<BaseMenuGroupLabelProps>;
+export type MenuRadioGroupProps = WithChrome<BaseMenuRadioGroupProps>;
+export type MenuRadioItemProps = WithChrome<BaseMenuRadioItemProps>;
+export type MenuRadioItemIndicatorProps =
+  WithChrome<BaseMenuRadioItemIndicatorProps>;

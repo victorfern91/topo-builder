@@ -12,6 +12,7 @@ import {
   type RefObject,
 } from "react";
 import { t } from "../i18n/index.ts";
+import { shortcutAria, type ShortcutId } from "../shortcuts.ts";
 import {
   clearLineHover,
   hoverLine,
@@ -52,6 +53,7 @@ import {
   viewportStore,
   wheelDelta,
   zoomFactorFromWheel,
+  viewLocked,
   type ContentPlacement,
 } from "../state/viewport.ts";
 import { useViewport, useViewportSelector } from "../state/use-viewport.ts";
@@ -64,6 +66,16 @@ import { PointMenuHost } from "./point-menu.tsx";
 import { ToolSidebar } from "./tool-sidebar.tsx";
 
 const DRAG_SLOP = 3;
+
+const STAGE_SHORTCUTS: readonly ShortcutId[] = [
+  "zoom-in",
+  "zoom-out",
+  "fit",
+  "actual-size",
+  "undo",
+  "redo",
+  "pan",
+];
 
 type ArtboardStageProps = {
   contentKey: string;
@@ -110,6 +122,7 @@ export function ArtboardStage({
     (state) => state.activeId !== null,
   );
   const spaceHeld = useViewportSelector((state) => state.spaceHeld);
+  const locked = viewLocked({ placement });
 
   useLayoutEffect(() => {
     const node = stageRef.current;
@@ -149,11 +162,9 @@ export function ArtboardStage({
         if (grabbing) node.setAttribute("data-grabbing", "");
         else node.removeAttribute("data-grabbing");
       }
-      const cursor = stageCursor(
-        grabbing || spaceHeld,
-        tool,
-        lineHoverStore.get(),
-      );
+      const cursor = locked
+        ? "default"
+        : stageCursor(grabbing || spaceHeld, tool, lineHoverStore.get());
       if (node.dataset.cursor === cursor) return;
       node.dataset.cursor = cursor;
     };
@@ -164,7 +175,7 @@ export function ArtboardStage({
       hover.unsubscribe();
       view.unsubscribe();
     };
-  }, [spaceHeld, tool]);
+  }, [locked, spaceHeld, tool]);
 
   useEffect(() => {
     const node = stageRef.current;
@@ -322,6 +333,7 @@ export function ArtboardStage({
   };
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (locked) return;
     if (event.button !== 0 && event.button !== 1) return;
     if (
       isNavigatorTarget(event.target) ||
@@ -499,7 +511,7 @@ export function ArtboardStage({
       ref={stageRef}
       role="region"
       aria-label={t("artboard")}
-      aria-keyshortcuts="Control+Equal Control+Minus Control+Digit0 Control+Digit1 Control+KeyZ Control+Shift+KeyZ Control+KeyY Space"
+      aria-keyshortcuts={shortcutAria(STAGE_SHORTCUTS)}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={(event) => endDrag(event.pointerId)}

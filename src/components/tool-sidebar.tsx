@@ -20,8 +20,9 @@ import {
   toolStore,
 } from "../state/tools.ts";
 import { useViewport, useWidgetFrame } from "../state/use-viewport.ts";
-import type { ViewportKeyId } from "../state/viewport.ts";
+import { titleWithShortcut } from "../shortcuts.ts";
 import { ScaleSlider } from "./scale-slider.tsx";
+import { Shortcut } from "./shortcut.tsx";
 import {
   SIDEBAR_TOOLS,
   type PanelId,
@@ -165,7 +166,6 @@ function GroupTool({
   tool: Extract<SidebarTool, { kind: "group" }>;
 }) {
   const pressed = useSelector(toolStore, (state) => state.group === tool.group);
-  const { keys } = useViewport();
   const label = t(tool.label);
   return (
     <Button.Root
@@ -174,7 +174,7 @@ function GroupTool({
       aria-label={label}
       aria-pressed={pressed}
       data-pressed={pressed ? "" : undefined}
-      title={tool.shortcut ? `${label} (${keys[tool.shortcut]})` : label}
+      title={titleWithShortcut(label, tool.shortcut)}
       onClick={() => {
         closeFlyout();
         selectGroup(tool.group);
@@ -250,7 +250,7 @@ function CreateTool({
 function ZoomTool({ tool }: { tool: Extract<SidebarTool, { kind: "zoom" }> }) {
   const group = useSelector(toolStore, (state) => state.group);
   const zoom = useSelector(toolStore, (state) => state.zoom);
-  const { actions, keys } = useViewport();
+  const { actions } = useViewport();
   const { open, slotProps } = useFlyout(tool.id);
   const menuId = useId();
   const option =
@@ -264,7 +264,7 @@ function ZoomTool({ tool }: { tool: Extract<SidebarTool, { kind: "zoom" }> }) {
         aria-label={label}
         aria-pressed={group === "zoom"}
         data-pressed={group === "zoom" ? "" : undefined}
-        title={option.shortcut ? `${label} (${keys[option.shortcut]})` : label}
+        title={titleWithShortcut(label, option.shortcut)}
         onClick={() => {
           closeFlyout();
           selectGroup("zoom");
@@ -290,7 +290,6 @@ function ZoomTool({ tool }: { tool: Extract<SidebarTool, { kind: "zoom" }> }) {
               <Choice
                 key={item.id}
                 option={item}
-                keys={keys}
                 checked={item.id === zoom}
                 onSelect={() => {
                   selectZoom(item.id);
@@ -303,7 +302,6 @@ function ZoomTool({ tool }: { tool: Extract<SidebarTool, { kind: "zoom" }> }) {
               <Choice
                 key={item.id}
                 option={item}
-                keys={keys}
                 onSelect={() => {
                   closeFlyout();
                   applyToolClick(item.id, actions, "center");
@@ -392,12 +390,10 @@ function OptionsTriangle({
 
 function Choice<Id extends string>({
   option,
-  keys,
   checked,
   onSelect,
 }: {
   option: ToolOption<Id>;
-  keys?: Record<ViewportKeyId, string>;
   checked?: boolean;
   onSelect: () => void;
 }) {
@@ -417,8 +413,8 @@ function Choice<Id extends string>({
         ) : undefined}
       </Button.Icon>
       <Button.Text sx={styles.itemLabel}>{t(option.label)}</Button.Text>
-      {keys && option.shortcut ? (
-        <span {...stylex.props(styles.kbd)}>{keys[option.shortcut]}</span>
+      {option.shortcut ? (
+        <Shortcut id={option.shortcut} sx={styles.kbd} />
       ) : null}
     </Button.Root>
   );
@@ -495,9 +491,10 @@ const styles = stylex.create({
     flexGrow: 1,
   },
   kbd: {
-    color: Tokens.color.neutral[400],
-    fontSize: 12,
-    fontVariantNumeric: "tabular-nums",
+    color: {
+      default: Tokens.color.neutral[400],
+      [stylex.when.ancestor(":hover")]: "inherit",
+    },
   },
   mark: {
     fontSize: 11,

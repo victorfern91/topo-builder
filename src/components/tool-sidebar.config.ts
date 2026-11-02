@@ -5,12 +5,12 @@ import type {
   ZoomCommandId,
   ZoomToolId,
 } from "../state/tools.ts";
-import type { ViewportKeyId } from "../state/viewport.ts";
+import type { ShortcutId } from "../shortcuts.ts";
 
 export type ToolOption<Id extends string> = {
   id: Id;
   label: MessageId;
-  shortcut?: ViewportKeyId;
+  shortcut?: ShortcutId;
 };
 
 /** Selects a tool group on click. */
@@ -20,7 +20,7 @@ type GroupTool = {
   group: ToolGroupId;
   label: MessageId;
   icon: string;
-  shortcut?: ViewportKeyId;
+  shortcut?: ShortcutId;
 };
 
 /** Draws the chosen line type. The corner triangle opens the type list on hover. */

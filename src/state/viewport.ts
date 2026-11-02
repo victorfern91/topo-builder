@@ -35,8 +35,6 @@ export type ZoomOrigin = { x: number; y: number } | "center";
 export type ViewportKeyId =
   "zoom-in" | "zoom-out" | "fit" | "actual-size" | "pan";
 
-export type ViewportKeys = Record<ViewportKeyId, string>;
-
 export type ViewportState = {
   zoom: number;
   panX: number;
@@ -123,25 +121,29 @@ export const viewportStore = new Store(initialViewport, (store) => ({
     store.setState((state) => zoomAt(state, state.zoom / ZOOM_STEP, "center"));
   },
   fit() {
-    store.setState((state) => placeFitted(state));
+    store.setState((state) => (viewLocked(state) ? state : placeFitted(state)));
   },
   actualSize() {
     store.setState((state) => zoomAt(state, 1, "center"));
   },
   panBy(dx: number, dy: number) {
     if (dx === 0 && dy === 0) return;
-    store.setState((state) => ({
-      ...state,
-      panX: state.panX + dx,
-      panY: state.panY + dy,
-    }));
+    store.setState((state) =>
+      viewLocked(state)
+        ? state
+        : { ...state, panX: state.panX + dx, panY: state.panY + dy },
+    );
   },
   centerOn(contentX: number, contentY: number) {
-    store.setState((state) => ({
-      ...state,
-      panX: state.viewWidth / 2 - contentX * state.zoom,
-      panY: state.viewHeight / 2 - contentY * state.zoom,
-    }));
+    store.setState((state) =>
+      viewLocked(state)
+        ? state
+        : {
+            ...state,
+            panX: state.viewWidth / 2 - contentX * state.zoom,
+            panY: state.viewHeight / 2 - contentY * state.zoom,
+          },
+    );
   },
   setSpaceHeld(held: boolean) {
     store.setState((state) =>
@@ -226,29 +228,8 @@ export type ViewportActions = typeof viewportStore.actions;
 
 export type ViewportContextValue = {
   actions: ViewportActions;
-  keys: ViewportKeys;
   getState: () => ViewportState;
 };
-
-export function shortcutChords(panLabel: string): ViewportKeys {
-  const apple = /\b(Mac|iPhone|iPad|iPod)\b/i.test(navigator.userAgent);
-  if (apple) {
-    return {
-      "zoom-in": "⌘+",
-      "zoom-out": "⌘−",
-      fit: "⌘0",
-      "actual-size": "⌘1",
-      pan: panLabel,
-    };
-  }
-  return {
-    "zoom-in": "Ctrl++",
-    "zoom-out": "Ctrl+−",
-    fit: "Ctrl+0",
-    "actual-size": "Ctrl+1",
-    pan: panLabel,
-  };
-}
 
 export function matchViewportKey(
   event: KeyboardEvent,
@@ -263,6 +244,11 @@ export function matchViewportKey(
   if (event.key === "0" || event.code === "Numpad0") return "fit";
   if (event.key === "1" || event.code === "Numpad1") return "actual-size";
   return null;
+}
+
+/** Centered content is a status card (empty, loading, error), so the view stays put. */
+export function viewLocked(state: Pick<ViewportState, "placement">): boolean {
+  return state.placement === "center";
 }
 
 /** Command on Mac, Control on Windows. Both together are a different chord. */
@@ -402,6 +388,7 @@ function zoomAt(
   zoom: number,
   origin: ZoomOrigin,
 ): ViewportState {
+  if (viewLocked(state)) return state;
   const nextZoom = clampZoom(zoom);
   if (nextZoom === state.zoom) return state;
   const ox = origin === "center" ? state.viewWidth / 2 : origin.x;
