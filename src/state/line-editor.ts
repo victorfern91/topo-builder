@@ -1,21 +1,37 @@
 import { beginHistory, endHistory } from "./history.ts";
-import { magnetReach } from "./point-marks.ts";
+import {
+  clampMarkSize,
+  magnetReach,
+  MARK_KIND,
+  markRadius,
+} from "./point-marks.ts";
 import type { CreateToolId } from "./tools.ts";
+import { viewportStore } from "./viewport.ts";
 import {
   appendAnchor,
   attachAnchor,
+  CORNER_SIGN,
   ensureLine,
+  framePad,
   findLayer,
   hitTest,
+  insideMaterialBand,
+  landFreeMark,
   lineStore,
+  markFrame,
+  materialLanding,
   moveMarkedPoint,
   moveRouteNumber,
   nearestMarkedPoint,
   placeAnchor,
+  resizeMark,
   selectAnchor,
   selectLine,
+  selectMark,
   setLineHover,
+  setMaterialGrab,
   setNumberDrag,
+  type MarkLanding,
 } from "./lines.ts";
 
 type AnchorGesture = {
@@ -37,7 +53,35 @@ type NumberGesture = {
   layerId: string;
 };
 
-type Gesture = AnchorGesture | NumberGesture;
+type MarkGesture = {
+  kind: "mark";
+  pointId: string;
+  originX: number;
+  originY: number;
+  startX: number;
+  startY: number;
+  /** Route spot free material joins when the pointer goes up inside the magnet. */
+  landing: Exclude<MarkLanding, { type: "free" }> | null;
+};
+
+/** Scales a characteristic from a frame corner while the opposite corner stays put. */
+type ResizeGesture = {
+  kind: "resize";
+  pointId: string;
+  /** Opposite corner, in image pixels. */
+  fixedX: number;
+  fixedY: number;
+  signX: number;
+  signY: number;
+  /** Pointer minus the grabbed corner at press. */
+  offsetX: number;
+  offsetY: number;
+  /** Mark radius at size 1 and frame pad, in image pixels. */
+  unit: number;
+  pad: number;
+};
+
+type Gesture = AnchorGesture | NumberGesture | MarkGesture | ResizeGesture;
 
 let gesture: Gesture | null = null;
 
@@ -106,8 +150,16 @@ export function pointerMoveLine(x: number, y: number, zoom: number): void {
     moveRouteNumber(gesture.layerId, x, y);
     return;
   }
+  if (gesture.kind === "resize") {
+    resizeFromCorner(gesture, x, y);
+    return;
+  }
   const nextX = gesture.startX + (x - gesture.originX);
   const nextY = gesture.startY + (y - gesture.originY);
+  if (gesture.kind === "mark") {
+    moveFreeMark(gesture, nextX, nextY, zoom);
+    return;
+  }
   if (gesture.pointId) {
     moveMarkedPoint(gesture.pointId, nextX, nextY);
     return;
@@ -131,25 +183,119 @@ export function pointerUpLine(): void {
   const current = gesture;
   gesture = null;
   setNumberDrag(null);
+  setMaterialGrab(false);
   if (
-    current &&
-    current.kind !== "number" &&
+    current?.kind === "anchor" &&
     !current.pointId &&
     current.pendingPointId
   ) {
     attachAnchor(current.layerId, current.index, current.pendingPointId);
   }
+  if (current?.kind === "mark" && current.landing) {
+    landFreeMark(
+      current.pointId,
+      current.landing,
+      magnetReach(viewportStore.get().zoom, lineStore.get().scale),
+    );
+    setLineHover(null);
+  }
   endHistory();
 }
 
+/** Material stays inside the band beside a route and snaps onto it inside the magnet. */
+function moveFreeMark(
+  current: MarkGesture,
+  x: number,
+  y: number,
+  zoom: number,
+): void {
+  const state = lineStore.get();
+  const point = state.points.find((item) => item.id === current.pointId);
+  if (!point || MARK_KIND[point.mark] !== "material") {
+    moveMarkedPoint(current.pointId, x, y);
+    return;
+  }
+  const landing = materialLanding(state, x, y, zoom);
+  current.landing = landing?.type === "free" ? null : landing;
+  if (landing?.type === "anchor") {
+    const anchor = findLayer(state, landing.layerId)?.anchors[landing.index];
+    if (anchor) moveMarkedPoint(current.pointId, anchor.x, anchor.y);
+    setLineHover(landing);
+    return;
+  }
+  if (landing?.type === "line") {
+    moveMarkedPoint(current.pointId, landing.x, landing.y);
+    setLineHover({ type: "stroke", layerId: landing.layerId });
+    return;
+  }
+  setLineHover({ type: "mark", pointId: current.pointId });
+  const inside = insideMaterialBand(state, x, y);
+  if (inside) moveMarkedPoint(current.pointId, inside.x, inside.y);
+}
+
+function resizeFromCorner(current: ResizeGesture, x: number, y: number): void {
+  const side = Math.max(
+    (x - current.offsetX - current.fixedX) * current.signX,
+    (y - current.offsetY - current.fixedY) * current.signY,
+  );
+  const size = clampMarkSize((side / 2 - current.pad) / current.unit);
+  const half = current.unit * size + current.pad;
+  resizeMark(
+    current.pointId,
+    current.fixedX + current.signX * half,
+    current.fixedY + current.signY * half,
+    size,
+  );
+}
+
 function beginEdit(x: number, y: number, zoom: number): boolean {
-  const hit = hitTest(lineStore.get(), x, y, zoom);
+  const state = lineStore.get();
+  const hit = hitTest(state, x, y, zoom);
+  if (hit?.type === "markCorner") {
+    const frame = markFrame(state, zoom);
+    const point = state.points.find((item) => item.id === hit.pointId);
+    if (!frame || !point) return false;
+    const sign = CORNER_SIGN[hit.corner];
+    gesture = {
+      kind: "resize",
+      pointId: point.id,
+      fixedX: frame.x - sign.x * frame.half,
+      fixedY: frame.y - sign.y * frame.half,
+      signX: sign.x,
+      signY: sign.y,
+      offsetX: x - (frame.x + sign.x * frame.half),
+      offsetY: y - (frame.y + sign.y * frame.half),
+      unit: markRadius(state.scale, point.mark),
+      pad: framePad(zoom),
+    };
+    setLineHover(hit);
+    return true;
+  }
   if (hit?.type === "number") {
     selectLine(hit.layerId);
     const layer = findLayer(lineStore.get(), hit.layerId);
     if (!layer || layer.locked || !layer.routeNumber) return true;
     gesture = { kind: "number", layerId: hit.layerId };
     setNumberDrag(hit.layerId);
+    setLineHover(hit);
+    return true;
+  }
+  if (hit?.type === "mark") {
+    const point = lineStore
+      .get()
+      .points.find((item) => item.id === hit.pointId);
+    if (!point) return false;
+    selectMark(point.id);
+    gesture = {
+      kind: "mark",
+      pointId: point.id,
+      originX: x,
+      originY: y,
+      startX: point.x,
+      startY: point.y,
+      landing: null,
+    };
+    setMaterialGrab(MARK_KIND[point.mark] === "material");
     setLineHover(hit);
     return true;
   }

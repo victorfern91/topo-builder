@@ -15,8 +15,17 @@ import {
   type LineCheckpoint,
 } from "./history.ts";
 import { gradePaint } from "./grade.ts";
-import { markRadius, type PointMark } from "./point-marks.ts";
+import {
+  canStandFree,
+  clampMarkSize,
+  isFreeMark,
+  magnetReach,
+  markRadius,
+  materialReach,
+  type PointMark,
+} from "./point-marks.ts";
 import { preferencesStore } from "./preferences.ts";
+import { LINE_STROKE } from "./stroke.ts";
 import {
   clearRouteNumberCache,
   defaultRouteNumber,
@@ -46,15 +55,23 @@ export type MarkedPoint = {
   x: number;
   y: number;
   mark: PointMark;
+  /** Multiplier on the draw size. Characteristics change it from their frame; route marks keep 1. */
+  size: number;
 };
+
+/** A corner of a characteristic's frame. */
+export type MarkCorner = "nw" | "ne" | "se" | "sw";
+
+/** Screen pixels between a characteristic and its frame. */
+const FRAME_PAD = 4;
+
+/** Center and half side, in image pixels, of the frame around a selected characteristic. */
+export type MarkFrame = { pointId: string; x: number; y: number; half: number };
 
 /** Same bounds as the zoom slider, so a given percent sits in the same place on both. */
 export const DRAW_SCALE_MIN = MIN_ZOOM;
 export const DRAW_SCALE_MAX = MAX_ZOOM;
 export const DEFAULT_DRAW_SCALE = 1;
-
-/** Image-pixel stroke at scale 1. Paint and hit testing multiply by each line's scale. */
-export const LINE_STROKE = 3;
 
 export function clampDrawScale(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_DRAW_SCALE;
@@ -82,7 +99,15 @@ export type LineLayer = {
 export type LineHit =
   | { type: "anchor"; layerId: string; index: number }
   | { type: "stroke"; layerId: string }
-  | { type: "number"; layerId: string };
+  | { type: "number"; layerId: string }
+  | { type: "mark"; pointId: string }
+  | { type: "markCorner"; pointId: string; corner: MarkCorner };
+
+/** Where a mark lands. Image pixels. */
+export type MarkLanding =
+  | { type: "anchor"; layerId: string; index: number }
+  | { type: "line"; layerId: string; index: number; x: number; y: number }
+  | { type: "free"; x: number; y: number };
 
 export type LineState = {
   /** Back to front. Index 0 is line 1 in the layers list and on the photo. */
@@ -90,9 +115,11 @@ export type LineState = {
   activeId: string | null;
   /** Anchor chosen on the active line. Delete and the point menu use it. */
   anchorIndex: number | null;
+  /** Free mark chosen on the photo. Delete uses it. */
+  markId: string | null;
   /** Scale the top bar writes onto every line, and that new lines copy. */
   scale: number;
-  /** Annotations routes can share. Anchors reference these by id. */
+  /** Annotations routes can share. Anchors reference these by id; free marks stand alone. */
   points: MarkedPoint[];
   revision: number;
 };
@@ -126,6 +153,7 @@ export const lineStore = new Store<LineState>({
   layers: [],
   activeId: null,
   anchorIndex: null,
+  markId: null,
   scale: DEFAULT_DRAW_SCALE,
   points: [],
   revision: 0,
@@ -136,6 +164,9 @@ export const lineHoverStore = new Store<LineHit | null>(null);
 
 /** Layer whose route number is being dragged. Drives the magnet band. */
 export const numberDragStore = new Store<string | null>(null);
+
+/** True while a placed free material is held. Drives the material band. */
+export const materialGrabStore = new Store(false);
 
 function patch(recipe: (draft: LineState) => void): void {
   lineStore.setState((state) => produce(state, recipe));
@@ -165,6 +196,7 @@ export function beginLine(kind: LineKind): string {
       draft.layers.push(layer);
       draft.activeId = layer.id;
       draft.anchorIndex = null;
+      draft.markId = null;
       draft.revision += 1;
     });
     return layer.id;
@@ -182,9 +214,15 @@ export function ensureLine(kind: LineKind): string {
 export function finishLine(): void {
   batch(() => {
     patch((draft) => {
-      if (draft.activeId === null && draft.anchorIndex === null) return;
+      if (
+        draft.activeId === null &&
+        draft.anchorIndex === null &&
+        draft.markId === null
+      )
+        return;
       draft.activeId = null;
       draft.anchorIndex = null;
+      draft.markId = null;
     });
     setLineHover(null);
   });
@@ -193,9 +231,15 @@ export function finishLine(): void {
 export function selectLine(id: string): void {
   patch((draft) => {
     if (!findLayer(draft, id)) return;
-    if (draft.activeId === id && draft.anchorIndex === null) return;
+    if (
+      draft.activeId === id &&
+      draft.anchorIndex === null &&
+      draft.markId === null
+    )
+      return;
     draft.activeId = id;
     draft.anchorIndex = null;
+    draft.markId = null;
   });
 }
 
@@ -203,9 +247,81 @@ export function selectAnchor(layerId: string, index: number): void {
   patch((draft) => {
     const layer = findLayer(draft, layerId);
     if (!layer || !layer.anchors[index]) return;
-    if (draft.activeId === layerId && draft.anchorIndex === index) return;
+    if (
+      draft.activeId === layerId &&
+      draft.anchorIndex === index &&
+      draft.markId === null
+    )
+      return;
     draft.activeId = layerId;
     draft.anchorIndex = index;
+    draft.markId = null;
+  });
+}
+
+/** Selects a free mark and clears the line selection. */
+export function selectMark(id: string): void {
+  patch((draft) => {
+    if (!draft.points.some((point) => point.id === id)) return;
+    if (draft.markId === id && draft.activeId === null) return;
+    draft.activeId = null;
+    draft.anchorIndex = null;
+    draft.markId = id;
+  });
+}
+
+/** Places a characteristic or material on the photo, off every route point, and selects it. */
+export function addFreeMark(
+  mark: PointMark,
+  x: number,
+  y: number,
+  size = 1,
+): void {
+  if (!canStandFree(mark)) return;
+  edit(() => {
+    const point: MarkedPoint = {
+      id: nextPointId(),
+      x,
+      y,
+      mark,
+      size: clampMarkSize(size),
+    };
+    patch((draft) => {
+      draft.points.push(point);
+      draft.activeId = null;
+      draft.anchorIndex = null;
+      draft.markId = point.id;
+      draft.revision += 1;
+    });
+  });
+}
+
+/** Removes the mark and turns every anchor glued to it back into a plain point. */
+export function deleteMark(id: string): void {
+  edit(() => {
+    const state = lineStore.get();
+    if (!state.points.some((point) => point.id === id)) return;
+    for (const layer of state.layers) {
+      if (layer.locked && layer.anchors.some((a) => a.pointId === id)) return;
+    }
+    for (const layer of state.layers) {
+      let changed = false;
+      for (const anchor of layer.anchors) {
+        if (anchor.pointId !== id) continue;
+        anchor.pointId = null;
+        changed = true;
+      }
+      if (changed) layer.geometryRevision += 1;
+    }
+    batch(() => {
+      patch((draft) => {
+        draft.points = draft.points.filter((point) => point.id !== id);
+        if (draft.markId === id) draft.markId = null;
+        draft.revision += 1;
+      });
+      const hover = lineHoverStore.get();
+      if (hover?.type === "mark" && hover.pointId === id) setLineHover(null);
+    });
   });
 }
 
@@ -259,7 +375,7 @@ export function toggleLineLock(id: string): void {
         draft.revision += 1;
       });
       const hover = lineHoverStore.get();
-      if (next && hover?.layerId === id) setLineHover(null);
+      if (next && hitLayerId(hover) === id) setLineHover(null);
     });
   });
 }
@@ -299,7 +415,7 @@ function deleteLineNow(id: string): void {
       draft.revision += 1;
     });
     const hover = lineHoverStore.get();
-    if (hover?.layerId === id) setLineHover(null);
+    if (hitLayerId(hover) === id) setLineHover(null);
   });
 }
 
@@ -328,6 +444,7 @@ function copyLineNow(id: string): string | null {
       x: point.x,
       y: point.y,
       mark: point.mark,
+      size: point.size,
     };
     clones.set(anchor.pointId, clone);
     return { x: anchor.x, y: anchor.y, pointId: clone.id };
@@ -406,13 +523,15 @@ export function clearLines(): void {
         draft.layers.length === 0 &&
         draft.points.length === 0 &&
         draft.activeId === null &&
-        draft.anchorIndex === null
+        draft.anchorIndex === null &&
+        draft.markId === null
       )
         return;
       draft.layers = [];
       draft.points = [];
       draft.activeId = null;
       draft.anchorIndex = null;
+      draft.markId = null;
       draft.revision += 1;
     });
     setLineHover(null);
@@ -431,6 +550,10 @@ export function setLineHover(hover: LineHit | null): void {
   lineHoverStore.setState((current) =>
     sameHit(current, hover) ? current : hover,
   );
+}
+
+export function setMaterialGrab(held: boolean): void {
+  materialGrabStore.setState((current) => (current === held ? current : held));
 }
 
 export function setNumberDrag(layerId: string | null): void {
@@ -532,6 +655,72 @@ export function moveMarkedPoint(id: string, x: number, y: number): void {
   });
 }
 
+/** Sets a free characteristic's size and center. */
+export function resizeMark(
+  id: string,
+  x: number,
+  y: number,
+  size: number,
+): void {
+  edit(() => {
+    const point = lineStore.get().points.find((item) => item.id === id);
+    if (!point || !isFreeMark(point.mark)) return;
+    const next = clampMarkSize(size);
+    if (point.size === next && point.x === x && point.y === y) return;
+    point.size = next;
+    point.x = x;
+    point.y = y;
+    publish();
+  });
+}
+
+/** Frame around the selected characteristic. Null when none is selected. */
+export function markFrame(state: LineState, zoom: number): MarkFrame | null {
+  if (state.markId === null || !(zoom > 0)) return null;
+  const point = state.points.find((item) => item.id === state.markId);
+  if (!point || !isFreeMark(point.mark)) return null;
+  return {
+    pointId: point.id,
+    x: point.x,
+    y: point.y,
+    half: markRadius(state.scale, point.mark, point.size) + framePad(zoom),
+  };
+}
+
+/** Image pixels between a characteristic's frame and its drawn edge. */
+export function framePad(zoom: number): number {
+  return zoom > 0 ? FRAME_PAD / zoom : 0;
+}
+
+/** Unit direction of each frame corner from the center. */
+export const CORNER_SIGN = {
+  nw: { x: -1, y: -1 },
+  ne: { x: 1, y: -1 },
+  se: { x: 1, y: 1 },
+  sw: { x: -1, y: 1 },
+} as const satisfies Record<MarkCorner, { x: number; y: number }>;
+
+const MARK_CORNERS = ["nw", "ne", "se", "sw"] as const;
+
+function markCornerAt(
+  state: LineState,
+  x: number,
+  y: number,
+  zoom: number,
+): Extract<LineHit, { type: "markCorner" }> | null {
+  const frame = markFrame(state, zoom);
+  if (!frame) return null;
+  const reach = HIT_PX / zoom;
+  for (const corner of MARK_CORNERS) {
+    const sign = CORNER_SIGN[corner];
+    const cx = frame.x + sign.x * frame.half;
+    const cy = frame.y + sign.y * frame.half;
+    if (Math.abs(x - cx) <= reach && Math.abs(y - cy) <= reach)
+      return { type: "markCorner", pointId: frame.pointId, corner };
+  }
+  return null;
+}
+
 export function nearestMarkedPoint(
   x: number,
   y: number,
@@ -541,10 +730,11 @@ export function nearestMarkedPoint(
   if (!(reach > 0)) return null;
   const state = lineStore.get();
   const used = layerId ? pointIdsOnLayer(findLayer(state, layerId)) : null;
+  const attached = attachedPointIds(state);
   let best: MarkedPoint | null = null;
   let bestDist = reach * reach;
   for (const point of state.points) {
-    if (used?.has(point.id)) continue;
+    if (used?.has(point.id) || !attached.has(point.id)) continue;
     const dist = distance2(point.x, point.y, x, y);
     if (dist > bestDist) continue;
     best = point;
@@ -597,6 +787,7 @@ export function setAnchorMark(
   mark: PointMark,
   magnet: number,
 ): void {
+  if (isFreeMark(mark)) return;
   edit(() => {
     const layer = findLayer(lineStore.get(), layerId);
     const anchor = layer?.anchors[index];
@@ -626,6 +817,7 @@ export function setAnchorMark(
       x: anchor.x,
       y: anchor.y,
       mark,
+      size: 1,
     };
     anchor.pointId = point.id;
     patch((draft) => {
@@ -663,6 +855,107 @@ export function pointOnLine(
     x,
     y,
   );
+}
+
+/** Nearest spot on an unlocked line within `reach`, with the anchor index it would take. */
+export function lineAt(
+  state: LineState,
+  x: number,
+  y: number,
+  reach: number,
+): { layerId: string; index: number; x: number; y: number } | null {
+  let best: { layerId: string; index: number; x: number; y: number } | null =
+    null;
+  let bestDist = reach * reach;
+  for (
+    let layerIndex = state.layers.length - 1;
+    layerIndex >= 0;
+    layerIndex -= 1
+  ) {
+    const layer = state.layers[layerIndex];
+    if (!layer || layer.locked || layer.anchors.length < 2) continue;
+    const spot = closestOnLine(
+      lineGeometry(layer.id, layer.geometryRevision, layer.anchors).ops,
+      x,
+      y,
+    );
+    if (!spot) continue;
+    const dist = distance2(spot.x, spot.y, x, y);
+    if (dist >= bestDist) continue;
+    best = { layerId: layer.id, ...spot };
+    bestDist = dist;
+  }
+  return best;
+}
+
+/**
+ * Where material aimed at (x, y) lands: the route point under the pointer, the
+ * line inside the magnet, or free inside the band beside a route. Null beyond it.
+ */
+export function materialLanding(
+  state: LineState,
+  x: number,
+  y: number,
+  zoom: number,
+): MarkLanding | null {
+  const anchor = anchorAt(state, x, y, zoom);
+  if (anchor) return anchor;
+  const spot = lineAt(state, x, y, magnetReach(zoom, state.scale));
+  if (spot) return { type: "line", ...spot };
+  const near = closestOnRoutes(state, x, y);
+  const reach = materialReach(state.scale);
+  return near && near.dist <= reach * reach ? { type: "free", x, y } : null;
+}
+
+/** (x, y) pulled back inside the material band. Null with no route on the photo. */
+export function insideMaterialBand(
+  state: LineState,
+  x: number,
+  y: number,
+): { x: number; y: number } | null {
+  const near = closestOnRoutes(state, x, y);
+  if (!near) return null;
+  const reach = materialReach(state.scale);
+  if (near.dist <= reach * reach) return { x, y };
+  const pull = reach / Math.sqrt(near.dist);
+  return {
+    x: near.x + (x - near.x) * pull,
+    y: near.y + (y - near.y) * pull,
+  };
+}
+
+/** Moves a free mark onto a route point or the line. Joins the open undo step. */
+export function landFreeMark(
+  id: string,
+  landing: Exclude<MarkLanding, { type: "free" }>,
+  magnet: number,
+): void {
+  edit(() => {
+    const point = lineStore.get().points.find((item) => item.id === id);
+    if (!point || isFreeMark(point.mark)) return;
+    const mark = point.mark;
+    deleteMark(id);
+    if (landing.type === "line")
+      markOnLine(landing.layerId, landing.index, landing.x, landing.y, mark);
+    else setAnchorMark(landing.layerId, landing.index, mark, magnet);
+  });
+}
+
+/** Adds a route point on the line at `index` and puts the mark on it. One undo step. */
+export function markOnLine(
+  layerId: string,
+  index: number,
+  x: number,
+  y: number,
+  mark: PointMark,
+): void {
+  edit(() => {
+    const before = findLayer(lineStore.get(), layerId)?.anchors.length ?? 0;
+    insertAnchor(layerId, index, x, y, 0);
+    const layer = findLayer(lineStore.get(), layerId);
+    if (!layer || layer.anchors.length === before) return;
+    setAnchorMark(layerId, Math.max(0, Math.min(index, before)), mark, 0);
+  });
 }
 
 export function insertAnchor(
@@ -735,13 +1028,72 @@ export function hitTest(
   y: number,
   zoom: number,
 ): LineHit | null {
-  if (zoom <= 0 || state.layers.length === 0) return null;
-  const number = nearestNumber(state, x, y, zoom);
-  const anchor = nearestPoint(state, x, y, zoom);
-  if (number && anchor) {
-    return number.dist <= anchor.dist ? number.hit : anchor.hit;
+  if (zoom <= 0) return null;
+  const corner = markCornerAt(state, x, y, zoom);
+  if (corner) return corner;
+  let best: { hit: LineHit; dist: number } | null = null;
+  for (const near of [
+    nearestNumber(state, x, y, zoom),
+    nearestPoint(state, x, y, zoom),
+    nearestFreeMark(state, x, y, zoom),
+  ]) {
+    if (near && (!best || near.dist < best.dist)) best = near;
   }
-  return number?.hit ?? anchor?.hit ?? nearestStroke(state, x, y, zoom);
+  return best?.hit ?? nearestStroke(state, x, y, zoom);
+}
+
+function nearestFreeMark(
+  state: LineState,
+  x: number,
+  y: number,
+  zoom: number,
+): { hit: LineHit; dist: number } | null {
+  const handle = HIT_PX / zoom;
+  const attached = attachedPointIds(state);
+  let best: { hit: LineHit; dist: number } | null = null;
+  for (const point of state.points) {
+    if (attached.has(point.id)) continue;
+    const limit = Math.max(
+      handle,
+      markRadius(state.scale, point.mark, point.size) * 1.1,
+    );
+    const dist = distance2(point.x, point.y, x, y);
+    if (dist > limit * limit || (best && dist >= best.dist)) continue;
+    best = { hit: { type: "mark", pointId: point.id }, dist };
+  }
+  return best;
+}
+
+/** Nearest unlocked route anchor under the pointer, ignoring numbers and strokes. */
+export function anchorAt(
+  state: LineState,
+  x: number,
+  y: number,
+  zoom: number,
+): Extract<LineHit, { type: "anchor" }> | null {
+  if (zoom <= 0) return null;
+  const hit = nearestPoint(state, x, y, zoom)?.hit;
+  return hit?.type === "anchor" ? hit : null;
+}
+
+/** Mark on the selected anchor. Null when no anchor is selected or it is plain. */
+export function selectedAnchorMark(state: LineState): PointMark | null {
+  if (state.activeId === null || state.anchorIndex === null) return null;
+  const pointId = findLayer(state, state.activeId)?.anchors[state.anchorIndex]
+    ?.pointId;
+  if (!pointId) return null;
+  return state.points.find((point) => point.id === pointId)?.mark ?? null;
+}
+
+/** Sets this mark on the anchor, or clears it when the anchor already has it. */
+export function toggleAnchorMark(
+  layerId: string,
+  index: number,
+  mark: PointMark,
+  magnet: number,
+): void {
+  if (anchorMark(layerId, index) === mark) clearAnchorMark(layerId, index);
+  else setAnchorMark(layerId, index, mark, magnet);
 }
 
 export function findLayer(
@@ -786,6 +1138,40 @@ function pointIdsOnLayer(layer: LineLayer | null): Set<string> | null {
     if (anchor.pointId) ids.add(anchor.pointId);
   }
   return ids;
+}
+
+/** Marks a route point uses. The others stand free on the photo. */
+function attachedPointIds(state: LineState): Set<string> {
+  const ids = new Set<string>();
+  for (const layer of state.layers) {
+    for (const anchor of layer.anchors) {
+      if (anchor.pointId) ids.add(anchor.pointId);
+    }
+  }
+  return ids;
+}
+
+/** Closest spot on any route, locked ones included, with its squared distance. */
+function closestOnRoutes(
+  state: LineState,
+  x: number,
+  y: number,
+): { x: number; y: number; dist: number } | null {
+  let best: { x: number; y: number; dist: number } | null = null;
+  for (const layer of state.layers) {
+    const spot =
+      layer.anchors.length >= 2
+        ? closestOnLine(
+            lineGeometry(layer.id, layer.geometryRevision, layer.anchors).ops,
+            x,
+            y,
+          )
+        : (layer.anchors[0] ?? null);
+    if (!spot) continue;
+    const dist = distance2(spot.x, spot.y, x, y);
+    if (!best || dist < best.dist) best = { x: spot.x, y: spot.y, dist };
+  }
+  return best;
 }
 
 function unusedPoint(state: LineState, pointId: string | null): MarkedPoint[] {
@@ -840,6 +1226,7 @@ function nearestPoint(
   zoom: number,
 ): { hit: LineHit; dist: number } | null {
   const handle = HIT_PX / zoom;
+  const marks = new Map(state.points.map((point) => [point.id, point.mark]));
   let best: { hit: LineHit; dist: number } | null = null;
   for (
     let layerIndex = state.layers.length - 1;
@@ -851,8 +1238,9 @@ function nearestPoint(
     for (let index = layer.anchors.length - 1; index >= 0; index -= 1) {
       const anchor = layer.anchors[index];
       if (!anchor) continue;
-      const limit = anchor.pointId
-        ? Math.max(handle, markRadius(layer.scale) * 1.25)
+      const mark = anchor.pointId ? marks.get(anchor.pointId) : undefined;
+      const limit = mark
+        ? Math.max(handle, markRadius(layer.scale, mark) * 1.25)
         : handle;
       const dist = distance2(anchor.x, anchor.y, x, y);
       if (dist > limit * limit) continue;
@@ -913,7 +1301,7 @@ function bumpHover(
   layerId: string,
   inserted: number,
 ): LineHit | null {
-  if (!hover || hover.layerId !== layerId || hover.type !== "anchor")
+  if (!hover || hover.type !== "anchor" || hover.layerId !== layerId)
     return hover;
   if (hover.index >= inserted) return { ...hover, index: hover.index + 1 };
   return hover;
@@ -924,7 +1312,7 @@ function shiftHover(
   layerId: string,
   deleted: number,
 ): LineHit | null {
-  if (!hover || hover.layerId !== layerId || hover.type !== "anchor")
+  if (!hover || hover.type !== "anchor" || hover.layerId !== layerId)
     return hover;
   if (hover.index === deleted) return null;
   if (hover.index > deleted) return { ...hover, index: hover.index - 1 };
@@ -943,9 +1331,19 @@ function sameNumber(a: RouteNumber | null, b: RouteNumber): boolean {
 
 function sameHit(a: LineHit | null, b: LineHit | null): boolean {
   if (a === b) return true;
-  if (!a || !b || a.type !== b.type || a.layerId !== b.layerId) return false;
+  if (!a || !b || a.type !== b.type || hitLayerId(a) !== hitLayerId(b))
+    return false;
   if (a.type === "anchor" && b.type === "anchor") return a.index === b.index;
+  if (a.type === "mark" && b.type === "mark") return a.pointId === b.pointId;
+  if (a.type === "markCorner" && b.type === "markCorner")
+    return a.pointId === b.pointId && a.corner === b.corner;
   return true;
+}
+
+/** Line under the hit. Null for a free mark. */
+export function hitLayerId(hit: LineHit | null): string | null {
+  if (!hit || hit.type === "mark" || hit.type === "markCorner") return null;
+  return hit.layerId;
 }
 
 function takeCheckpoint(): LineCheckpoint {
@@ -972,6 +1370,7 @@ function applyCheckpoint(checkpoint: LineCheckpoint): void {
       scale: checkpoint.scale,
       activeId: checkpoint.activeId,
       anchorIndex: checkpoint.anchorIndex,
+      markId: null,
       revision: state.revision + 1,
     }));
     setLineHover(null);
@@ -1013,7 +1412,13 @@ function cloneAnchor(anchor: Anchor): Anchor {
 }
 
 function clonePoint(point: MarkedPoint): MarkedPoint {
-  return { id: point.id, x: point.x, y: point.y, mark: point.mark };
+  return {
+    id: point.id,
+    x: point.x,
+    y: point.y,
+    mark: point.mark,
+    size: point.size,
+  };
 }
 
 function sameLayer(saved: LineLayer, live: LineLayer): boolean {
@@ -1060,7 +1465,8 @@ function samePoints(
       left.id !== right.id ||
       left.x !== right.x ||
       left.y !== right.y ||
-      left.mark !== right.mark
+      left.mark !== right.mark ||
+      left.size !== right.size
     ) {
       return false;
     }

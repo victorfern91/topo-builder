@@ -2,10 +2,12 @@ import { Tokens } from "@ui";
 import { gradePaint } from "./grade.ts";
 import { dropLineGeometry, lineGeometry } from "./line-curve.ts";
 import {
+  CORNER_SIGN,
   findLayer,
-  LINE_STROKE,
   lineHoverStore,
   lineStore,
+  markFrame,
+  materialGrabStore,
   numberDragStore,
   type LineHit,
   type LineLayer,
@@ -21,17 +23,29 @@ import {
   numberMagnet,
   routeNumberPlacement,
 } from "./route-number.ts";
-import { drawPointMark, markRadius } from "./point-marks.ts";
+import { markDragStore } from "./mark-drag.ts";
+import {
+  drawPointMark,
+  isFreeMark,
+  MARK_KIND,
+  markRadius,
+  markSprite,
+  materialReach,
+  type PointMark,
+} from "./point-marks.ts";
+import { LINE_HALO, LINE_STROKE } from "./stroke.ts";
 import { viewportStore } from "./viewport.ts";
 
 const ANCHOR = 5;
 
 /** Image pixels at scale 1. Each line multiplies by its scale; zoom is already in the canvas transform. */
 const STROKE = LINE_STROKE;
-const HALO = 2;
+const HALO = LINE_HALO;
 const BOULDER_DASH = [14, 10];
 const SELECT_BLUE = Tokens.color.blue[500];
 const SELECT_PAD = 8;
+const DROP_SPOT_FILL = Tokens.color.white[45];
+const SELECT_FILL = Tokens.color.blue[100];
 
 let painted = false;
 
@@ -83,6 +97,12 @@ export function paintLines(canvas: HTMLCanvasElement): void {
     const band = findLayer(doc, magnetId);
     if (band) paintNumberBand(ctx, band);
   }
+  const drag = markDragStore.get();
+  if (
+    materialGrabStore.get() ||
+    (drag !== null && MARK_KIND[drag.mark] === "material")
+  )
+    paintMaterialBand(ctx, doc);
   let active: LineLayer | null = null;
   for (const layer of doc.layers) {
     if (layer.id === doc.activeId) {
@@ -94,12 +114,27 @@ export function paintLines(canvas: HTMLCanvasElement): void {
   paintMarks(
     ctx,
     doc,
-    markedId(doc, doc.activeId, doc.anchorIndex),
-    hover?.type === "anchor" ? markedId(doc, hover.layerId, hover.index) : null,
+    doc.markId ?? markedId(doc, doc.activeId, doc.anchorIndex),
+    hover?.type === "mark"
+      ? hover.pointId
+      : hover?.type === "anchor"
+        ? markedId(doc, hover.layerId, hover.index)
+        : null,
     view.zoom,
+    dpr * view.zoom,
   );
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (drag && !isFreeMark(drag.mark))
+    paintDropSpots(
+      ctx,
+      doc,
+      drag.mark,
+      drag.landing,
+      view.zoom,
+      view.panX,
+      view.panY,
+    );
   paintControls(
     ctx,
     active,
@@ -109,7 +144,43 @@ export function paintLines(canvas: HTMLCanvasElement): void {
     view.panX,
     view.panY,
   );
+  paintMarkFrame(ctx, doc, hover, view.zoom, view.panX, view.panY);
   paintLineNumbers(ctx, doc.layers, hover, view.zoom, view.panX, view.panY);
+}
+
+/** Square frame with a handle on each corner around the selected characteristic. */
+function paintMarkFrame(
+  ctx: CanvasRenderingContext2D,
+  doc: LineState,
+  hover: LineHit | null,
+  zoom: number,
+  panX: number,
+  panY: number,
+): void {
+  const frame = markFrame(doc, zoom);
+  if (!frame) return;
+  const x = panX + frame.x * zoom;
+  const y = panY + frame.y * zoom;
+  const half = frame.half * zoom;
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.rect(x - half, y - half, half * 2, half * 2);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = SELECT_BLUE;
+  ctx.stroke();
+  for (const [corner, sign] of Object.entries(CORNER_SIGN)) {
+    const held = hover?.type === "markCorner" && hover.corner === corner;
+    fillSquare(
+      ctx,
+      x + sign.x * half,
+      y + sign.y * half,
+      held ? ANCHOR + 2 : ANCHOR + 1,
+      held ? SELECT_BLUE : Tokens.color.neutral[0],
+      SELECT_BLUE,
+    );
+  }
+  ctx.restore();
 }
 
 function paintSelection(ctx: CanvasRenderingContext2D, layer: LineLayer): void {
@@ -177,27 +248,46 @@ function strokeLayer(
   ctx.restore();
 }
 
-/** Mark outline in image pixels. `zoom` is screen pixels per image pixel. */
-export function markHairline(radius: number, zoom: number): number {
-  return Math.min(1.5 / zoom, radius * 0.08);
-}
-
+/**
+ * `deviceScale` is device pixels per image pixel. With it, each mark is a cached
+ * bitmap copied at whole device pixels and marks outside the buffer are skipped.
+ * Without it (exports), every mark is drawn from its SVG.
+ */
 function paintMarks(
   ctx: CanvasRenderingContext2D,
   doc: LineState,
   selectedId: string | null,
   hoveredId: string | null,
   zoom: number,
+  deviceScale: number | null,
 ): void {
   if (doc.points.length === 0 || !(zoom > 0)) return;
+  const view = ctx.getTransform();
   ctx.setLineDash([]);
   for (const point of doc.points) {
-    const radius = markRadius(doc.scale);
+    const radius = markRadius(doc.scale, point.mark, point.size);
     if (!(radius > 0)) continue;
+    const spriteRadius =
+      deviceScale === null ? 0 : Math.round(radius * deviceScale * 2) / 2;
+    const selected = point.id === selectedId;
+    const sprite =
+      deviceScale === null ? null : markSprite(point.mark, spriteRadius);
+    const cx = view.a * point.x + view.e;
+    const cy = view.d * point.y + view.f;
+    if (
+      sprite &&
+      (cx + spriteRadius < 0 ||
+        cy + spriteRadius < 0 ||
+        cx - spriteRadius > ctx.canvas.width ||
+        cy - spriteRadius > ctx.canvas.height)
+    )
+      continue;
     ctx.save();
     ctx.translate(point.x, point.y);
-    const selected = point.id === selectedId;
-    if (selected || point.id === hoveredId) {
+    if (
+      (selected || point.id === hoveredId) &&
+      !(selected && isFreeMark(point.mark))
+    ) {
       const pad = Math.min(3 / zoom, radius * 0.45);
       ctx.beginPath();
       ctx.arc(0, 0, radius + pad, 0, Math.PI * 2);
@@ -205,9 +295,67 @@ function paintMarks(
       ctx.lineWidth = Math.min((selected ? 2.5 : 1.5) / zoom, radius * 0.18);
       ctx.stroke();
     }
-    drawPointMark(ctx, point.mark, radius, markHairline(radius, zoom));
+    if (sprite) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(
+        sprite,
+        Math.round(cx - sprite.width / 2),
+        Math.round(cy - sprite.height / 2),
+      );
+    } else {
+      drawPointMark(ctx, point.mark, radius);
+    }
     ctx.restore();
   }
+}
+
+/**
+ * Rings every route point a dragged route mark can land on, at the size it
+ * lands at, and fills the ring at `landing`. Expects the device-pixel transform.
+ */
+function paintDropSpots(
+  ctx: CanvasRenderingContext2D,
+  doc: LineState,
+  mark: PointMark,
+  landing: { x: number; y: number } | null,
+  zoom: number,
+  panX: number,
+  panY: number,
+): void {
+  const radius = Math.max(ANCHOR, markRadius(doc.scale, mark) * zoom + 2);
+  ctx.save();
+  ctx.beginPath();
+  for (const layer of doc.layers) {
+    if (layer.locked) continue;
+    for (const anchor of layer.anchors) {
+      const x = panX + anchor.x * zoom;
+      const y = panY + anchor.y * zoom;
+      ctx.moveTo(x + radius, y);
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+    }
+  }
+  ctx.setLineDash([3, 3]);
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = SELECT_BLUE;
+  ctx.fillStyle = DROP_SPOT_FILL;
+  ctx.fill();
+  ctx.stroke();
+  if (landing) {
+    ctx.beginPath();
+    ctx.arc(
+      panX + landing.x * zoom,
+      panY + landing.y * zoom,
+      radius,
+      0,
+      Math.PI * 2,
+    );
+    ctx.setLineDash([]);
+    ctx.lineWidth = 2.5;
+    ctx.fillStyle = SELECT_FILL;
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function markedId(
@@ -395,7 +543,7 @@ export function paintArtwork(
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
   for (const layer of doc.layers) strokeLayer(ctx, layer, false);
-  paintMarks(ctx, doc, null, null, 1 / ink);
+  paintMarks(ctx, doc, null, null, 1 / ink, null);
   ctx.setLineDash([]);
   ctx.font = NUMBER_FONT;
   ctx.textAlign = "center";
@@ -436,6 +584,34 @@ function paintNumberBand(
   ctx.strokeStyle = layer.color;
   ctx.globalAlpha = 0.18;
   ctx.stroke(path);
+  ctx.restore();
+}
+
+/** Shades the band beside every route where free material can land. */
+function paintMaterialBand(
+  ctx: CanvasRenderingContext2D,
+  doc: LineState,
+): void {
+  const reach = materialReach(doc.scale);
+  if (!(reach > 0)) return;
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 0.12;
+  ctx.strokeStyle = SELECT_BLUE;
+  ctx.fillStyle = SELECT_BLUE;
+  ctx.lineWidth = reach * 2;
+  for (const layer of doc.layers) {
+    const lone = layer.anchors.length === 1 ? layer.anchors[0] : null;
+    if (lone) {
+      ctx.beginPath();
+      ctx.arc(lone.x, lone.y, reach, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (layer.anchors.length >= 2) {
+      ctx.stroke(
+        lineGeometry(layer.id, layer.geometryRevision, layer.anchors).path,
+      );
+    }
+  }
   ctx.restore();
 }
 

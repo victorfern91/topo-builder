@@ -140,6 +140,28 @@ export const topMenu: TopMenuConfig = {
           enabledWhen: "canRedo",
           shortcut: "redo",
         },
+        { type: "separator" },
+        {
+          type: "item",
+          label: "cut",
+          action: "cutMark",
+          enabledWhen: "markSelected",
+          shortcut: "cut",
+        },
+        {
+          type: "item",
+          label: "copy",
+          action: "copyMark",
+          enabledWhen: "markSelected",
+          shortcut: "copy",
+        },
+        {
+          type: "item",
+          label: "paste",
+          action: "pasteMark",
+          enabledWhen: "canPasteMark",
+          shortcut: "paste",
+        },
       ],
     },
     {

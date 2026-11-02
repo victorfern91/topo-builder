@@ -8,11 +8,17 @@ import {
   BADGE_TEXT,
   exportInk,
   lineStroke,
-  markHairline,
   paintArtwork,
 } from "./line-paint.ts";
 import { lineStore, type LineState } from "./lines.ts";
-import { markRadius, pointMarkSvg, type PointMark } from "./point-marks.ts";
+import {
+  MARK_LABEL,
+  markArtReady,
+  markRadius,
+  POINT_MARKS,
+  pointMarkSvg,
+  type PointMark,
+} from "./point-marks.ts";
 import { preferencesStore } from "./preferences.ts";
 import {
   NUMBER_FONT_FAMILY,
@@ -24,7 +30,6 @@ import {
 } from "./route-number.ts";
 import { escapeXml, svgIdFactory, svgNumber as n, svgPaint } from "./svg.ts";
 import { t } from "../i18n/index.ts";
-import type { MessageId } from "../i18n/messages.ts";
 import { rgbaToTiffBlob } from "./tiff.ts";
 import {
   TOPO_EXTENSION,
@@ -66,7 +71,7 @@ export async function exportTopo(format: ExportFormat): Promise<void> {
           system,
           format,
         )
-      : await rasterBlob(photo, doc, system, format);
+      : await markArtReady.then(() => rasterBlob(photo, doc, system, format));
   download(blob, exportName(image.fileName, format));
 }
 
@@ -113,13 +118,6 @@ async function rasterBlob(
   if (!blob) throw new TopoError("EXPORT_ENCODE_FAILED");
   return blob;
 }
-
-const MARK_LABEL: Record<PointMark, MessageId> = {
-  bolt: "boltMark",
-  ring: "ringMark",
-  belay: "belayMark",
-  rappel: "rappelMark",
-};
 
 /** Raster formats every SVG editor can show inside `<image>`. */
 const EMBEDDABLE = new Set(["image/png", "image/jpeg"]);
@@ -197,14 +195,24 @@ async function svgBlob(
     parts.push(`</g>`);
   }
 
-  if (doc.points.length > 0) {
-    const radius = markRadius(doc.scale);
-    const hairline = markHairline(radius, 1 / ink);
+  if (doc.points.length > 0 && doc.scale > 0) {
+    const symbols = new Map<PointMark, string>();
+    for (const mark of POINT_MARKS) {
+      if (doc.points.some((point) => point.mark === mark))
+        symbols.set(mark, id(`symbol-${mark}`, "symbol"));
+    }
+    parts.push(`<defs>`);
+    for (const [mark, symbolId] of symbols) {
+      parts.push(
+        `<g id="${symbolId}" inkscape:label="${escapeXml(t(MARK_LABEL[mark]))}">${pointMarkSvg(mark)}</g>`,
+      );
+    }
+    parts.push(`</defs>`);
     parts.push(`<g ${layerAttrs(id("marks", "marks"), t("pointMarks"))}>`);
     for (const point of doc.points) {
       const label = t(MARK_LABEL[point.mark]);
       parts.push(
-        `<g id="${id(`mark-${label}`, "mark")}" inkscape:label="${escapeXml(label)}" transform="translate(${n(point.x)} ${n(point.y)})">${pointMarkSvg(point.mark, radius, hairline)}</g>`,
+        `<use id="${id(`mark-${label}`, "mark")}" inkscape:label="${escapeXml(label)}" xlink:href="#${symbols.get(point.mark) ?? ""}" transform="translate(${n(point.x)} ${n(point.y)}) scale(${n(markRadius(doc.scale, point.mark, point.size))})"/>`,
       );
     }
     parts.push(`</g>`);

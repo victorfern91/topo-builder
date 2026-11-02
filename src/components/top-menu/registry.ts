@@ -13,6 +13,14 @@ import {
   imageDocumentStore,
   requestImageFilePicker,
 } from "../../state/image-document.ts";
+import { lineStore } from "../../state/lines.ts";
+import {
+  copyMark,
+  cutMark,
+  markClipboardStore,
+  pasteMark,
+  selectedCharacteristic,
+} from "../../state/mark-clipboard.ts";
 import { preferencesStore, setGradeSystem } from "../../state/preferences.ts";
 import { ScaleSlider } from "../scale-slider.tsx";
 
@@ -95,6 +103,9 @@ export const menuActions = {
   openImage: action(() => requestImageFilePicker()),
   undo: action(() => undo()),
   redo: action(() => redo()),
+  cutMark: action(() => cutMark()),
+  copyMark: action(() => copyMark()),
+  pasteMark: action(() => pasteMark()),
   export: {
     run: (format: ExportFormat, context) => {
       void runExport(format, context);
@@ -107,6 +118,11 @@ export const menuConditions = {
   documentReady: when(imageDocumentStore, (state) => state.status === "ready"),
   canUndo: when(historyStore, (state) => state.canUndo),
   canRedo: when(historyStore, (state) => state.canRedo),
+  markSelected: when(
+    lineStore,
+    (state) => selectedCharacteristic(state) !== null,
+  ),
+  canPasteMark: when(markClipboardStore, (state) => state !== null),
   exporting: when(exportingStore, (state) => state !== null),
 } satisfies Record<string, Source<boolean>>;
 

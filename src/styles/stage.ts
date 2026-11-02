@@ -20,6 +20,8 @@ export const stage = stylex.create({
       '[data-cursor="crosshair"]': "crosshair",
       '[data-cursor="move"]': "move",
       '[data-cursor="pointer"]': "pointer",
+      '[data-cursor="nwse-resize"]': "nwse-resize",
+      '[data-cursor="nesw-resize"]': "nesw-resize",
       "[data-grabbing]": "grabbing",
     },
     userSelect: {
@@ -30,6 +32,8 @@ export const stage = stylex.create({
       '[data-cursor="crosshair"]': "none",
       '[data-cursor="move"]': "none",
       '[data-cursor="pointer"]': "none",
+      '[data-cursor="nwse-resize"]': "none",
+      '[data-cursor="nesw-resize"]': "none",
       "[data-grabbing]": "none",
     },
   },
