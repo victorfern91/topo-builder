@@ -1,5 +1,6 @@
 import { Store } from "@tanstack/store";
 import { errorCode, type ErrorCode } from "./errors.ts";
+import { clearLines } from "./lines.ts";
 import { isTiffFile, tiffToPngBlob } from "./tiff.ts";
 
 export type PixelSize = {
@@ -68,9 +69,10 @@ export function requestImageFilePicker(): void {
   openPicker();
 }
 
-/** `onReady` runs once this photo is on the board, unless another file was opened first. */
+/** Drops the current drawing. `onReady` runs once this photo is on the board, unless another file was opened first. */
 export function openImageFile(file: File, onReady?: () => void): void {
   const id = ++requestId;
+  clearLines();
 
   if (!isLikelyImageFile(file)) {
     releaseActiveUrl();
@@ -116,6 +118,7 @@ export function openImageFile(file: File, onReady?: () => void): void {
 /** Shows `problem` for a file that never reached the photo decoder. */
 export function failImageFile(fileName: string, problem: ErrorCode): void {
   requestId += 1;
+  clearLines();
   releaseActiveUrl();
   imageDocumentStore.setState(() => ({
     status: "error",

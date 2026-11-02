@@ -1,19 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
-import {
-  Alert,
-  Button,
-  Input,
-  Layout,
-  Menu,
-  Popover,
-  Select,
-  Toast,
-  Tokens,
-} from "@ui";
+import { Alert, Button, Input, Layout, Tokens } from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { errorMessage, formatPixelSize, t } from "../i18n/index.ts";
-import { errorCode } from "../state/errors.ts";
+import { formatPixelSize, t } from "../i18n/index.ts";
 import { a11y } from "../styles/a11y.ts";
 import {
   blocksHistoryCommand,
@@ -23,16 +12,7 @@ import {
   redo,
   undo,
 } from "../state/history.ts";
-import {
-  EXPORT_FORMATS,
-  exportExtension,
-  exportName,
-  exportTopo,
-  type ExportFormat,
-} from "../state/export-image.ts";
 import { isTopoFile, openTopoFile } from "../state/topo-file.ts";
-import { GRADE_SYSTEMS, type GradeSystem } from "../state/grade.ts";
-import { preferencesStore, setGradeSystem } from "../state/preferences.ts";
 import {
   IMAGE_FILE_ACCEPT,
   imageDocumentStore,
@@ -41,7 +21,8 @@ import {
   requestImageFilePicker,
 } from "../state/image-document.ts";
 import { primaryModifier } from "../state/viewport.ts";
-import { ScaleSlider } from "./scale-slider.tsx";
+import { titleWithShortcut } from "../shortcuts.ts";
+import { TopMenu } from "./top-menu/top-menu.tsx";
 
 export function TopBar() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -113,9 +94,7 @@ export function TopBar() {
         <span {...stylex.props(styles.brandMark)} aria-hidden="true" />
         Topo
       </Layout.Stack>
-      <FileMenu />
-      <EditMenu />
-      <ViewMenu />
+      <TopMenu />
       <HistoryButtons />
       <DocumentTitle />
       <Layout.Box grow sx={styles.spacer} />
@@ -154,135 +133,15 @@ export function TopBar() {
   );
 }
 
-const EXPORT_LABELS: Record<ExportFormat, () => string> = {
-  png: () => "PNG",
-  jpeg: () => "JPEG",
-  tiff: () => "TIFF",
-  svg: () => "SVG",
-  topo: () => t("topoFormat"),
-};
-
-function FileMenu() {
-  const shortcutLabel = applePlatform() ? "⌘O" : "Ctrl+O";
-  const ready = useSelector(
-    imageDocumentStore,
-    (state) => state.status === "ready",
-  );
-  const [exporting, setExporting] = useState<ExportFormat | null>(null);
-  const toasts = Toast.useToastManager();
-
-  const save = async (format: ExportFormat) => {
-    const fileName = exportName(
-      imageDocumentStore.get().fileName ?? "topo",
-      format,
-    );
-    setExporting(format);
-    try {
-      await exportTopo(format);
-    } catch (error) {
-      const code = errorCode(error, "EXPORT_FAILED");
-      toasts.add({
-        title: t("exportFailedTitle"),
-        description: `${errorMessage(code, { fileName })} ${t("errorCodeLabel", { code })}`,
-        type: "warning",
-      });
-    } finally {
-      setExporting(null);
-    }
-  };
-
-  return (
-    <Menu.Root>
-      <Menu.Trigger sx={styles.barButton}>{t("file")}</Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner sideOffset={6} align="start">
-          <Menu.Popup>
-            <Menu.Item onClick={requestImageFilePicker}>
-              <span>{t("openEllipsis")}</span>
-              <span {...stylex.props(styles.kbd)}>{shortcutLabel}</span>
-            </Menu.Item>
-            <Menu.SubmenuRoot>
-              <Menu.SubmenuTrigger disabled={!ready || exporting !== null}>
-                <span>
-                  {exporting === null ? t("exportMenu") : t("exporting")}
-                </span>
-              </Menu.SubmenuTrigger>
-              <Menu.Portal>
-                <Menu.Positioner>
-                  <Menu.Popup>
-                    {EXPORT_FORMATS.map((format) => (
-                      <Menu.Item key={format} onClick={() => void save(format)}>
-                        <span>{EXPORT_LABELS[format]()}</span>
-                        <span {...stylex.props(styles.kbd)}>
-                          .{exportExtension(format)}
-                        </span>
-                      </Menu.Item>
-                    ))}
-                  </Menu.Popup>
-                </Menu.Positioner>
-              </Menu.Portal>
-            </Menu.SubmenuRoot>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
-  );
-}
-
-function EditMenu() {
-  const history = useSelector(historyStore, (state) => state);
-  const apple = applePlatform();
-  const undoShortcut = apple ? "⌘Z" : "Ctrl+Z";
-  const redoShortcut = apple ? "⌘⇧Z" : "Ctrl+Y";
-  return (
-    <Popover.Root>
-      <Popover.Trigger sx={styles.barButton}>{t("edit")}</Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Positioner sideOffset={6} align="start">
-          <Popover.Popup>
-            <Popover.Close disabled={!history.canUndo} onClick={undo}>
-              <span>{t("undo")}</span>
-              <span {...stylex.props(styles.kbd)}>{undoShortcut}</span>
-            </Popover.Close>
-            <Popover.Close disabled={!history.canRedo} onClick={redo}>
-              <span>{t("redo")}</span>
-              <span {...stylex.props(styles.kbd)}>{redoShortcut}</span>
-            </Popover.Close>
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
-    </Popover.Root>
-  );
-}
-
-function ViewMenu() {
-  return (
-    <Popover.Root>
-      <Popover.Trigger sx={styles.barButton}>{t("view")}</Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Positioner sideOffset={6} align="start">
-          <Popover.Popup sx={styles.viewPopup}>
-            <ScaleSlider />
-            <GradeSystemOptions />
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
-    </Popover.Root>
-  );
-}
-
 function HistoryButtons() {
   const canUndo = useSelector(historyStore, (state) => state.canUndo);
   const canRedo = useSelector(historyStore, (state) => state.canRedo);
-  const apple = applePlatform();
-  const undoShortcut = apple ? "⌘Z" : "Ctrl+Z";
-  const redoShortcut = apple ? "⌘⇧Z" : "Ctrl+Y";
   return (
     <Layout.Stack direction="row" align="center" gap="xxs" sx={styles.history}>
       <Button.Root
         type="button"
         aria-label={t("undo")}
-        title={`${t("undo")} (${undoShortcut})`}
+        title={titleWithShortcut(t("undo"), "undo")}
         disabled={!canUndo}
         sx={styles.iconButton}
         onClick={undo}
@@ -292,7 +151,7 @@ function HistoryButtons() {
       <Button.Root
         type="button"
         aria-label={t("redo")}
-        title={`${t("redo")} (${redoShortcut})`}
+        title={titleWithShortcut(t("redo"), "redo")}
         disabled={!canRedo}
         sx={styles.iconButton}
         onClick={redo}
@@ -301,44 +160,6 @@ function HistoryButtons() {
       </Button.Root>
     </Layout.Stack>
   );
-}
-
-function GradeSystemOptions() {
-  const system = useSelector(preferencesStore, (state) => state.gradeSystem);
-  return (
-    <Layout.Stack gap="xs" sx={styles.gradeField}>
-      <span {...stylex.props(styles.gradeLabel)}>{t("gradeSystem")}</span>
-      <Select.Root<GradeSystem>
-        value={system}
-        onValueChange={(next) => {
-          if (next) setGradeSystem(next);
-        }}
-      >
-        <Select.Trigger aria-label={t("gradeSystem")} sx={styles.gradeTrigger}>
-          <Select.Value>{(value) => gradeSystemLabel(value)}</Select.Value>
-          <Select.Icon />
-        </Select.Trigger>
-        <Select.Portal>
-          <Select.Positioner sideOffset={4}>
-            <Select.Popup>
-              <Select.List>
-                {GRADE_SYSTEMS.map((id) => (
-                  <Select.Item key={id} value={id} label={gradeSystemLabel(id)}>
-                    <Select.ItemIndicator />
-                    <Select.ItemText>{gradeSystemLabel(id)}</Select.ItemText>
-                  </Select.Item>
-                ))}
-              </Select.List>
-            </Select.Popup>
-          </Select.Positioner>
-        </Select.Portal>
-      </Select.Root>
-    </Layout.Stack>
-  );
-}
-
-function gradeSystemLabel(system: GradeSystem | null): string {
-  return t(system === "yds" ? "americanGrade" : "frenchGrade");
 }
 
 function DocumentTitle() {
@@ -363,10 +184,6 @@ function PixelSize() {
       {formatPixelSize(size.width, size.height)}
     </p>
   );
-}
-
-function applePlatform(): boolean {
-  return /\b(Mac|iPhone|iPad|iPod)\b/i.test(navigator.userAgent);
 }
 
 const styles = stylex.create({
@@ -422,35 +239,6 @@ const styles = stylex.create({
     backgroundSize: "10px 8px",
     backgroundRepeat: "no-repeat",
     boxShadow: `0 0 0 1px ${Tokens.color.neutral[1000]}`,
-  },
-  barButton: {
-    appearance: "none",
-    borderWidth: 0,
-    backgroundColor: {
-      default: "transparent",
-      ":hover": Tokens.color.white[8],
-      "[data-popup-open]": Tokens.color.white[8],
-    },
-    color: "inherit",
-    height: Tokens.size.md,
-    paddingBlock: Tokens.spacing.none,
-    paddingInline: Tokens.spacing.lg,
-    borderRadius: 4,
-    cursor: "pointer",
-    fontSize: 13,
-    outlineWidth: {
-      default: 0,
-      ":focus-visible": 2,
-    },
-    outlineStyle: {
-      default: "none",
-      ":focus-visible": "solid",
-    },
-    outlineColor: {
-      default: "transparent",
-      ":focus-visible": Tokens.color.blue[100],
-    },
-    outlineOffset: 1,
   },
   openButton: {
     marginLeft: Tokens.spacing.xs,
@@ -533,27 +321,5 @@ const styles = stylex.create({
     fontVariantNumeric: "tabular-nums",
     color: Tokens.color.neutral[400],
     whiteSpace: "nowrap",
-  },
-  kbd: {
-    color: {
-      default: Tokens.color.neutral[400],
-      [stylex.when.ancestor(":hover")]: "inherit",
-      [stylex.when.ancestor(":focus-visible")]: "inherit",
-    },
-  },
-  viewPopup: {
-    minWidth: 280,
-    gap: Tokens.spacing.xxs,
-  },
-  gradeField: {
-    paddingBlock: Tokens.spacing.sm,
-    paddingInline: Tokens.spacing.lg,
-  },
-  gradeLabel: {
-    fontSize: 13,
-    color: Tokens.color.neutral[400],
-  },
-  gradeTrigger: {
-    width: "100%",
   },
 });

@@ -1,8 +1,10 @@
 export { Alert } from "./alert/index.ts";
 export { Button } from "./button/index.ts";
 export { Input } from "./input/index.ts";
+export { Kbd } from "./kbd/index.ts";
 export { Layout } from "./layout/index.ts";
 export { Menu } from "./menu/index.ts";
+export { Menubar } from "./menubar/index.ts";
 export { Popover } from "./popover/index.ts";
 export { Select } from "./select/index.ts";
 export { Slider } from "./slider/index.ts";
@@ -30,6 +32,16 @@ export type {
 } from "./button/index.ts";
 export type { InputRootProps } from "./input/index.ts";
 export type {
+  KbdChord,
+  KbdChordText,
+  KbdGroupProps,
+  KbdKey,
+  KbdModifier,
+  KbdPlatform,
+  KbdRootProps,
+  KbdShortcutProps,
+} from "./kbd/index.ts";
+export type {
   BoxDisplay,
   GridDisplay,
   LayoutAlign,
@@ -49,16 +61,22 @@ export type {
   StackDisplay,
 } from "./layout/index.ts";
 export type {
+  MenuGroupLabelProps,
+  MenuGroupProps,
   MenuItemProps,
   MenuPopupProps,
   MenuPortalProps,
   MenuPositionerProps,
+  MenuRadioGroupProps,
+  MenuRadioItemIndicatorProps,
+  MenuRadioItemProps,
   MenuRootProps,
   MenuSeparatorProps,
   MenuSubmenuRootProps,
   MenuSubmenuTriggerProps,
   MenuTriggerProps,
 } from "./menu/index.ts";
+export type { MenubarRootProps } from "./menubar/index.ts";
 export type {
   PopoverCloseProps,
   PopoverPopupProps,

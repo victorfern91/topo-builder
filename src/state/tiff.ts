@@ -41,13 +41,15 @@ type TiffLib = {
 
 const TIFF_NAME = /\.tiff?$/i;
 
+/** A known MIME type wins over the name: a `.topo` photo keeps its `.tiff` name but holds PNG bytes. */
 export function isTiffFile(file: File): boolean {
-  return (
-    file.type === "image/tiff" ||
-    file.type === "image/tif" ||
-    file.type === "image/x-tiff" ||
-    TIFF_NAME.test(file.name)
-  );
+  if (file.type.startsWith("image/"))
+    return (
+      file.type === "image/tiff" ||
+      file.type === "image/tif" ||
+      file.type === "image/x-tiff"
+    );
+  return TIFF_NAME.test(file.name);
 }
 
 export async function tiffToPngBlob(

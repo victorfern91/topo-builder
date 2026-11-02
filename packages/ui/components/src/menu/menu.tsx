@@ -1,13 +1,18 @@
 import { Menu as BaseMenu } from "@base-ui/react/menu";
 import * as stylex from "@stylexjs/stylex";
 import type { CSSProperties } from "react";
-import { TbChevronRight } from "react-icons/tb";
+import { TbCheck, TbChevronRight } from "react-icons/tb";
 import { Tokens } from "../tokens.stylex.ts";
 import type {
+  MenuGroupLabelProps,
+  MenuGroupProps,
   MenuItemProps,
   MenuPopupProps,
   MenuPortalProps,
   MenuPositionerProps,
+  MenuRadioGroupProps,
+  MenuRadioItemIndicatorProps,
+  MenuRadioItemProps,
   MenuRootProps,
   MenuSeparatorProps,
   MenuSubmenuRootProps,
@@ -135,6 +140,84 @@ export function MenuSubmenuTrigger({
   );
 }
 
+/** Rows that belong together. Place a `GroupLabel` first to name them. */
+export function MenuGroup({ sx, className, style, ...props }: MenuGroupProps) {
+  const chrome = menuChrome(stylex.props(styles.group, sx), className, style);
+
+  return <BaseMenu.Group {...props} {...chrome} />;
+}
+
+/** Muted heading for a `Group` or a `RadioGroup`. */
+export function MenuGroupLabel({
+  sx,
+  className,
+  style,
+  ...props
+}: MenuGroupLabelProps) {
+  const chrome = menuChrome(
+    stylex.props(styles.groupLabel, sx),
+    className,
+    style,
+  );
+
+  return <BaseMenu.GroupLabel {...props} {...chrome} />;
+}
+
+/** Rows where one `RadioItem` is chosen. `onValueChange` receives the next value. */
+export function MenuRadioGroup({
+  sx,
+  className,
+  style,
+  ...props
+}: MenuRadioGroupProps) {
+  const chrome = menuChrome(stylex.props(styles.group, sx), className, style);
+
+  return <BaseMenu.RadioGroup {...props} {...chrome} />;
+}
+
+/**
+ * Choice inside a `RadioGroup`. Keeps the menu open unless `closeOnClick`.
+ * Place a `RadioItemIndicator` before the label.
+ */
+export function MenuRadioItem({
+  sx,
+  className,
+  style,
+  ...props
+}: MenuRadioItemProps) {
+  const chrome = menuChrome(
+    stylex.props(styles.row, styles.radioRow, sx),
+    className,
+    style,
+  );
+
+  return <BaseMenu.RadioItem {...props} {...chrome} />;
+}
+
+/** Keeps its slot on every row and shows a check on the chosen one. `children` replaces the check. */
+export function MenuRadioItemIndicator({
+  sx,
+  className,
+  style,
+  children,
+  ...props
+}: MenuRadioItemIndicatorProps) {
+  const slot = menuChrome(stylex.props(styles.indicator, sx), className, style);
+  const mark = stylex.props(styles.indicatorMark);
+
+  return (
+    <span className={slot.className} style={slot.style}>
+      <BaseMenu.RadioItemIndicator
+        {...props}
+        className={mark.className}
+        style={mark.style}
+      >
+        {children ?? <TbCheck {...stylex.props(styles.glyph)} aria-hidden />}
+      </BaseMenu.RadioItemIndicator>
+    </span>
+  );
+}
+
 /** Line between groups of rows. */
 export function MenuSeparator({
   sx,
@@ -249,6 +332,33 @@ const styles = stylex.create({
   },
   submenuRow: {
     paddingInlineEnd: Tokens.spacing.sm,
+  },
+  radioRow: {
+    justifyContent: "flex-start",
+    gap: Tokens.spacing.sm,
+    paddingInlineStart: Tokens.spacing.sm,
+  },
+  group: {
+    display: "flex",
+    flexDirection: "column",
+  },
+  groupLabel: {
+    paddingBlock: Tokens.spacing.xs,
+    paddingInline: Tokens.spacing.lg,
+    fontSize: 12,
+    color: Tokens.color.neutral[400],
+    userSelect: "none",
+  },
+  indicator: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: Tokens.size.xs,
+    height: Tokens.size.xs,
+    flexShrink: 0,
+  },
+  indicatorMark: {
+    display: "inline-flex",
   },
   glyph: {
     flexShrink: 0,

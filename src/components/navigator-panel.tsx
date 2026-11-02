@@ -12,6 +12,7 @@ import {
 } from "react";
 import { t } from "../i18n/index.ts";
 import { imageDocumentStore } from "../state/image-document.ts";
+import { shortcutAria, shortcutText, titleWithShortcut } from "../shortcuts.ts";
 import { a11y } from "../styles/a11y.ts";
 import { navigator } from "../styles/stage.ts";
 import {
@@ -32,8 +33,6 @@ import {
 export function NavigatorPanel() {
   const helpId = useId();
   const frame = useWidgetFrame("navigator");
-  const { keys } = useViewport();
-
   return (
     <Widget.Panel
       {...frame}
@@ -50,9 +49,9 @@ export function NavigatorPanel() {
       <Widget.Header label={t("dragNavigator")}>{t("navigator")}</Widget.Header>
       <p {...stylex.props(a11y.visuallyHidden)} id={helpId}>
         {t("navigatorHelp", {
-          pan: keys.pan,
-          zoomIn: keys["zoom-in"],
-          zoomOut: keys["zoom-out"],
+          pan: shortcutText("pan"),
+          zoomIn: shortcutText("zoom-in"),
+          zoomOut: shortcutText("zoom-out"),
         })}
       </p>
       <Widget.Container>
@@ -65,7 +64,7 @@ export function NavigatorPanel() {
 
 function ZoomControls() {
   const zoom = useViewportSelector((state) => state.zoom);
-  const { actions, keys } = useViewport();
+  const { actions } = useViewport();
 
   return (
     <Layout.Stack gap="sm" px="lg" sx={navigator.controls}>
@@ -74,7 +73,7 @@ function ZoomControls() {
           sx={navigator.step}
           type="button"
           aria-label={t("zoomOut")}
-          title={`${t("zoomOut")} (${keys["zoom-out"]})`}
+          title={titleWithShortcut(t("zoomOut"), "zoom-out")}
           onClick={() => actions.zoomOut()}
         >
           <Button.Text>−</Button.Text>
@@ -93,7 +92,7 @@ function ZoomControls() {
           sx={navigator.step}
           type="button"
           aria-label={t("zoomIn")}
-          title={`${t("zoomIn")} (${keys["zoom-in"]})`}
+          title={titleWithShortcut(t("zoomIn"), "zoom-in")}
           onClick={() => actions.zoomIn()}
         >
           <Button.Text>+</Button.Text>
@@ -107,7 +106,7 @@ function ZoomControls() {
           sx={navigator.command}
           type="button"
           aria-label={t("fitWindow")}
-          title={`${t("fitWindow")} (${keys.fit})`}
+          title={titleWithShortcut(t("fitWindow"), "fit")}
           onClick={() => actions.fit()}
         >
           <Button.Text>{t("fitShort")}</Button.Text>
@@ -118,7 +117,7 @@ function ZoomControls() {
           sx={navigator.command}
           type="button"
           aria-label={t("actualSize")}
-          title={`${t("actualSize")} (${keys["actual-size"]})`}
+          title={titleWithShortcut(t("actualSize"), "actual-size")}
           onClick={() => actions.actualSize()}
         >
           <Button.Text>1:1</Button.Text>
@@ -138,7 +137,7 @@ function Minimap() {
     zoom: number;
   } | null>(null);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
-  const { actions, keys, getState } = useViewport();
+  const { actions, getState } = useViewport();
   const view = useViewportSelector(
     (state) => ({
       zoom: state.zoom,
@@ -245,7 +244,7 @@ function Minimap() {
       role="application"
       tabIndex={0}
       aria-label={t("minimap")}
-      aria-keyshortcuts={`${keys.pan} ArrowUp ArrowDown ArrowLeft ArrowRight`}
+      aria-keyshortcuts={`${shortcutAria(["pan"])} ArrowUp ArrowDown ArrowLeft ArrowRight`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={(event) => endDrag(event.pointerId)}

@@ -1,11 +1,8 @@
 import { useEffect, type ReactNode } from "react";
-import { t } from "../i18n/index.ts";
 import { viewportContext } from "./viewport-context.ts";
-import { matchViewportKey, shortcutChords, viewportStore } from "./viewport.ts";
+import { matchViewportKey, viewportStore } from "./viewport.ts";
 
 export function ViewportProvider({ children }: { children: ReactNode }) {
-  const keys = shortcutChords(t("spaceKey"));
-
   useEffect(() => {
     const { actions } = viewportStore;
 
@@ -55,7 +52,6 @@ export function ViewportProvider({ children }: { children: ReactNode }) {
 
   const value = {
     actions: viewportStore.actions,
-    keys,
     getState: viewportStore.get,
   };
 
