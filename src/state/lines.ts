@@ -419,6 +419,14 @@ export function clearLines(): void {
   });
 }
 
+/** Replaces the drawing with a saved one and starts a blank history. */
+export function loadDrawing(
+  drawing: Pick<LineCheckpoint, "layers" | "points" | "scale">,
+): void {
+  resetHistory();
+  applyCheckpoint({ ...drawing, activeId: null, anchorIndex: null });
+}
+
 export function setLineHover(hover: LineHit | null): void {
   lineHoverStore.setState((current) =>
     sameHit(current, hover) ? current : hover,

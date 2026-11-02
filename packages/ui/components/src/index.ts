@@ -2,6 +2,7 @@ export { Alert } from "./alert/index.ts";
 export { Button } from "./button/index.ts";
 export { Input } from "./input/index.ts";
 export { Layout } from "./layout/index.ts";
+export { Menu } from "./menu/index.ts";
 export { Popover } from "./popover/index.ts";
 export { Select } from "./select/index.ts";
 export { Slider } from "./slider/index.ts";
@@ -47,6 +48,17 @@ export type {
   StackDirection,
   StackDisplay,
 } from "./layout/index.ts";
+export type {
+  MenuItemProps,
+  MenuPopupProps,
+  MenuPortalProps,
+  MenuPositionerProps,
+  MenuRootProps,
+  MenuSeparatorProps,
+  MenuSubmenuRootProps,
+  MenuSubmenuTriggerProps,
+  MenuTriggerProps,
+} from "./menu/index.ts";
 export type {
   PopoverCloseProps,
   PopoverPopupProps,

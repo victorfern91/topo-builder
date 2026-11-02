@@ -4,14 +4,13 @@ import Button from "@ui/button";
 import { useSelector } from "@tanstack/react-store";
 import { useEffect } from "react";
 import { ArtboardStage } from "../components/artboard-stage.tsx";
-import { formatPercent, imageFormats, t } from "../i18n/index.ts";
+import { errorMessage, formatPercent, imageFormats, t } from "../i18n/index.ts";
 import { useViewport } from "../state/use-viewport.ts";
 import { board } from "../styles/board.ts";
 import { stage } from "../styles/stage.ts";
 import {
   imageDocumentStore,
   requestImageFilePicker,
-  type ImageProblem,
 } from "../state/image-document.ts";
 import { clearLines } from "../state/lines.ts";
 
@@ -63,7 +62,10 @@ export default function ArtboardPage() {
             {t("cannotShowFile")}
           </h1>
           <p {...stylex.props(board.copy)}>
-            {problemText(opened.problem, opened.fileName)}
+            {errorMessage(opened.problem, { fileName: opened.fileName })}
+          </p>
+          <p {...stylex.props(board.kicker)}>
+            {t("errorCodeLabel", { code: opened.problem })}
           </p>
           <Button.Root
             variant="primary"
@@ -206,11 +208,4 @@ function ReadyImage({
       </Layout.Box>
     </ArtboardStage>
   );
-}
-
-function problemText(problem: ImageProblem, fileName: string): string {
-  if (problem === "not-a-picture") {
-    return t("notAPicture", { fileName, formats: imageFormats() });
-  }
-  return t("cannotDecode", { fileName });
 }

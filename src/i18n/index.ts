@@ -1,7 +1,8 @@
 import { preferencesStore } from "../state/preferences.ts";
 import { formatZoomPercent } from "../state/viewport.ts";
 import type { AppLocale } from "./locale.ts";
-import { message, type MessageId } from "./messages.ts";
+import type { ErrorCode } from "../state/errors.ts";
+import { errorText, message, type MessageId } from "./messages.ts";
 
 export type { AppLocale };
 
@@ -73,7 +74,21 @@ export function formatScale(scale: number): string {
 }
 
 export function t(id: MessageId, values?: Record<string, string>): string {
-  const template = message(activeLocale(), id);
+  return fill(message(activeLocale(), id), values);
+}
+
+/** Message for `code` in the active locale. `{formats}` is filled automatically. */
+export function errorMessage(
+  code: ErrorCode,
+  values?: Record<string, string>,
+): string {
+  return fill(errorText(activeLocale(), code), {
+    formats: imageFormats(),
+    ...values,
+  });
+}
+
+function fill(template: string, values?: Record<string, string>): string {
   if (!values) return template;
   return template.replace(
     /\{(\w+)\}/g,

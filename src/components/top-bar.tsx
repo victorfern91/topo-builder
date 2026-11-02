@@ -4,14 +4,16 @@ import {
   Button,
   Input,
   Layout,
+  Menu,
   Popover,
   Select,
-  Slider,
+  Toast,
   Tokens,
 } from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { formatPixelSize, formatScale, t } from "../i18n/index.ts";
+import { errorMessage, formatPixelSize, t } from "../i18n/index.ts";
+import { errorCode } from "../state/errors.ts";
 import { a11y } from "../styles/a11y.ts";
 import {
   blocksHistoryCommand,
@@ -21,8 +23,15 @@ import {
   redo,
   undo,
 } from "../state/history.ts";
+import {
+  EXPORT_FORMATS,
+  exportExtension,
+  exportName,
+  exportTopo,
+  type ExportFormat,
+} from "../state/export-image.ts";
+import { isTopoFile, openTopoFile } from "../state/topo-file.ts";
 import { GRADE_SYSTEMS, type GradeSystem } from "../state/grade.ts";
-import { lineStore, setDrawScale } from "../state/lines.ts";
 import { preferencesStore, setGradeSystem } from "../state/preferences.ts";
 import {
   IMAGE_FILE_ACCEPT,
@@ -31,11 +40,8 @@ import {
   registerImageFilePicker,
   requestImageFilePicker,
 } from "../state/image-document.ts";
-import {
-  primaryModifier,
-  sliderToZoom,
-  zoomToSlider,
-} from "../state/viewport.ts";
+import { primaryModifier } from "../state/viewport.ts";
+import { ScaleSlider } from "./scale-slider.tsx";
 
 export function TopBar() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -90,7 +96,9 @@ export function TopBar() {
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (file) openImageFile(file);
+    if (!file) return;
+    if (isTopoFile(file)) void openTopoFile(file);
+    else openImageFile(file);
   };
 
   return (
@@ -146,22 +154,78 @@ export function TopBar() {
   );
 }
 
+const EXPORT_LABELS: Record<ExportFormat, () => string> = {
+  png: () => "PNG",
+  jpeg: () => "JPEG",
+  tiff: () => "TIFF",
+  svg: () => "SVG",
+  topo: () => t("topoFormat"),
+};
+
 function FileMenu() {
   const shortcutLabel = applePlatform() ? "⌘O" : "Ctrl+O";
+  const ready = useSelector(
+    imageDocumentStore,
+    (state) => state.status === "ready",
+  );
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
+  const toasts = Toast.useToastManager();
+
+  const save = async (format: ExportFormat) => {
+    const fileName = exportName(
+      imageDocumentStore.get().fileName ?? "topo",
+      format,
+    );
+    setExporting(format);
+    try {
+      await exportTopo(format);
+    } catch (error) {
+      const code = errorCode(error, "EXPORT_FAILED");
+      toasts.add({
+        title: t("exportFailedTitle"),
+        description: `${errorMessage(code, { fileName })} ${t("errorCodeLabel", { code })}`,
+        type: "warning",
+      });
+    } finally {
+      setExporting(null);
+    }
+  };
+
   return (
-    <Popover.Root>
-      <Popover.Trigger sx={styles.barButton}>{t("file")}</Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Positioner sideOffset={6} align="start">
-          <Popover.Popup>
-            <Popover.Close onClick={requestImageFilePicker}>
+    <Menu.Root>
+      <Menu.Trigger sx={styles.barButton}>{t("file")}</Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner sideOffset={6} align="start">
+          <Menu.Popup>
+            <Menu.Item onClick={requestImageFilePicker}>
               <span>{t("openEllipsis")}</span>
               <span {...stylex.props(styles.kbd)}>{shortcutLabel}</span>
-            </Popover.Close>
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
-    </Popover.Root>
+            </Menu.Item>
+            <Menu.SubmenuRoot>
+              <Menu.SubmenuTrigger disabled={!ready || exporting !== null}>
+                <span>
+                  {exporting === null ? t("exportMenu") : t("exporting")}
+                </span>
+              </Menu.SubmenuTrigger>
+              <Menu.Portal>
+                <Menu.Positioner>
+                  <Menu.Popup>
+                    {EXPORT_FORMATS.map((format) => (
+                      <Menu.Item key={format} onClick={() => void save(format)}>
+                        <span>{EXPORT_LABELS[format]()}</span>
+                        <span {...stylex.props(styles.kbd)}>
+                          .{exportExtension(format)}
+                        </span>
+                      </Menu.Item>
+                    ))}
+                  </Menu.Popup>
+                </Menu.Positioner>
+              </Menu.Portal>
+            </Menu.SubmenuRoot>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
   );
 }
 
@@ -198,7 +262,7 @@ function ViewMenu() {
       <Popover.Portal>
         <Popover.Positioner sideOffset={6} align="start">
           <Popover.Popup sx={styles.viewPopup}>
-            <ScaleBar />
+            <ScaleSlider />
             <GradeSystemOptions />
           </Popover.Popup>
         </Popover.Positioner>
@@ -236,29 +300,6 @@ function HistoryButtons() {
         <Button.Icon id="redo" />
       </Button.Root>
     </Layout.Stack>
-  );
-}
-
-function ScaleBar() {
-  const ready = useSelector(
-    imageDocumentStore,
-    (state) => state.status === "ready",
-  );
-  const scale = useSelector(lineStore, (state) => state.scale);
-  if (!ready) return null;
-  return (
-    <Slider.Root
-      min={0}
-      max={1000}
-      step={1}
-      value={zoomToSlider(scale)}
-      label={t("scale")}
-      readout={formatScale(scale)}
-      sx={styles.scaleRow}
-      controlSx={styles.scaleControl}
-      readoutSx={styles.scaleReadout}
-      onValueChange={(value) => setDrawScale(sliderToZoom(value))}
-    />
   );
 }
 
@@ -503,20 +544,6 @@ const styles = stylex.create({
   viewPopup: {
     minWidth: 280,
     gap: Tokens.spacing.xxs,
-  },
-  scaleRow: {
-    width: "100%",
-    paddingBlock: Tokens.spacing.sm,
-    paddingInline: Tokens.spacing.lg,
-  },
-  scaleControl: {
-    width: 120,
-    flexGrow: 1,
-    flexShrink: 1,
-  },
-  scaleReadout: {
-    width: 42,
-    textAlign: "end",
   },
   gradeField: {
     paddingBlock: Tokens.spacing.sm,

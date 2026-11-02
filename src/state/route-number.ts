@@ -9,9 +9,13 @@ export type RouteNumber = {
   side: number;
 };
 
+export const NUMBER_FONT_WEIGHT = 650;
+export const NUMBER_FONT_SIZE = 11;
+export const NUMBER_FONT_FAMILY =
+  '"Segoe UI", "Helvetica Neue", system-ui, sans-serif';
+
 /** Screen badge. Zoom does not change its size, so the digit stays readable. */
-export const NUMBER_FONT =
-  '650 11px "Segoe UI", "Helvetica Neue", system-ui, sans-serif';
+export const NUMBER_FONT = `${NUMBER_FONT_WEIGHT} ${NUMBER_FONT_SIZE}px ${NUMBER_FONT_FAMILY}`;
 
 const NUMBER_CLEAR = 16;
 const NUMBER_BAND = 40;
