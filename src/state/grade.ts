@@ -4,7 +4,8 @@ export const GRADE_SYSTEMS = ["french", "yds"] as const;
 
 export type GradeSystem = (typeof GRADE_SYSTEMS)[number];
 
-export type GradeBand = "green" | "yellow" | "orange" | "red" | "purple";
+export type GradeBand =
+  "green" | "yellow" | "orange" | "red" | "purple" | "blue" | "black";
 
 /** Fill and the darker edge around each swatch. */
 export type GradePaint = {
@@ -18,6 +19,8 @@ export const GRADE_PAINT = {
   orange: { color: "#de763c", stroke: "#803a23" },
   red: { color: "#bc4033", stroke: "#652722" },
   purple: { color: "#85369e", stroke: "#3a1642" },
+  blue: { color: "#2f6fb8", stroke: "#173a66" },
+  black: { color: "#2b2b30", stroke: "#000000" },
 } as const satisfies Record<GradeBand, GradePaint>;
 
 type GradeStep = {
@@ -56,13 +59,13 @@ export const GRADE_STEPS = [
   { french: "8a+", yds: "5.13c", band: "purple" },
   { french: "8b", yds: "5.13d", band: "purple" },
   { french: "8b+", yds: "5.14a", band: "purple" },
-  { french: "8c", yds: "5.14b", band: "purple" },
-  { french: "8c+", yds: "5.14c", band: "purple" },
-  { french: "9a", yds: "5.14d", band: "purple" },
-  { french: "9a+", yds: "5.15a", band: "purple" },
-  { french: "9b", yds: "5.15b", band: "purple" },
-  { french: "9b+", yds: "5.15c", band: "purple" },
-  { french: "9c", yds: "5.15d", band: "purple" },
+  { french: "8c", yds: "5.14b", band: "blue" },
+  { french: "8c+", yds: "5.14c", band: "blue" },
+  { french: "9a", yds: "5.14d", band: "blue" },
+  { french: "9a+", yds: "5.15a", band: "blue" },
+  { french: "9b", yds: "5.15b", band: "black" },
+  { french: "9b+", yds: "5.15c", band: "black" },
+  { french: "9c", yds: "5.15d", band: "black" },
 ] as const satisfies readonly GradeStep[];
 
 export function gradeLabel(

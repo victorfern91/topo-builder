@@ -1,6 +1,6 @@
 # UI
 
-Import interactive controls from `@ui` (`import { Alert, Button, Input, Layout, Popover, Select, Slider, Table, Toast, Toggle, Widget } from '@ui'`, `import Alert from '@ui/alert'`, `import Button from '@ui/button'`, `import Input from '@ui/input'`, `import Layout from '@ui/layout'`, `import Popover from '@ui/popover'`, `import Select from '@ui/select'`, `import Slider from '@ui/slider'`, `import Table from '@ui/table'`, `import Toast from '@ui/toast'`, `import Toggle from '@ui/toggle'`, or `import Widget from '@ui/widget'`). The package exports are the components available to the app. Compose the parts those exports provide; for an alert that is `Alert.Root`, `Alert.Portal`, `Alert.Backdrop`, `Alert.Popup`, `Alert.Title`, `Alert.Description`, and `Alert.Close`. For Button that is `Button.Root`, `Button.Icon`, and `Button.Text`. For a field that is `Input.Root`. For a select that is `Select.Root`, `Select.Trigger`, `Select.Value`, `Select.Icon`, `Select.Portal`, `Select.Positioner`, `Select.Popup`, `Select.List`, `Select.Item`, `Select.ItemIndicator`, `Select.Swatch`, and `Select.ItemText`. For a popover that is `Popover.Root`, `Popover.Trigger`, `Popover.Portal`, `Popover.Positioner`, `Popover.Popup`, `Popover.Title`, and `Popover.Close`. For boxes that is `Layout.Box`, `Layout.Stack`, and `Layout.Grid`. For a slider, `Slider.Root` renders the track. For a toggle group that is `Toggle.Root` and `Toggle.Option`. For a table, `Table.Root` renders the scrollport. For a toast that is `Toast.Provider`, `Toast.Portal`, `Toast.Viewport`, `Toast.Root`, `Toast.Content`, `Toast.Icon`, `Toast.Title`, `Toast.Description`, `Toast.Action`, and `Toast.Close`. For a floating panel that is `Widget.Panel`, `Widget.Header`, `Widget.Container`, and `Widget.Menu`. Each of Button and Layout takes `renderAs` `div` (default) or `span`. `Widget.Panel` takes `renderAs` `div` (default), `aside`, or `section`. Prop and composition details live on the JSDoc of each part.
+Import interactive controls from `@ui` (`import { Alert, Button, Input, Layout, Menu, Popover, Select, Slider, Table, Toast, Toggle, Widget } from '@ui'`, `import Alert from '@ui/alert'`, `import Button from '@ui/button'`, `import Input from '@ui/input'`, `import Layout from '@ui/layout'`, `import Menu from '@ui/menu'`, `import Popover from '@ui/popover'`, `import Select from '@ui/select'`, `import Slider from '@ui/slider'`, `import Table from '@ui/table'`, `import Toast from '@ui/toast'`, `import Toggle from '@ui/toggle'`, or `import Widget from '@ui/widget'`). The package exports are the components available to the app. Compose the parts those exports provide; for an alert that is `Alert.Root`, `Alert.Portal`, `Alert.Backdrop`, `Alert.Popup`, `Alert.Title`, `Alert.Description`, and `Alert.Close`. For Button that is `Button.Root`, `Button.Icon`, and `Button.Text`. For a field that is `Input.Root`. For a select that is `Select.Root`, `Select.Trigger`, `Select.Value`, `Select.Icon`, `Select.Portal`, `Select.Positioner`, `Select.Popup`, `Select.List`, `Select.Item`, `Select.ItemIndicator`, `Select.Swatch`, and `Select.ItemText`. For a popover that is `Popover.Root`, `Popover.Trigger`, `Popover.Portal`, `Popover.Positioner`, `Popover.Popup`, `Popover.Title`, and `Popover.Close`. For a command menu that is `Menu.Root`, `Menu.Trigger`, `Menu.Portal`, `Menu.Positioner`, `Menu.Popup`, `Menu.Item`, `Menu.Separator`, `Menu.SubmenuRoot`, and `Menu.SubmenuTrigger`. For boxes that is `Layout.Box`, `Layout.Stack`, and `Layout.Grid`. For a slider, `Slider.Root` renders the track. For a toggle group that is `Toggle.Root` and `Toggle.Option`. For a table, `Table.Root` renders the scrollport. For a toast that is `Toast.Provider`, `Toast.Portal`, `Toast.Viewport`, `Toast.Root`, `Toast.Content`, `Toast.Icon`, `Toast.Title`, `Toast.Description`, `Toast.Action`, and `Toast.Close`. For a floating panel that is `Widget.Panel`, `Widget.Header`, `Widget.Container`, and `Widget.Menu`. Each of Button and Layout takes `renderAs` `div` (default) or `span`. `Widget.Panel` takes `renderAs` `div` (default), `aside`, or `section`. Prop and composition details live on the JSDoc of each part.
 
 Ship Button defaults. Pass `variant`, `size`, `radius`, `rounded`, or `sx` only for instance-specific layout or state.
 
@@ -66,6 +66,35 @@ Ship Popover defaults. `Trigger` opens the popup. `Close` is a menu row and clos
 ```
 
 `onOpenChange` receives the next open state. A control inside `Popup` keeps the popup open. A disabled `Close` stays in the menu.
+
+# Menu
+
+Ship Menu defaults. Use Menu for a list of commands, and Popover when the popup holds controls. `Item` is a command row and closes every open level. `SubmenuRoot` nests a menu: its `SubmenuTrigger` row shows a chevron and opens the next `Portal` on hover, click, or the arrow key. `Separator` divides groups. Pass `sx` for instance chrome.
+
+```tsx
+<Menu.Root>
+  <Menu.Trigger>File</Menu.Trigger>
+  <Menu.Portal>
+    <Menu.Positioner sideOffset={6} align="start">
+      <Menu.Popup>
+        <Menu.Item onClick={open}>Open…</Menu.Item>
+        <Menu.SubmenuRoot>
+          <Menu.SubmenuTrigger>Export</Menu.SubmenuTrigger>
+          <Menu.Portal>
+            <Menu.Positioner>
+              <Menu.Popup>
+                <Menu.Item onClick={savePng}>PNG</Menu.Item>
+              </Menu.Popup>
+            </Menu.Positioner>
+          </Menu.Portal>
+        </Menu.SubmenuRoot>
+      </Menu.Popup>
+    </Menu.Positioner>
+  </Menu.Portal>
+</Menu.Root>
+```
+
+A disabled `Item` or `SubmenuTrigger` stays in the menu.
 
 # Slider
 

@@ -1,4 +1,5 @@
 import type { IFD } from "utif2";
+import { TopoError } from "./errors.ts";
 
 type Decompress = (
   image: IFD,
@@ -29,11 +30,16 @@ type TiffLib = {
   decode: ((buffer: ArrayBuffer) => IFD[]) & { _decompress?: Decompress };
   decodeImage(buffer: ArrayBuffer, ifd: IFD, directories?: IFD[]): void;
   toRGBA8(ifd: IFD): Uint8Array;
+  encodeImage?: (
+    rgba: ArrayBufferLike,
+    width: number,
+    height: number,
+    metadata?: Record<string, unknown>,
+  ) => ArrayBuffer;
   _copyTile?: CopyTile;
 };
 
 const TIFF_NAME = /\.tiff?$/i;
-const DECODE_ERROR = "Topo could not decode this TIFF.";
 
 export function isTiffFile(file: File): boolean {
   return (
@@ -64,8 +70,13 @@ export async function tiffToPngBlob(
   const buffer = await readFileBytes(file, (ratio) =>
     report(0.03 + ratio * 0.15),
   );
-  const pages = pagesToTry(lib.decode(buffer));
-  if (pages.length === 0) throw new Error(DECODE_ERROR);
+  let pages: IFD[];
+  try {
+    pages = pagesToTry(lib.decode(buffer));
+  } catch (cause) {
+    throw new TopoError("TIFF_DECODE_FAILED", { cause });
+  }
+  if (pages.length === 0) throw new TopoError("TIFF_DECODE_FAILED");
 
   for (const page of pages) {
     const blob = await rasterizePage(lib, buffer, page, (ratio) =>
@@ -76,14 +87,39 @@ export async function tiffToPngBlob(
       return blob;
     }
   }
-  throw new Error(DECODE_ERROR);
+  throw new TopoError("TIFF_DECODE_FAILED");
+}
+
+/** Uncompressed 8-bit RGBA, one strip. `rgba` is not premultiplied. */
+export async function rgbaToTiffBlob(
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number,
+): Promise<Blob> {
+  const lib = await loadTiffLib();
+  if (typeof lib.encodeImage !== "function")
+    throw new TopoError("TIFF_ENCODE_FAILED");
+  try {
+    const bytes = lib.encodeImage(rgba.buffer, width, height, {
+      t305: ["Topo"],
+      t338: [2],
+    });
+    return new Blob([bytes], { type: "image/tiff" });
+  } catch (cause) {
+    throw new TopoError("TIFF_ENCODE_FAILED", { cause });
+  }
 }
 
 async function loadTiffLib(): Promise<TiffLib> {
-  const loaded: unknown = await import("utif2");
+  let loaded: unknown;
+  try {
+    loaded = await import("utif2");
+  } catch (cause) {
+    throw new TopoError("TIFF_LIBRARY_FAILED", { cause });
+  }
   const lib =
     asTiffLib(loaded) ?? asTiffLib((loaded as { default?: unknown }).default);
-  if (!lib) throw new Error(DECODE_ERROR);
+  if (!lib) throw new TopoError("TIFF_LIBRARY_FAILED");
   return lib;
 }
 

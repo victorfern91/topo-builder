@@ -12,6 +12,7 @@ import {
   type LineState,
 } from "./lines.ts";
 import { preferencesStore } from "./preferences.ts";
+import type { GradeSystem } from "./grade.ts";
 import {
   dropRouteSpans,
   NUMBER_FONT,
@@ -27,7 +28,6 @@ const ANCHOR = 5;
 
 /** Image pixels at scale 1. Each line multiplies by its scale; zoom is already in the canvas transform. */
 const STROKE = LINE_STROKE;
-const ACTIVE_STROKE = 4;
 const HALO = 2;
 const BOULDER_DASH = [14, 10];
 const SELECT_BLUE = Tokens.color.blue[500];
@@ -85,14 +85,19 @@ export function paintLines(canvas: HTMLCanvasElement): void {
   }
   let active: LineLayer | null = null;
   for (const layer of doc.layers) {
-    const selected = layer.id === doc.activeId;
-    if (selected) {
+    if (layer.id === doc.activeId) {
       active = layer;
       paintSelection(ctx, layer);
     }
-    strokeLayer(ctx, layer, selected);
+    strokeLayer(ctx, layer, true);
   }
-  paintMarks(ctx, doc, hover, view.zoom);
+  paintMarks(
+    ctx,
+    doc,
+    markedId(doc, doc.activeId, doc.anchorIndex),
+    hover?.type === "anchor" ? markedId(doc, hover.layerId, hover.index) : null,
+    view.zoom,
+  );
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   paintControls(
@@ -116,16 +121,42 @@ function paintSelection(ctx: CanvasRenderingContext2D, layer: LineLayer): void {
   ).path;
   ctx.save();
   ctx.setLineDash([]);
-  ctx.lineWidth = (ACTIVE_STROKE + HALO) * layer.scale + SELECT_PAD;
+  ctx.lineWidth = (STROKE + HALO) * layer.scale + SELECT_PAD;
   ctx.strokeStyle = SELECT_BLUE;
   ctx.stroke(path);
   ctx.restore();
 }
 
+export type LineStroke = {
+  /** Image pixels. Empty is a solid line. */
+  dash: number[];
+  halo: string;
+  haloWidth: number;
+  color: string;
+  width: number;
+};
+
+/** Two passes: a dark halo, then the line color on top. */
+export function lineStroke(layer: LineLayer): LineStroke {
+  const scale = layer.scale;
+  const width = STROKE * scale;
+  const graded = gradePaint(layer.grade);
+  return {
+    dash:
+      layer.kind === "boulder"
+        ? BOULDER_DASH.map((length) => length * scale)
+        : [],
+    halo: graded?.stroke ?? Tokens.color.black[55],
+    haloWidth: width + HALO * scale,
+    color: graded?.color ?? layer.color,
+    width,
+  };
+}
+
 function strokeLayer(
   ctx: CanvasRenderingContext2D,
   layer: LineLayer,
-  active: boolean,
+  fadeLocked: boolean,
 ): void {
   if (layer.anchors.length < 2) return;
   const path = lineGeometry(
@@ -133,35 +164,32 @@ function strokeLayer(
     layer.geometryRevision,
     layer.anchors,
   ).path;
-  const scale = layer.scale;
-  const width = (active ? ACTIVE_STROKE : STROKE) * scale;
-  const graded = gradePaint(layer.grade);
+  const stroke = lineStroke(layer);
   ctx.save();
-  if (layer.locked) ctx.globalAlpha = 0.55;
-  ctx.setLineDash(
-    layer.kind === "boulder"
-      ? BOULDER_DASH.map((length) => length * scale)
-      : [],
-  );
-  ctx.strokeStyle = graded?.stroke ?? Tokens.color.black[55];
-  ctx.lineWidth = width + HALO * scale;
+  if (fadeLocked && layer.locked) ctx.globalAlpha = 0.55;
+  ctx.setLineDash(stroke.dash);
+  ctx.strokeStyle = stroke.halo;
+  ctx.lineWidth = stroke.haloWidth;
   ctx.stroke(path);
-  ctx.strokeStyle = graded?.color ?? layer.color;
-  ctx.lineWidth = width;
+  ctx.strokeStyle = stroke.color;
+  ctx.lineWidth = stroke.width;
   ctx.stroke(path);
   ctx.restore();
+}
+
+/** Mark outline in image pixels. `zoom` is screen pixels per image pixel. */
+export function markHairline(radius: number, zoom: number): number {
+  return Math.min(1.5 / zoom, radius * 0.08);
 }
 
 function paintMarks(
   ctx: CanvasRenderingContext2D,
   doc: LineState,
-  hover: LineHit | null,
+  selectedId: string | null,
+  hoveredId: string | null,
   zoom: number,
 ): void {
   if (doc.points.length === 0 || !(zoom > 0)) return;
-  const selectedId = markedId(doc, doc.activeId, doc.anchorIndex);
-  const hoveredId =
-    hover?.type === "anchor" ? markedId(doc, hover.layerId, hover.index) : null;
   ctx.setLineDash([]);
   for (const point of doc.points) {
     const radius = markRadius(doc.scale);
@@ -177,7 +205,7 @@ function paintMarks(
       ctx.lineWidth = Math.min((selected ? 2.5 : 1.5) / zoom, radius * 0.18);
       ctx.stroke();
     }
-    drawPointMark(ctx, point.mark, radius, Math.min(1.5 / zoom, radius * 0.08));
+    drawPointMark(ctx, point.mark, radius, markHairline(radius, zoom));
     ctx.restore();
   }
 }
@@ -316,24 +344,80 @@ function paintLineNumbers(
       ctx.strokeStyle = layer.color;
       ctx.stroke();
     }
-    ctx.beginPath();
-    ctx.roundRect(
-      x - badge.width / 2,
-      y - badge.height / 2,
-      badge.width,
-      badge.height,
-      badge.height / 2,
-    );
-    ctx.fillStyle = Tokens.color.neutral[950];
-    ctx.fill();
-    ctx.lineWidth = held ? 2 : 1.5;
-    ctx.strokeStyle = held ? SELECT_BLUE : layer.color;
-    ctx.stroke();
-    ctx.fillStyle = Tokens.color.neutral[0];
-    ctx.fillText(label, x, y);
+    fillBadge(ctx, label, badge, x, y, held ? SELECT_BLUE : layer.color, held);
     ctx.restore();
   }
   ctx.restore();
+}
+
+export const BADGE_FILL = Tokens.color.neutral[950];
+export const BADGE_TEXT = Tokens.color.neutral[0];
+export const BADGE_EDGE = 1.5;
+
+/** Pill centered on `x`, `y`. Expects `NUMBER_FONT` and centered text alignment. */
+function fillBadge(
+  ctx: CanvasRenderingContext2D,
+  label: string,
+  badge: { width: number; height: number },
+  x: number,
+  y: number,
+  edge: string,
+  held: boolean,
+): void {
+  ctx.beginPath();
+  ctx.roundRect(
+    x - badge.width / 2,
+    y - badge.height / 2,
+    badge.width,
+    badge.height,
+    badge.height / 2,
+  );
+  ctx.fillStyle = BADGE_FILL;
+  ctx.fill();
+  ctx.lineWidth = held ? 2 : BADGE_EDGE;
+  ctx.strokeStyle = edge;
+  ctx.stroke();
+  ctx.fillStyle = BADGE_TEXT;
+  ctx.fillText(label, x, y);
+}
+
+/**
+ * Lines, marks, and numbers in image pixels, without selection or handles.
+ * Marks and badges are sized as they look at a zoom of one over the draw scale.
+ */
+export function paintArtwork(
+  ctx: CanvasRenderingContext2D,
+  doc: LineState,
+  system: GradeSystem,
+): void {
+  const ink = exportInk(doc);
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  for (const layer of doc.layers) strokeLayer(ctx, layer, false);
+  paintMarks(ctx, doc, null, null, 1 / ink);
+  ctx.setLineDash([]);
+  ctx.font = NUMBER_FONT;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (let index = 0; index < doc.layers.length; index += 1) {
+    const layer = doc.layers[index];
+    if (!layer) continue;
+    const place = routeNumberPlacement(layer);
+    if (!place) continue;
+    const label = numberLabel(index + 1, layer.grade, system);
+    ctx.save();
+    ctx.translate(place.x, place.y);
+    ctx.scale(ink, ink);
+    fillBadge(ctx, label, numberBadge(label), 0, 0, layer.color, false);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+/** Image pixels per screen pixel for marks and badges in an export. */
+export function exportInk(doc: LineState): number {
+  return doc.scale > 0 && Number.isFinite(doc.scale) ? doc.scale : 1;
 }
 
 function paintNumberBand(

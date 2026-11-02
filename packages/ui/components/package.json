@@ -9,6 +9,7 @@
     "./button": "./src/button/index.ts",
     "./input": "./src/input/index.ts",
     "./layout": "./src/layout/index.ts",
+    "./menu": "./src/menu/index.ts",
     "./popover": "./src/popover/index.ts",
     "./select": "./src/select/index.ts",
     "./slider": "./src/slider/index.ts",

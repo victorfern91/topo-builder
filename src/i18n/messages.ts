@@ -1,3 +1,4 @@
+import type { ErrorCode } from "../state/errors.ts";
 import type { AppLocale } from "./locale.ts";
 
 const enUS = {
@@ -9,6 +10,14 @@ const enUS = {
   scale: "Scale",
   openEllipsis: "Open…",
   open: "Open",
+  exportMenu: "Export",
+  topoFormat: "Topo (editable)",
+  exporting: "Exporting…",
+  exportFailedTitle: "Export failed",
+  errorCodeLabel: "Error code: {code}",
+  photoLayer: "Photo",
+  lineLayer: "Line",
+  numberLayer: "Number",
   noDocument: "No document",
   chooseImage: "Choose an image",
   appTitle: "Topo",
@@ -24,10 +33,6 @@ const enUS = {
   openImage: "Open image",
   loadingArtboard: "Loading the artboard",
   loadingTopo: "Loading Topo",
-  notAPicture:
-    '"{fileName}" isn’t a picture Topo can place. Choose a {formats}.',
-  cannotDecode:
-    'Topo couldn’t show "{fileName}". The file may be damaged, or this browser can’t decode that format.',
   tools: "Tools",
   artboard: "Artboard",
   navigator: "Navigator",
@@ -76,8 +81,8 @@ const enUS = {
   lineColors: "Line colors",
   lineColorValue: "Color {color}",
   gradeSystem: "Grade system",
-  frenchGrade: "French",
-  americanGrade: "American",
+  frenchGrade: "French (FR)",
+  americanGrade: "American (YDS)",
   routeGrade: "Route grade",
   gradeValue: "Grade {grade}",
   routeKind: "Route",
@@ -109,6 +114,14 @@ const ptPT = {
   scale: "Escala",
   openEllipsis: "Abrir…",
   open: "Abrir",
+  exportMenu: "Exportar",
+  topoFormat: "Topo (editável)",
+  exporting: "A exportar…",
+  exportFailedTitle: "Falha na exportação",
+  errorCodeLabel: "Código de erro: {code}",
+  photoLayer: "Fotografia",
+  lineLayer: "Linha",
+  numberLayer: "Número",
   noDocument: "Sem documento",
   chooseImage: "Escolher uma imagem",
   appTitle: "Topo",
@@ -124,10 +137,6 @@ const ptPT = {
   openImage: "Abrir imagem",
   loadingArtboard: "A carregar a prancheta",
   loadingTopo: "A carregar o Topo",
-  notAPicture:
-    '"{fileName}" não é uma imagem que o Topo consiga colocar. Escolha um {formats}.',
-  cannotDecode:
-    'O Topo não conseguiu mostrar "{fileName}". O ficheiro pode estar danificado, ou este navegador não consegue descodificar esse formato.',
   tools: "Ferramentas",
   artboard: "Prancheta",
   navigator: "Navegador",
@@ -176,8 +185,8 @@ const ptPT = {
   lineColors: "Cores da linha",
   lineColorValue: "Cor {color}",
   gradeSystem: "Sistema de cotação",
-  frenchGrade: "Francês",
-  americanGrade: "Americano",
+  frenchGrade: "Francês (FR)",
+  americanGrade: "Americano (YDS)",
   routeGrade: "Cotação da via",
   gradeValue: "Cotação {grade}",
   routeKind: "Via",
@@ -210,4 +219,57 @@ export type MessageId = keyof typeof enUS;
 
 export function message(locale: AppLocale, id: MessageId): string {
   return catalogs[locale][id];
+}
+
+/** `{fileName}` and `{formats}` are filled when the caller has them. */
+const errorCatalogs = {
+  "en-US": {
+    APP_ROOT_MISSING: "Topo couldn’t find the page element it starts in.",
+    IMAGE_NOT_SUPPORTED:
+      '"{fileName}" isn’t a picture Topo can place. Choose a {formats}.',
+    IMAGE_DECODE_FAILED:
+      'Topo couldn’t show "{fileName}". The file may be damaged, or this browser can’t decode that format.',
+    TIFF_LIBRARY_FAILED:
+      "Topo couldn’t load its TIFF support. Check your connection and try again.",
+    TIFF_DECODE_FAILED:
+      'Topo couldn’t decode the TIFF "{fileName}". The file may be damaged or use an unsupported layout.',
+    TIFF_ENCODE_FAILED: "Topo couldn’t write {fileName} as a TIFF.",
+    EXPORT_NO_IMAGE: "Open an image before you export.",
+    EXPORT_IMAGE_UNREADABLE:
+      "Topo couldn’t read the opened image to save {fileName}.",
+    EXPORT_CANVAS_UNAVAILABLE:
+      "This browser couldn’t draw an image that large. Try a smaller photo.",
+    EXPORT_ENCODE_FAILED:
+      "This browser couldn’t encode {fileName}. Try another format.",
+    EXPORT_FAILED: "Topo couldn’t save {fileName}.",
+    TOPO_FILE_INVALID:
+      'Topo couldn’t read the drawing in "{fileName}". The file may be damaged, or a newer version of Topo saved it.',
+  },
+  "pt-PT": {
+    APP_ROOT_MISSING:
+      "O Topo não encontrou o elemento da página onde é iniciado.",
+    IMAGE_NOT_SUPPORTED:
+      '"{fileName}" não é uma imagem que o Topo consiga colocar. Escolha um {formats}.',
+    IMAGE_DECODE_FAILED:
+      'O Topo não conseguiu mostrar "{fileName}". O ficheiro pode estar danificado, ou este navegador não consegue descodificar esse formato.',
+    TIFF_LIBRARY_FAILED:
+      "O Topo não conseguiu carregar o suporte para TIFF. Verifique a ligação e tente novamente.",
+    TIFF_DECODE_FAILED:
+      'O Topo não conseguiu descodificar o TIFF "{fileName}". O ficheiro pode estar danificado ou usar uma estrutura não suportada.',
+    TIFF_ENCODE_FAILED: "O Topo não conseguiu gravar {fileName} como TIFF.",
+    EXPORT_NO_IMAGE: "Abra uma imagem antes de exportar.",
+    EXPORT_IMAGE_UNREADABLE:
+      "O Topo não conseguiu ler a imagem aberta para guardar {fileName}.",
+    EXPORT_CANVAS_UNAVAILABLE:
+      "Este navegador não consegue desenhar uma imagem tão grande. Experimente uma fotografia mais pequena.",
+    EXPORT_ENCODE_FAILED:
+      "Este navegador não conseguiu codificar {fileName}. Experimente outro formato.",
+    EXPORT_FAILED: "O Topo não conseguiu guardar {fileName}.",
+    TOPO_FILE_INVALID:
+      'O Topo não conseguiu ler o desenho em "{fileName}". O ficheiro pode estar danificado, ou foi guardado por uma versão mais recente do Topo.',
+  },
+} as const satisfies Record<AppLocale, Record<ErrorCode, string>>;
+
+export function errorText(locale: AppLocale, code: ErrorCode): string {
+  return errorCatalogs[locale][code];
 }

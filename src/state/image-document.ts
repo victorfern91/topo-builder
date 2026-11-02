@@ -1,7 +1,6 @@
 import { Store } from "@tanstack/store";
+import { errorCode, type ErrorCode } from "./errors.ts";
 import { isTiffFile, tiffToPngBlob } from "./tiff.ts";
-
-export type ImageProblem = "not-a-picture" | "cannot-decode";
 
 export type PixelSize = {
   width: number;
@@ -35,12 +34,12 @@ export type ImageDocumentState =
       status: "error";
       fileName: string;
       objectUrl: null;
-      problem: ImageProblem;
+      problem: ErrorCode;
       size: null;
     };
 
 export const IMAGE_FILE_ACCEPT =
-  "image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/tiff,image/svg+xml,.png,.jpg,.jpeg,.gif,.webp,.avif,.bmp,.tif,.tiff,.svg";
+  "image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/tiff,image/svg+xml,.png,.jpg,.jpeg,.gif,.webp,.avif,.bmp,.tif,.tiff,.svg,.topo";
 
 const IMAGE_NAME = /\.(apng|avif|bmp|gif|jpe?g|png|svg|tiff?|webp)$/i;
 
@@ -69,7 +68,8 @@ export function requestImageFilePicker(): void {
   openPicker();
 }
 
-export function openImageFile(file: File): void {
+/** `onReady` runs once this photo is on the board, unless another file was opened first. */
+export function openImageFile(file: File, onReady?: () => void): void {
   const id = ++requestId;
 
   if (!isLikelyImageFile(file)) {
@@ -78,7 +78,7 @@ export function openImageFile(file: File): void {
       status: "error",
       fileName: file.name,
       objectUrl: null,
-      problem: "not-a-picture",
+      problem: "IMAGE_NOT_SUPPORTED",
       size: null,
     }));
     return;
@@ -94,7 +94,7 @@ export function openImageFile(file: File): void {
       size: null,
       progress: 0,
     }));
-    void placeTiff(file, id);
+    void placeTiff(file, id, onReady);
     return;
   }
 
@@ -110,10 +110,27 @@ export function openImageFile(file: File): void {
     progress: null,
   }));
 
-  void finishWhenDecoded(file.name, objectUrl, id);
+  void finishWhenDecoded(file.name, objectUrl, id, onReady);
 }
 
-async function placeTiff(file: File, id: number): Promise<void> {
+/** Shows `problem` for a file that never reached the photo decoder. */
+export function failImageFile(fileName: string, problem: ErrorCode): void {
+  requestId += 1;
+  releaseActiveUrl();
+  imageDocumentStore.setState(() => ({
+    status: "error",
+    fileName,
+    objectUrl: null,
+    problem,
+    size: null,
+  }));
+}
+
+async function placeTiff(
+  file: File,
+  id: number,
+  onReady?: () => void,
+): Promise<void> {
   const report = publishTiffProgress(id, file.name);
   try {
     const blob = await tiffToPngBlob(file, report);
@@ -125,15 +142,15 @@ async function placeTiff(file: File, id: number): Promise<void> {
     }
     releaseActiveUrl();
     activeUrl = objectUrl;
-    await finishWhenDecoded(file.name, objectUrl, id);
-  } catch {
+    await finishWhenDecoded(file.name, objectUrl, id, onReady);
+  } catch (error) {
     if (id !== requestId) return;
     releaseActiveUrl();
     imageDocumentStore.setState(() => ({
       status: "error",
       fileName: file.name,
       objectUrl: null,
-      problem: "cannot-decode",
+      problem: errorCode(error, "IMAGE_DECODE_FAILED"),
       size: null,
     }));
   }
@@ -143,6 +160,7 @@ function finishWhenDecoded(
   fileName: string,
   objectUrl: string,
   id: number,
+  onReady?: () => void,
 ): Promise<void> {
   return new Promise((resolve) => {
     const probe = new Image();
@@ -160,6 +178,7 @@ function finishWhenDecoded(
         problem: null,
         size: width > 0 && height > 0 ? { width, height } : null,
       }));
+      onReady?.();
       resolve();
     };
     probe.onerror = () => {
@@ -175,7 +194,7 @@ function finishWhenDecoded(
         status: "error",
         fileName,
         objectUrl: null,
-        problem: "cannot-decode",
+        problem: "IMAGE_DECODE_FAILED",
         size: null,
       }));
       resolve();
