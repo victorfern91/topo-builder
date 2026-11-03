@@ -33,7 +33,7 @@ export type ToolState = {
 const DRAG_ZOOM = 0.01;
 
 export const toolStore = new Store<ToolState>({
-  group: "move",
+  group: "edit",
   zoom: "zoom-in",
   create: "route",
 });

@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { Alert, Button, Input, Layout, Tokens } from "@ui";
+import { Alert, Button, Input, Layout, Tokens, Tooltip } from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { formatPixelSize, t } from "../i18n/index.ts";
@@ -138,26 +138,28 @@ function HistoryButtons() {
   const canRedo = useSelector(historyStore, (state) => state.canRedo);
   return (
     <Layout.Stack direction="row" align="center" gap="xxs" sx={styles.history}>
-      <Button.Root
-        type="button"
-        aria-label={t("undo")}
-        title={titleWithShortcut(t("undo"), "undo")}
-        disabled={!canUndo}
-        sx={styles.iconButton}
-        onClick={undo}
-      >
-        <Button.Icon id="undo" />
-      </Button.Root>
-      <Button.Root
-        type="button"
-        aria-label={t("redo")}
-        title={titleWithShortcut(t("redo"), "redo")}
-        disabled={!canRedo}
-        sx={styles.iconButton}
-        onClick={redo}
-      >
-        <Button.Icon id="redo" />
-      </Button.Root>
+      <Tooltip.Hint label={titleWithShortcut(t("undo"), "undo")}>
+        <Button.Root
+          type="button"
+          aria-label={t("undo")}
+          disabled={!canUndo}
+          sx={styles.iconButton}
+          onClick={undo}
+        >
+          <Button.Icon id="undo" />
+        </Button.Root>
+      </Tooltip.Hint>
+      <Tooltip.Hint label={titleWithShortcut(t("redo"), "redo")}>
+        <Button.Root
+          type="button"
+          aria-label={t("redo")}
+          disabled={!canRedo}
+          sx={styles.iconButton}
+          onClick={redo}
+        >
+          <Button.Icon id="redo" />
+        </Button.Root>
+      </Tooltip.Hint>
     </Layout.Stack>
   );
 }
@@ -169,11 +171,10 @@ function DocumentTitle() {
       ? t("documentTitle", { fileName })
       : t("appTitle");
   }, [fileName]);
-  return (
-    <p {...stylex.props(styles.docTitle)} title={fileName ?? undefined}>
-      {fileName ?? t("noDocument")}
-    </p>
-  );
+  const text = fileName ?? t("noDocument");
+  const title = <p {...stylex.props(styles.docTitle)}>{text}</p>;
+  if (!fileName) return title;
+  return <Tooltip.Hint label={fileName}>{title}</Tooltip.Hint>;
 }
 
 function PixelSize() {

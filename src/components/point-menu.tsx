@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { Button, Layout, Tokens, Widget } from "@ui";
+import { Button, Layout, Tokens, Tooltip, Widget } from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { t } from "../i18n/index.ts";
@@ -146,23 +146,24 @@ export function PointMenu({
             const pressed = mark === id;
             const focusHere =
               pressed || (mark === null && id === ROUTE_MARKS[0] && !onDelete);
+            const markLabel = t(MARK_LABEL[id]);
             return (
-              <Button.Root
-                key={id}
-                sx={styles.mark}
-                ref={focusHere ? focusRef : undefined}
-                type="button"
-                role="menuitemcheckbox"
-                aria-checked={pressed}
-                aria-label={t(MARK_LABEL[id])}
-                title={t(MARK_LABEL[id])}
-                data-selected={pressed ? "" : undefined}
-                onClick={() => onMark(id)}
-              >
-                <Button.Icon id={id}>
-                  <MarkGlyph mark={id} size={22} />
-                </Button.Icon>
-              </Button.Root>
+              <Tooltip.Hint key={id} label={markLabel}>
+                <Button.Root
+                  sx={styles.mark}
+                  ref={focusHere ? focusRef : undefined}
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={pressed}
+                  aria-label={markLabel}
+                  data-selected={pressed ? "" : undefined}
+                  onClick={() => onMark(id)}
+                >
+                  <Button.Icon id={id}>
+                    <MarkGlyph mark={id} size={22} />
+                  </Button.Icon>
+                </Button.Root>
+              </Tooltip.Hint>
             );
           })}
         </Layout.Stack>

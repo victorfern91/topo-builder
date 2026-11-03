@@ -10,8 +10,10 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import { Button } from "../button/index.ts";
 import { Layout } from "../layout/index.ts";
 import { Tokens } from "../tokens.stylex.ts";
+import { Tooltip } from "../tooltip/index.ts";
 import type {
   WidgetContainerProps,
   WidgetHeaderProps,
@@ -93,6 +95,7 @@ export function WidgetPanel({
   height,
   placed = true,
   dragging = false,
+  minimized = false,
   resizable = false,
   minWidth = MIN_SIZE,
   minHeight = MIN_SIZE,
@@ -110,13 +113,19 @@ export function WidgetPanel({
 }: WidgetPanelProps) {
   const [node, setNode] = useState<HTMLElement | null>(null);
   const [size, setSize] = useState<BoxSize | null>(null);
-  const fitted = size ?? pinSize(width, height);
+  const pinned = pinSize(width, height);
+  const fitted = minimized
+    ? width != null
+      ? { width, height: undefined as number | undefined }
+      : null
+    : (size ?? pinned);
+  const canResize = resizable && !minimized;
   const surfaceRef = (next: HTMLElement | null) => {
     setNode(next);
   };
 
   useLayoutEffect(() => {
-    if (!node) return;
+    if (!node || minimized) return;
     const publish = () => {
       onResize?.(node.offsetWidth, node.offsetHeight, "layout");
     };
@@ -124,7 +133,7 @@ export function WidgetPanel({
     const observer = new ResizeObserver(publish);
     observer.observe(node);
     return () => observer.disconnect();
-  }, [node, onResize]);
+  }, [node, onResize, minimized]);
 
   useLayoutEffect(() => {
     if (typeof ref === "function") {
@@ -156,6 +165,7 @@ export function WidgetPanel({
         className={mergedClass || undefined}
         data-widget=""
         data-dragging={dragging ? "" : undefined}
+        data-minimized={minimized ? "" : undefined}
         style={{
           ...styled.style,
           ...style,
@@ -164,9 +174,13 @@ export function WidgetPanel({
           ...(fitted
             ? {
                 width: fitted.width,
-                height: fitted.height,
+                ...(fitted.height != null
+                  ? {
+                      height: fitted.height,
+                      maxHeight: "none",
+                    }
+                  : { height: "auto", maxHeight: "none" }),
                 maxWidth: "none",
-                maxHeight: "none",
               }
             : null),
         }}
@@ -176,7 +190,7 @@ export function WidgetPanel({
         }}
       >
         {children}
-        {resizable ? (
+        {canResize ? (
           <WidgetResize
             label={resizeLabel}
             node={node}
@@ -225,16 +239,28 @@ function WidgetFrame({
 /**
  * Drag handle. With `children`, a title row. Without, a compact grip bar.
  * Both show the same grip. Reads the drag session from the surrounding `Panel`.
+ * `onClose` and `onMinimize` place controls that do not start a drag.
  */
-export function WidgetHeader({ label, children, sx }: WidgetHeaderProps) {
+export function WidgetHeader({
+  label,
+  children,
+  sx,
+  onClose,
+  onMinimize,
+  minimized = false,
+  closeLabel = "Close",
+  minimizeLabel = "Minimize",
+  restoreLabel = "Restore",
+}: WidgetHeaderProps) {
   const drag = useContext(WidgetDragContext);
   if (!drag) throw new Error("Widget.Header belongs inside Widget.Panel");
   const session = useRef<DragSession | null>(null);
   const titled = children != null && children !== false;
-  const chrome = stylex.props(
-    titled ? styles.header : styles.bar,
+  const actions = onClose != null || onMinimize != null;
+  const row = stylex.props(titled ? styles.headerRow : styles.barRow, sx);
+  const handleChrome = stylex.props(
+    titled ? styles.titleHandle : styles.barHandle,
     styles.focusable,
-    sx,
   );
 
   const endDrag = (pointerId: number) => {
@@ -244,14 +270,14 @@ export function WidgetHeader({ label, children, sx }: WidgetHeaderProps) {
     drag.onDragEnd?.(current.moved);
   };
 
-  const shared = {
+  const handle = {
     "data-dragging": drag.dragging ? "" : undefined,
     role: "application" as const,
     tabIndex: 0,
     "aria-label": label,
     "aria-keyshortcuts": "ArrowUp ArrowDown ArrowLeft ArrowRight",
-    className: chrome.className,
-    style: chrome.style,
+    className: handleChrome.className,
+    style: handleChrome.style,
     onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => {
       if (event.button !== 0) return;
       event.preventDefault();
@@ -301,12 +327,46 @@ export function WidgetHeader({ label, children, sx }: WidgetHeaderProps) {
   };
 
   const grip = <span {...stylex.props(styles.grip)} aria-hidden="true" />;
+  const controls = actions ? (
+    <Layout.Stack
+      direction="row"
+      align="center"
+      gap="xxs"
+      grow={false}
+      shrink={false}
+      sx={styles.actions}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      {onMinimize ? (
+        <HeaderAction
+          label={minimized ? restoreLabel : minimizeLabel}
+          icon={minimized ? "restore" : "minimize"}
+          onClick={onMinimize}
+        />
+      ) : null}
+      {onClose ? (
+        <HeaderAction label={closeLabel} icon="close" onClick={onClose} />
+      ) : null}
+    </Layout.Stack>
+  ) : null;
 
   if (!titled) {
     return (
-      <Layout.Grid place="center" {...shared}>
-        {grip}
-      </Layout.Grid>
+      <Layout.Stack
+        direction="row"
+        align="center"
+        justify={actions ? "space-between" : "center"}
+        grow={false}
+        shrink={false}
+        px={actions ? "xs" : undefined}
+        className={row.className}
+        style={row.style}
+      >
+        <Layout.Grid place="center" grow shrink {...handle}>
+          {grip}
+        </Layout.Grid>
+        {controls}
+      </Layout.Stack>
     );
   }
 
@@ -318,11 +378,46 @@ export function WidgetHeader({ label, children, sx }: WidgetHeaderProps) {
       grow={false}
       shrink={false}
       px="md"
-      {...shared}
+      className={row.className}
+      style={row.style}
     >
-      {grip}
-      <span {...stylex.props(styles.title)}>{children}</span>
+      <Layout.Stack
+        direction="row"
+        align="center"
+        gap="md"
+        grow
+        shrink
+        {...handle}
+      >
+        {grip}
+        <span {...stylex.props(styles.title)}>{children}</span>
+      </Layout.Stack>
+      {controls}
     </Layout.Stack>
+  );
+}
+
+function HeaderAction({
+  label,
+  icon,
+  onClick,
+}: {
+  label: string;
+  icon: string;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip.Hint label={label}>
+      <Button.Root
+        type="button"
+        size="sm"
+        sx={styles.action}
+        aria-label={label}
+        onClick={onClick}
+      >
+        <Button.Icon id={icon} />
+      </Button.Root>
+    </Tooltip.Hint>
   );
 }
 
@@ -644,19 +739,23 @@ const styles = stylex.create({
     userSelect: "none",
     touchAction: "none",
   },
-  bar: {
+  barRow: {
     width: "100%",
     height: 18,
     flexGrow: 0,
     flexShrink: 0,
     marginBottom: Tokens.spacing.xs,
+  },
+  barHandle: {
+    minWidth: 0,
+    height: "100%",
     cursor: {
       default: "grab",
       "[data-dragging]": "grabbing",
     },
     userSelect: "none",
   },
-  header: {
+  headerRow: {
     height: Tokens.size.md,
     flexGrow: 0,
     flexShrink: 0,
@@ -665,6 +764,10 @@ const styles = stylex.create({
     borderBottomColor: Tokens.color.neutral[850],
     fontSize: 12,
     fontWeight: 650,
+  },
+  titleHandle: {
+    minWidth: 0,
+    height: "100%",
     cursor: {
       default: "grab",
       "[data-dragging]": "grabbing",
@@ -695,6 +798,16 @@ const styles = stylex.create({
     backgroundImage: "radial-gradient(currentColor 1px, transparent 1.4px)",
     backgroundSize: "4px 4px",
     backgroundPosition: "center",
+  },
+  actions: {
+    marginInlineStart: "auto",
+  },
+  action: {
+    width: Tokens.size.sm,
+    minWidth: Tokens.size.sm,
+    paddingBlock: Tokens.spacing.none,
+    paddingInline: Tokens.spacing.none,
+    color: Tokens.color.neutral[300],
   },
   resizeEast: {
     position: "absolute",

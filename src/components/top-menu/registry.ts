@@ -21,7 +21,12 @@ import {
   pasteMark,
   selectedCharacteristic,
 } from "../../state/mark-clipboard.ts";
-import { preferencesStore, setGradeSystem } from "../../state/preferences.ts";
+import {
+  preferencesStore,
+  setGradeSystem,
+  setWidgetOpen,
+  type WidgetPreferenceId,
+} from "../../state/preferences.ts";
 import { ScaleSlider } from "../scale-slider.tsx";
 
 /** Anything `useSelector` can read. */
@@ -138,6 +143,25 @@ export const menuBindings = {
   { source: Source<string>; set: (value: never) => void }
 >;
 
+/** Booleans a `checkbox` entry reads and writes with `check`. */
+function widgetOpen(id: WidgetPreferenceId): MenuCheck {
+  return {
+    source: derive(preferencesStore, (state) => state[id].open),
+    set: (open) => setWidgetOpen(id, open),
+  };
+}
+
+export type MenuCheck = {
+  source: Source<boolean>;
+  set: (value: boolean) => void;
+};
+
+export const menuChecks = {
+  navigatorOpen: widgetOpen("navigator"),
+  layersOpen: widgetOpen("layers"),
+  marksOpen: widgetOpen("marks"),
+} satisfies Record<string, MenuCheck>;
+
 /** Components a `widget` entry places with `widget`. */
 export const menuWidgets = {
   scaleSlider: ScaleSlider,
@@ -146,6 +170,7 @@ export const menuWidgets = {
 export type MenuActionId = keyof typeof menuActions;
 export type MenuConditionId = keyof typeof menuConditions;
 export type MenuBindingId = keyof typeof menuBindings;
+export type MenuCheckId = keyof typeof menuChecks;
 export type MenuWidgetId = keyof typeof menuWidgets;
 
 export type MenuActionValue<A extends MenuActionId> = Parameters<

@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { Layout, Toast } from "@ui";
+import { Layout, Toast, Tooltip } from "@ui";
 import { t } from "../i18n/index.ts";
 import { preferencesSchemaReset } from "../state/preferences.ts";
 import { ReleaseNotice } from "./release-notice.tsx";
@@ -7,12 +7,14 @@ import { ReleaseNotice } from "./release-notice.tsx";
 export function SettingsNotice({ children }: { children: ReactNode }) {
   return (
     <Toast.Provider>
-      {children}
-      <SchemaResetToast />
-      <ReleaseNotice />
-      <Toast.Portal>
-        <ToastList />
-      </Toast.Portal>
+      <Tooltip.Provider delay={400}>
+        {children}
+        <SchemaResetToast />
+        <ReleaseNotice />
+        <Toast.Portal>
+          <ToastList />
+        </Toast.Portal>
+      </Tooltip.Provider>
     </Toast.Provider>
   );
 }

@@ -5,6 +5,7 @@ import type {
   MenuActionValue,
   MenuBindingId,
   MenuBindingValue,
+  MenuCheckId,
   MenuConditionId,
   MenuWidgetId,
 } from "./registry.ts";
@@ -36,6 +37,19 @@ export type SeparatorEntry = Shared & { type: "separator" };
 
 export type WidgetEntry = Shared & { type: "widget"; widget: MenuWidgetId };
 
+export type CheckboxEntry = Shared & {
+  type: "checkbox";
+  label: MenuLabel;
+  check: MenuCheckId;
+};
+
+/** Named set of checkbox rows. `label` is the muted heading above them. */
+export type CheckboxGroupEntry = Shared & {
+  type: "checkboxes";
+  label: MenuLabel;
+  items: { label: MenuLabel; check: MenuCheckId }[];
+};
+
 export type RadioEntry = {
   [B in MenuBindingId]: Shared & {
     type: "radio";
@@ -55,7 +69,13 @@ export type SubmenuEntry = Shared & {
 };
 
 export type MenuEntry =
-  ItemEntry | SeparatorEntry | WidgetEntry | RadioEntry | SubmenuEntry;
+  | ItemEntry
+  | SeparatorEntry
+  | WidgetEntry
+  | CheckboxEntry
+  | CheckboxGroupEntry
+  | RadioEntry
+  | SubmenuEntry;
 
 export type TopMenuConfig = {
   menus: { id: string; label: MenuLabel; items: MenuEntry[] }[];
@@ -63,7 +83,7 @@ export type TopMenuConfig = {
 
 /**
  * The menubar. Each name (`action`, `enabledWhen`, `visibleWhen`, `busy.when`,
- * `binding`, `widget`) resolves through `registry.ts`.
+ * `binding`, `check`, `widget`) resolves through `registry.ts`.
  */
 export const topMenu: TopMenuConfig = {
   menus: [
@@ -170,6 +190,16 @@ export const topMenu: TopMenuConfig = {
       items: [
         { type: "widget", widget: "scaleSlider", visibleWhen: "documentReady" },
         { type: "separator", visibleWhen: "documentReady" },
+        {
+          type: "checkboxes",
+          label: "widgets",
+          items: [
+            { label: "navigator", check: "navigatorOpen" },
+            { label: "layers", check: "layersOpen" },
+            { label: "marks", check: "marksOpen" },
+          ],
+        },
+        { type: "separator" },
         {
           type: "radio",
           label: "gradeSystem",

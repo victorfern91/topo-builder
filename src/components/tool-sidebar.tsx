@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { Button, Layout, Tokens, Widget } from "@ui";
+import { Button, Layout, Tokens, Tooltip, Widget } from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import { Store } from "@tanstack/store";
 import {
@@ -168,20 +168,21 @@ function GroupTool({
   const pressed = useSelector(toolStore, (state) => state.group === tool.group);
   const label = t(tool.label);
   return (
-    <Button.Root
-      sx={styles.tool}
-      type="button"
-      aria-label={label}
-      aria-pressed={pressed}
-      data-pressed={pressed ? "" : undefined}
-      title={titleWithShortcut(label, tool.shortcut)}
-      onClick={() => {
-        closeFlyout();
-        selectGroup(tool.group);
-      }}
-    >
-      <Button.Icon id={tool.icon} />
-    </Button.Root>
+    <Tooltip.Hint label={titleWithShortcut(label, tool.shortcut)}>
+      <Button.Root
+        sx={styles.tool}
+        type="button"
+        aria-label={label}
+        aria-pressed={pressed}
+        data-pressed={pressed ? "" : undefined}
+        onClick={() => {
+          closeFlyout();
+          selectGroup(tool.group);
+        }}
+      >
+        <Button.Icon id={tool.icon} />
+      </Button.Root>
+    </Tooltip.Hint>
   );
 }
 
@@ -196,25 +197,27 @@ function CreateTool({
   const menuId = useId();
   const option =
     tool.options.find((item) => item.id === create) ?? tool.options[0];
+  const label = t(option.label);
   return (
     <div {...slotProps}>
-      <Button.Root
-        sx={styles.tool}
-        type="button"
-        aria-label={t(option.label)}
-        aria-pressed={group === "create"}
-        data-pressed={group === "create" ? "" : undefined}
-        title={t(option.label)}
-        onClick={() => {
-          closeFlyout();
-          const drawing = group === "create";
-          selectGroup("create");
-          if (drawing) beginLine(create);
-          else ensureLine(create);
-        }}
-      >
-        <Button.Icon id={create} />
-      </Button.Root>
+      <Tooltip.Hint label={label}>
+        <Button.Root
+          sx={styles.tool}
+          type="button"
+          aria-label={label}
+          aria-pressed={group === "create"}
+          data-pressed={group === "create" ? "" : undefined}
+          onClick={() => {
+            closeFlyout();
+            const drawing = group === "create";
+            selectGroup("create");
+            if (drawing) beginLine(create);
+            else ensureLine(create);
+          }}
+        >
+          <Button.Icon id={create} />
+        </Button.Root>
+      </Tooltip.Hint>
       <OptionsTriangle
         id={tool.id}
         label={t(tool.menuLabel)}
@@ -258,21 +261,22 @@ function ZoomTool({ tool }: { tool: Extract<SidebarTool, { kind: "zoom" }> }) {
   const label = t(option.label);
   return (
     <div {...slotProps}>
-      <Button.Root
-        sx={styles.tool}
-        type="button"
-        aria-label={label}
-        aria-pressed={group === "zoom"}
-        data-pressed={group === "zoom" ? "" : undefined}
-        title={titleWithShortcut(label, option.shortcut)}
-        onClick={() => {
-          closeFlyout();
-          selectGroup("zoom");
-          applyToolClick(zoom, actions, "center");
-        }}
-      >
-        <Button.Icon id={zoom} />
-      </Button.Root>
+      <Tooltip.Hint label={titleWithShortcut(label, option.shortcut)}>
+        <Button.Root
+          sx={styles.tool}
+          type="button"
+          aria-label={label}
+          aria-pressed={group === "zoom"}
+          data-pressed={group === "zoom" ? "" : undefined}
+          onClick={() => {
+            closeFlyout();
+            selectGroup("zoom");
+            applyToolClick(zoom, actions, "center");
+          }}
+        >
+          <Button.Icon id={zoom} />
+        </Button.Root>
+      </Tooltip.Hint>
       <OptionsTriangle
         id={tool.id}
         label={t(tool.menuLabel)}
@@ -326,20 +330,21 @@ function PanelTool({
   const label = t(tool.label);
   return (
     <div {...slotProps}>
-      <Button.Root
-        sx={styles.tool}
-        type="button"
-        aria-label={label}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls={menuId}
-        data-pressed={open ? "" : undefined}
-        title={label}
-        onMouseEnter={() => openFlyout(tool.id)}
-        onClick={() => openFlyout(tool.id)}
-      >
-        <Button.Icon id={tool.icon} />
-      </Button.Root>
+      <Tooltip.Hint label={label}>
+        <Button.Root
+          sx={styles.tool}
+          type="button"
+          aria-label={label}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={menuId}
+          data-pressed={open ? "" : undefined}
+          onMouseEnter={() => openFlyout(tool.id)}
+          onClick={() => openFlyout(tool.id)}
+        >
+          <Button.Icon id={tool.icon} />
+        </Button.Root>
+      </Tooltip.Hint>
       {open ? (
         <div {...stylex.props(styles.menu)}>
           <Widget.Menu

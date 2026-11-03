@@ -41,6 +41,11 @@ export type WidgetPanelProps = Omit<
   /** Sets `data-dragging` on the panel and the header. */
   dragging?: boolean;
   /**
+   * Collapses the panel to the header. Drops the height pin and hides resize.
+   * Default false.
+   */
+  minimized?: boolean;
+  /**
    * Reports the border box after layout and while the user resizes.
    * Width and height are pixels.
    * `source` is `"user"` while the user resizes and `"layout"` after layout.
@@ -85,6 +90,18 @@ export type WidgetHeaderProps = {
    */
   children?: ReactNode;
   sx?: StyleXStyles;
+  /** Renders a close control that hides the panel. */
+  onClose?: () => void;
+  /** Renders a minimize/restore control that collapses the body. */
+  onMinimize?: () => void;
+  /** True while the body is collapsed. Swaps the minimize control to restore. */
+  minimized?: boolean;
+  /** Accessible name for the close control. Default "Close". */
+  closeLabel?: string;
+  /** Accessible name for the minimize control. Default "Minimize". */
+  minimizeLabel?: string;
+  /** Accessible name for the restore control. Default "Restore". */
+  restoreLabel?: string;
 };
 
 export type WidgetContainerProps = LayoutStackProps;

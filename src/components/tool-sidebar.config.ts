@@ -59,6 +59,13 @@ export type PanelId = PanelTool["id"];
 export const SIDEBAR_TOOLS: readonly SidebarTool[] = [
   {
     kind: "group",
+    id: "edit",
+    group: "edit",
+    label: "editRoute",
+    icon: "edit",
+  },
+  {
+    kind: "group",
     id: "move",
     group: "move",
     label: "moveView",
@@ -73,13 +80,6 @@ export const SIDEBAR_TOOLS: readonly SidebarTool[] = [
       { id: "route", label: "createRoute" },
       { id: "boulder", label: "createBoulder" },
     ],
-  },
-  {
-    kind: "group",
-    id: "edit",
-    group: "edit",
-    label: "editRoute",
-    icon: "edit",
   },
   {
     kind: "zoom",
