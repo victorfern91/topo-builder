@@ -6,6 +6,8 @@ import { t } from "../../i18n/index.ts";
 import { Shortcut } from "../shortcut.tsx";
 import {
   topMenu,
+  type CheckboxEntry,
+  type CheckboxGroupEntry,
   type ItemEntry,
   type MenuEntry,
   type MenuLabel,
@@ -15,6 +17,7 @@ import {
 } from "./top-menu.ts";
 import {
   menuBindings,
+  menuChecks,
   menuConditions,
   menuWidgets,
   runMenuAction,
@@ -67,11 +70,45 @@ function Entry({ entry, run }: { entry: MenuEntry; run: Run }) {
       return <Menu.Separator />;
     case "submenu":
       return <SubmenuRow entry={entry} run={run} />;
+    case "checkbox":
+      return <CheckboxRow entry={entry} />;
+    case "checkboxes":
+      return <CheckboxGroup entry={entry} />;
     case "radio":
       return <RadioRows entry={entry} />;
     case "widget":
       return <WidgetRow entry={entry} />;
   }
+}
+
+function CheckboxGroup({ entry }: { entry: CheckboxGroupEntry }) {
+  return (
+    <Menu.Group>
+      <Menu.GroupLabel>{labelText(entry.label)}</Menu.GroupLabel>
+      {entry.items.map((item) => (
+        <CheckboxRow
+          key={item.check}
+          entry={{ type: "checkbox", label: item.label, check: item.check }}
+        />
+      ))}
+    </Menu.Group>
+  );
+}
+
+function CheckboxRow({ entry }: { entry: CheckboxEntry }) {
+  const check = menuChecks[entry.check];
+  const checked = useSelector(check.source);
+  const label = labelText(entry.label);
+  return (
+    <Menu.CheckboxItem
+      checked={checked}
+      label={label}
+      onCheckedChange={check.set}
+    >
+      <Menu.CheckboxItemIndicator />
+      <span>{label}</span>
+    </Menu.CheckboxItem>
+  );
 }
 
 function ItemRow({ entry, run }: { entry: ItemEntry; run: Run }) {

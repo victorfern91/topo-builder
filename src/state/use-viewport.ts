@@ -1,5 +1,10 @@
 import { useSelector, type UseSelectorOptions } from "@tanstack/react-store";
 import { shallow } from "@tanstack/store";
+import {
+  preferencesStore,
+  setWidgetMinimized,
+  setWidgetOpen,
+} from "./preferences.ts";
 import { viewportContext } from "./viewport-context.ts";
 import {
   viewportStore,
@@ -59,4 +64,21 @@ export function useWidgetFrame(id: WidgetId) {
     if (getState().userAction === id) actions.setUserAction("idle");
   };
   return { ...frame, onResize, onDragStart, onMove, onDragEnd };
+}
+
+/** Open and minimized flags plus close/minimize handlers for one floating widget. */
+export function useWidgetChrome(id: WidgetId) {
+  const chrome = useSelector(
+    preferencesStore,
+    (state) => ({
+      open: state[id].open,
+      minimized: state[id].minimized,
+    }),
+    { compare: shallow },
+  );
+  return {
+    ...chrome,
+    onClose: () => setWidgetOpen(id, false),
+    onMinimize: () => setWidgetMinimized(id, !chrome.minimized),
+  };
 }

@@ -12,10 +12,13 @@ import {
   TbLock,
   TbLockOpen,
   TbMaximize,
+  TbMinus,
   TbPointer,
   TbRoute2,
   TbRuler2,
   TbTrash,
+  TbWindowMaximize,
+  TbX,
   TbZoomIn,
   TbZoomOut,
 } from "react-icons/tb";
@@ -41,6 +44,9 @@ const glyphs = {
   trash: TbTrash,
   "chevron-up": TbChevronUp,
   "chevron-down": TbChevronDown,
+  close: TbX,
+  minimize: TbMinus,
+  restore: TbWindowMaximize,
 };
 
 export function ButtonGlyph({ id }: { id: string }) {

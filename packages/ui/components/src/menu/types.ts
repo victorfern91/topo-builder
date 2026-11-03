@@ -1,4 +1,6 @@
 import type {
+  MenuCheckboxItemIndicatorProps as BaseMenuCheckboxItemIndicatorProps,
+  MenuCheckboxItemProps as BaseMenuCheckboxItemProps,
   MenuGroupLabelProps as BaseMenuGroupLabelProps,
   MenuGroupProps as BaseMenuGroupProps,
   MenuItemProps as BaseMenuItemProps,
@@ -41,6 +43,9 @@ export type MenuSubmenuTriggerProps = WithChrome<BaseMenuSubmenuTriggerProps>;
 export type MenuSeparatorProps = WithChrome<BaseSeparatorProps>;
 export type MenuGroupProps = WithChrome<BaseMenuGroupProps>;
 export type MenuGroupLabelProps = WithChrome<BaseMenuGroupLabelProps>;
+export type MenuCheckboxItemProps = WithChrome<BaseMenuCheckboxItemProps>;
+export type MenuCheckboxItemIndicatorProps =
+  WithChrome<BaseMenuCheckboxItemIndicatorProps>;
 export type MenuRadioGroupProps = WithChrome<BaseMenuRadioGroupProps>;
 export type MenuRadioItemProps = WithChrome<BaseMenuRadioItemProps>;
 export type MenuRadioItemIndicatorProps =

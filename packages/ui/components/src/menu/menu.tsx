@@ -4,6 +4,8 @@ import type { CSSProperties } from "react";
 import { TbCheck, TbChevronRight } from "react-icons/tb";
 import { Tokens } from "../tokens.stylex.ts";
 import type {
+  MenuCheckboxItemIndicatorProps,
+  MenuCheckboxItemProps,
   MenuGroupLabelProps,
   MenuGroupProps,
   MenuItemProps,
@@ -163,6 +165,49 @@ export function MenuGroupLabel({
   return <BaseMenu.GroupLabel {...props} {...chrome} />;
 }
 
+/**
+ * Toggle row. Keeps the menu open unless `closeOnClick`.
+ * Place a `CheckboxItemIndicator` before the label.
+ */
+export function MenuCheckboxItem({
+  sx,
+  className,
+  style,
+  ...props
+}: MenuCheckboxItemProps) {
+  const chrome = menuChrome(
+    stylex.props(styles.row, styles.checkRow, sx),
+    className,
+    style,
+  );
+
+  return <BaseMenu.CheckboxItem {...props} {...chrome} />;
+}
+
+/** Keeps its slot on every row and shows a check when ticked. `children` replaces the check. */
+export function MenuCheckboxItemIndicator({
+  sx,
+  className,
+  style,
+  children,
+  ...props
+}: MenuCheckboxItemIndicatorProps) {
+  const slot = menuChrome(stylex.props(styles.indicator, sx), className, style);
+  const mark = stylex.props(styles.indicatorMark);
+
+  return (
+    <span className={slot.className} style={slot.style}>
+      <BaseMenu.CheckboxItemIndicator
+        {...props}
+        className={mark.className}
+        style={mark.style}
+      >
+        {children ?? <TbCheck {...stylex.props(styles.glyph)} aria-hidden />}
+      </BaseMenu.CheckboxItemIndicator>
+    </span>
+  );
+}
+
 /** Rows where one `RadioItem` is chosen. `onValueChange` receives the next value. */
 export function MenuRadioGroup({
   sx,
@@ -186,7 +231,7 @@ export function MenuRadioItem({
   ...props
 }: MenuRadioItemProps) {
   const chrome = menuChrome(
-    stylex.props(styles.row, styles.radioRow, sx),
+    stylex.props(styles.row, styles.checkRow, sx),
     className,
     style,
   );
@@ -333,7 +378,7 @@ const styles = stylex.create({
   submenuRow: {
     paddingInlineEnd: Tokens.spacing.sm,
   },
-  radioRow: {
+  checkRow: {
     justifyContent: "flex-start",
     gap: Tokens.spacing.sm,
     paddingInlineStart: Tokens.spacing.sm,

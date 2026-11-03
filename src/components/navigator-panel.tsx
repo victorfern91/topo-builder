@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { Button, Input, Layout, Slider, Widget } from "@ui";
+import { Button, Input, Layout, Slider, Tooltip, Widget } from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import { shallow } from "@tanstack/store";
 import {
@@ -18,6 +18,7 @@ import { navigator } from "../styles/stage.ts";
 import {
   useViewport,
   useViewportSelector,
+  useWidgetChrome,
   useWidgetFrame,
 } from "../state/use-viewport.ts";
 import {
@@ -33,9 +34,12 @@ import {
 export function NavigatorPanel() {
   const helpId = useId();
   const frame = useWidgetFrame("navigator");
+  const chrome = useWidgetChrome("navigator");
+  if (!chrome.open) return null;
   return (
     <Widget.Panel
       {...frame}
+      minimized={chrome.minimized}
       renderAs="aside"
       resizable
       minWidth={180}
@@ -46,18 +50,32 @@ export function NavigatorPanel() {
       aria-label={t("navigator")}
       aria-describedby={helpId}
     >
-      <Widget.Header label={t("dragNavigator")}>{t("navigator")}</Widget.Header>
-      <p {...stylex.props(a11y.visuallyHidden)} id={helpId}>
-        {t("navigatorHelp", {
-          pan: shortcutText("pan"),
-          zoomIn: shortcutText("zoom-in"),
-          zoomOut: shortcutText("zoom-out"),
-        })}
-      </p>
-      <Widget.Container>
-        <Minimap />
-        <ZoomControls />
-      </Widget.Container>
+      <Widget.Header
+        label={t("dragNavigator")}
+        minimized={chrome.minimized}
+        onMinimize={chrome.onMinimize}
+        onClose={chrome.onClose}
+        closeLabel={t("closePanel")}
+        minimizeLabel={t("minimizePanel")}
+        restoreLabel={t("restorePanel")}
+      >
+        {t("navigator")}
+      </Widget.Header>
+      {chrome.minimized ? null : (
+        <>
+          <p {...stylex.props(a11y.visuallyHidden)} id={helpId}>
+            {t("navigatorHelp", {
+              pan: shortcutText("pan"),
+              zoomIn: shortcutText("zoom-in"),
+              zoomOut: shortcutText("zoom-out"),
+            })}
+          </p>
+          <Widget.Container>
+            <Minimap />
+            <ZoomControls />
+          </Widget.Container>
+        </>
+      )}
     </Widget.Panel>
   );
 }
@@ -69,15 +87,16 @@ function ZoomControls() {
   return (
     <Layout.Stack gap="sm" px="lg" sx={navigator.controls}>
       <Layout.Stack direction="row" align="center" gap="sm">
-        <Button.Root
-          sx={navigator.step}
-          type="button"
-          aria-label={t("zoomOut")}
-          title={titleWithShortcut(t("zoomOut"), "zoom-out")}
-          onClick={() => actions.zoomOut()}
-        >
-          <Button.Text>−</Button.Text>
-        </Button.Root>
+        <Tooltip.Hint label={titleWithShortcut(t("zoomOut"), "zoom-out")}>
+          <Button.Root
+            sx={navigator.step}
+            type="button"
+            aria-label={t("zoomOut")}
+            onClick={() => actions.zoomOut()}
+          >
+            <Button.Text>−</Button.Text>
+          </Button.Root>
+        </Tooltip.Hint>
         <Slider.Root
           min={0}
           max={1000}
@@ -88,40 +107,43 @@ function ZoomControls() {
           valueText={formatZoomPercent(zoom)}
           onValueChange={(value) => actions.zoomTo(sliderToZoom(value))}
         />
-        <Button.Root
-          sx={navigator.step}
-          type="button"
-          aria-label={t("zoomIn")}
-          title={titleWithShortcut(t("zoomIn"), "zoom-in")}
-          onClick={() => actions.zoomIn()}
-        >
-          <Button.Text>+</Button.Text>
-        </Button.Root>
+        <Tooltip.Hint label={titleWithShortcut(t("zoomIn"), "zoom-in")}>
+          <Button.Root
+            sx={navigator.step}
+            type="button"
+            aria-label={t("zoomIn")}
+            onClick={() => actions.zoomIn()}
+          >
+            <Button.Text>+</Button.Text>
+          </Button.Root>
+        </Tooltip.Hint>
       </Layout.Stack>
       <Layout.Stack direction="row" align="center" gap="sm">
         <ZoomField />
-        <Button.Root
-          variant="secondary"
-          size="sm"
-          sx={navigator.command}
-          type="button"
-          aria-label={t("fitWindow")}
-          title={titleWithShortcut(t("fitWindow"), "fit")}
-          onClick={() => actions.fit()}
-        >
-          <Button.Text>{t("fitShort")}</Button.Text>
-        </Button.Root>
-        <Button.Root
-          variant="secondary"
-          size="sm"
-          sx={navigator.command}
-          type="button"
-          aria-label={t("actualSize")}
-          title={titleWithShortcut(t("actualSize"), "actual-size")}
-          onClick={() => actions.actualSize()}
-        >
-          <Button.Text>1:1</Button.Text>
-        </Button.Root>
+        <Tooltip.Hint label={titleWithShortcut(t("fitWindow"), "fit")}>
+          <Button.Root
+            variant="secondary"
+            size="sm"
+            sx={navigator.command}
+            type="button"
+            aria-label={t("fitWindow")}
+            onClick={() => actions.fit()}
+          >
+            <Button.Text>{t("fitShort")}</Button.Text>
+          </Button.Root>
+        </Tooltip.Hint>
+        <Tooltip.Hint label={titleWithShortcut(t("actualSize"), "actual-size")}>
+          <Button.Root
+            variant="secondary"
+            size="sm"
+            sx={navigator.command}
+            type="button"
+            aria-label={t("actualSize")}
+            onClick={() => actions.actualSize()}
+          >
+            <Button.Text>1:1</Button.Text>
+          </Button.Root>
+        </Tooltip.Hint>
       </Layout.Stack>
     </Layout.Stack>
   );

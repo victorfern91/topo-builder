@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { Button, Layout, Tokens, Widget } from "@ui";
+import { Button, Layout, Tokens, Tooltip, Widget } from "@ui";
 import { useSelector } from "@tanstack/react-store";
 import {
   useEffect,
@@ -53,6 +53,7 @@ import {
 import {
   useViewport,
   useViewportSelector,
+  useWidgetChrome,
   useWidgetFrame,
 } from "../state/use-viewport.ts";
 import { BadgePill } from "./canvas/badge-pill.tsx";
@@ -65,43 +66,62 @@ type StageRef = RefObject<HTMLDivElement | null>;
 /** Palette of point marks. Drag one onto the photo or a route point to place it. */
 export function MarksPanel({ stageRef }: { stageRef: StageRef }) {
   const frame = useWidgetFrame("marks");
+  const chrome = useWidgetChrome("marks");
   useEffect(() => endMarkDrag, []);
   useEffect(() => endBadgeDrag, []);
+  if (!chrome.open) return null;
   return (
     <Widget.Panel
       {...frame}
+      minimized={chrome.minimized}
       renderAs="aside"
       sx={styles.panel}
       data-marks=""
       aria-label={t("marks")}
     >
-      <Widget.Header label={t("dragMarks")}>{t("marks")}</Widget.Header>
-      <Widget.Container gap="sm" p="md" aria-label={t("pointMarks")}>
-        {MARK_KINDS.map((kind) => (
-          <Layout.Stack
-            key={kind}
-            gap="xxs"
-            role="group"
-            aria-label={t(MARK_KIND_LABEL[kind])}
-          >
-            <Layout.Box renderAs="span" sx={styles.kind}>
-              {t(MARK_KIND_LABEL[kind])}
-            </Layout.Box>
-            <Layout.Stack direction="row" wrap gap="xs">
-              {POINT_MARKS.filter((mark) => MARK_KIND[mark] === kind).map(
-                (mark) => (
-                  <MarkTile key={mark} mark={mark} stageRef={stageRef} />
-                ),
-              )}
-              {kind === "characteristic"
-                ? ROUTE_BADGES.map((badge) => (
-                    <BadgeTile key={badge} badge={badge} stageRef={stageRef} />
-                  ))
-                : null}
+      <Widget.Header
+        label={t("dragMarks")}
+        minimized={chrome.minimized}
+        onMinimize={chrome.onMinimize}
+        onClose={chrome.onClose}
+        closeLabel={t("closePanel")}
+        minimizeLabel={t("minimizePanel")}
+        restoreLabel={t("restorePanel")}
+      >
+        {t("marks")}
+      </Widget.Header>
+      {chrome.minimized ? null : (
+        <Widget.Container gap="sm" p="md" aria-label={t("pointMarks")}>
+          {MARK_KINDS.map((kind) => (
+            <Layout.Stack
+              key={kind}
+              gap="xxs"
+              role="group"
+              aria-label={t(MARK_KIND_LABEL[kind])}
+            >
+              <Layout.Box renderAs="span" sx={styles.kind}>
+                {t(MARK_KIND_LABEL[kind])}
+              </Layout.Box>
+              <Layout.Stack direction="row" wrap gap="xs">
+                {POINT_MARKS.filter((mark) => MARK_KIND[mark] === kind).map(
+                  (mark) => (
+                    <MarkTile key={mark} mark={mark} stageRef={stageRef} />
+                  ),
+                )}
+                {kind === "characteristic"
+                  ? ROUTE_BADGES.map((badge) => (
+                      <BadgeTile
+                        key={badge}
+                        badge={badge}
+                        stageRef={stageRef}
+                      />
+                    ))
+                  : null}
+              </Layout.Stack>
             </Layout.Stack>
-          </Layout.Stack>
-        ))}
-      </Widget.Container>
+          ))}
+        </Widget.Container>
+      )}
     </Widget.Panel>
   );
 }
@@ -231,18 +251,19 @@ function MarkTile({ mark, stageRef }: { mark: PointMark; stageRef: StageRef }) {
   });
 
   return (
-    <Button.Root
-      sx={styles.tile}
-      type="button"
-      aria-label={label}
-      aria-pressed={free ? undefined : pressed}
-      title={`${label}. ${t(DROP_HINT[MARK_KIND[mark]])}`}
-      {...handlers}
-    >
-      <Button.Icon id={mark}>
-        <MarkGlyph mark={mark} size={22} />
-      </Button.Icon>
-    </Button.Root>
+    <Tooltip.Hint label={`${label}. ${t(DROP_HINT[MARK_KIND[mark]])}`}>
+      <Button.Root
+        sx={styles.tile}
+        type="button"
+        aria-label={label}
+        aria-pressed={free ? undefined : pressed}
+        {...handlers}
+      >
+        <Button.Icon id={mark}>
+          <MarkGlyph mark={mark} size={22} />
+        </Button.Icon>
+      </Button.Root>
+    </Tooltip.Hint>
   );
 }
 
@@ -302,16 +323,17 @@ function BadgeTile({
   });
 
   return (
-    <Button.Root
-      sx={styles.badgeTile}
-      type="button"
-      aria-label={label}
-      aria-pressed={pressed}
-      title={`${label}. ${t(BADGE_HINT[badge])}`}
-      {...handlers}
-    >
-      <BadgePill badge={badge}>{sampleBadgeText(badge, system)}</BadgePill>
-    </Button.Root>
+    <Tooltip.Hint label={`${label}. ${t(BADGE_HINT[badge])}`}>
+      <Button.Root
+        sx={styles.badgeTile}
+        type="button"
+        aria-label={label}
+        aria-pressed={pressed}
+        {...handlers}
+      >
+        <BadgePill badge={badge}>{sampleBadgeText(badge, system)}</BadgePill>
+      </Button.Root>
+    </Tooltip.Hint>
   );
 }
 

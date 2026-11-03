@@ -12,6 +12,7 @@ export { Table, tableColumnFeatures } from "./table/index.ts";
 export { Toast } from "./toast/index.ts";
 export { Toggle } from "./toggle/index.ts";
 export { Tokens } from "./tokens.stylex.ts";
+export { Tooltip } from "./tooltip/index.ts";
 export { Widget } from "./widget/index.ts";
 export type {
   AlertBackdropProps,
@@ -61,6 +62,8 @@ export type {
   StackDisplay,
 } from "./layout/index.ts";
 export type {
+  MenuCheckboxItemIndicatorProps,
+  MenuCheckboxItemProps,
   MenuGroupLabelProps,
   MenuGroupProps,
   MenuItemProps,
@@ -131,6 +134,15 @@ export type {
   ToastTitleProps,
   ToastViewportProps,
 } from "./toast/index.ts";
+export type {
+  TooltipHintProps,
+  TooltipPopupProps,
+  TooltipPortalProps,
+  TooltipPositionerProps,
+  TooltipProviderProps,
+  TooltipRootProps,
+  TooltipTriggerProps,
+} from "./tooltip/index.ts";
 export type {
   WidgetContainerProps,
   WidgetHeaderProps,

@@ -432,10 +432,12 @@ function placeCentered(state: ViewportState): ViewportState {
 function placeInView(state: ViewportState, zoomCap: number): ViewportState {
   const tools = state.frames.tools;
   const navigatorFrame = state.frames.navigator;
+  const prefs = preferencesStore.get();
   const reserveLeft = tools.custom ? 0 : tools.width + PANEL_MARGIN;
-  const reserveRight = navigatorFrame.custom
-    ? 0
-    : navigatorFrame.width + PANEL_MARGIN;
+  const reserveRight =
+    !prefs.navigator.open || navigatorFrame.custom
+      ? 0
+      : navigatorFrame.width + PANEL_MARGIN;
   const availW = Math.max(
     1,
     state.viewWidth - reserveLeft - reserveRight - VIEW_MARGIN * 2,
@@ -543,6 +545,8 @@ function rememberFrame(id: WidgetId, state: ViewportState): void {
     x: frame.x,
     y: frame.y,
     custom: frame.custom,
+    open: saved.open,
+    minimized: saved.minimized,
   };
   if (frame.resized) {
     placement.width = frame.width;

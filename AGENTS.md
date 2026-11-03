@@ -1,6 +1,6 @@
 # UI
 
-Import interactive controls from `@ui` (`import { Alert, Button, Input, Kbd, Layout, Menu, Menubar, Popover, Select, Slider, Table, Toast, Toggle, Widget } from '@ui'`, `import Alert from '@ui/alert'`, `import Button from '@ui/button'`, `import Input from '@ui/input'`, `import Kbd from '@ui/kbd'`, `import Layout from '@ui/layout'`, `import Menu from '@ui/menu'`, `import Menubar from '@ui/menubar'`, `import Popover from '@ui/popover'`, `import Select from '@ui/select'`, `import Slider from '@ui/slider'`, `import Table from '@ui/table'`, `import Toast from '@ui/toast'`, `import Toggle from '@ui/toggle'`, or `import Widget from '@ui/widget'`). The package exports are the components available to the app. Compose the parts those exports provide; for an alert that is `Alert.Root`, `Alert.Portal`, `Alert.Backdrop`, `Alert.Popup`, `Alert.Title`, `Alert.Description`, and `Alert.Close`. For Button that is `Button.Root`, `Button.Icon`, and `Button.Text`. For a field that is `Input.Root`. For keyboard keys that is `Kbd.Root`, `Kbd.Group`, and `Kbd.Shortcut`. For a select that is `Select.Root`, `Select.Trigger`, `Select.Value`, `Select.Icon`, `Select.Portal`, `Select.Positioner`, `Select.Popup`, `Select.List`, `Select.Item`, `Select.ItemIndicator`, `Select.Swatch`, and `Select.ItemText`. For a popover that is `Popover.Root`, `Popover.Trigger`, `Popover.Portal`, `Popover.Positioner`, `Popover.Popup`, `Popover.Title`, and `Popover.Close`. For a command menu that is `Menu.Root`, `Menu.Trigger`, `Menu.Portal`, `Menu.Positioner`, `Menu.Popup`, `Menu.Item`, `Menu.Separator`, `Menu.SubmenuRoot`, `Menu.SubmenuTrigger`, `Menu.Group`, `Menu.GroupLabel`, `Menu.RadioGroup`, `Menu.RadioItem`, and `Menu.RadioItemIndicator`. For a row of menus that is `Menubar.Root`. For boxes that is `Layout.Box`, `Layout.Stack`, and `Layout.Grid`. For a slider, `Slider.Root` renders the track. For a toggle group that is `Toggle.Root` and `Toggle.Option`. For a table, `Table.Root` renders the scrollport. For a toast that is `Toast.Provider`, `Toast.Portal`, `Toast.Viewport`, `Toast.Root`, `Toast.Content`, `Toast.Icon`, `Toast.Title`, `Toast.Description`, `Toast.Action`, and `Toast.Close`. For a floating panel that is `Widget.Panel`, `Widget.Header`, `Widget.Container`, and `Widget.Menu`. Each of Button and Layout takes `renderAs` `div` (default) or `span`. `Widget.Panel` takes `renderAs` `div` (default), `aside`, or `section`. Prop and composition details live on the JSDoc of each part.
+Import interactive controls from `@ui` (`import { Alert, Button, Input, Kbd, Layout, Menu, Menubar, Popover, Select, Slider, Table, Toast, Toggle, Tooltip, Widget } from '@ui'`, `import Alert from '@ui/alert'`, `import Button from '@ui/button'`, `import Input from '@ui/input'`, `import Kbd from '@ui/kbd'`, `import Layout from '@ui/layout'`, `import Menu from '@ui/menu'`, `import Menubar from '@ui/menubar'`, `import Popover from '@ui/popover'`, `import Select from '@ui/select'`, `import Slider from '@ui/slider'`, `import Table from '@ui/table'`, `import Toast from '@ui/toast'`, `import Toggle from '@ui/toggle'`, `import Tooltip from '@ui/tooltip'`, or `import Widget from '@ui/widget'`). The package exports are the components available to the app. Compose the parts those exports provide; for an alert that is `Alert.Root`, `Alert.Portal`, `Alert.Backdrop`, `Alert.Popup`, `Alert.Title`, `Alert.Description`, and `Alert.Close`. For Button that is `Button.Root`, `Button.Icon`, and `Button.Text`. For a field that is `Input.Root`. For keyboard keys that is `Kbd.Root`, `Kbd.Group`, and `Kbd.Shortcut`. For a select that is `Select.Root`, `Select.Trigger`, `Select.Value`, `Select.Icon`, `Select.Portal`, `Select.Positioner`, `Select.Popup`, `Select.List`, `Select.Item`, `Select.ItemIndicator`, `Select.Swatch`, and `Select.ItemText`. For a popover that is `Popover.Root`, `Popover.Trigger`, `Popover.Portal`, `Popover.Positioner`, `Popover.Popup`, `Popover.Title`, and `Popover.Close`. For a tooltip that is `Tooltip.Provider`, `Tooltip.Root`, `Tooltip.Trigger`, `Tooltip.Portal`, `Tooltip.Positioner`, `Tooltip.Popup`, and `Tooltip.Hint`. For a command menu that is `Menu.Root`, `Menu.Trigger`, `Menu.Portal`, `Menu.Positioner`, `Menu.Popup`, `Menu.Item`, `Menu.Separator`, `Menu.SubmenuRoot`, `Menu.SubmenuTrigger`, `Menu.Group`, `Menu.GroupLabel`, `Menu.CheckboxItem`, `Menu.CheckboxItemIndicator`, `Menu.RadioGroup`, `Menu.RadioItem`, and `Menu.RadioItemIndicator`. For a row of menus that is `Menubar.Root`. For boxes that is `Layout.Box`, `Layout.Stack`, and `Layout.Grid`. For a slider, `Slider.Root` renders the track. For a toggle group that is `Toggle.Root` and `Toggle.Option`. For a table, `Table.Root` renders the scrollport. For a toast that is `Toast.Provider`, `Toast.Portal`, `Toast.Viewport`, `Toast.Root`, `Toast.Content`, `Toast.Icon`, `Toast.Title`, `Toast.Description`, `Toast.Action`, and `Toast.Close`. For a floating panel that is `Widget.Panel`, `Widget.Header`, `Widget.Container`, and `Widget.Menu`. Each of Button and Layout takes `renderAs` `div` (default) or `span`. `Widget.Panel` takes `renderAs` `div` (default), `aside`, or `section`. Prop and composition details live on the JSDoc of each part.
 
 Ship Button defaults. Pass `variant`, `size`, `radius`, `rounded`, or `sx` only for instance-specific layout or state.
 
@@ -67,6 +67,22 @@ Ship Popover defaults. `Trigger` opens the popup. `Close` is a menu row and clos
 
 `onOpenChange` receives the next open state. A control inside `Popup` keeps the popup open. A disabled `Close` stays in the menu.
 
+# Tooltip
+
+Ship Tooltip defaults. Wrap the tree in `Tooltip.Provider` so adjacent hints open instantly. `Trigger` shows the popup on hover or focus. Keep `aria-label` on the trigger; the popup is visual-only. Pass `sx` for instance chrome. `sideOffset` on `Positioner` places the popup. Prefer `Hint` when attaching a label to one control.
+
+```tsx
+<Tooltip.Provider>
+  <Tooltip.Hint label="Close">
+    <Button.Root type="button" aria-label="Close" onClick={close}>
+      <Button.Icon id="close" />
+    </Button.Root>
+  </Tooltip.Hint>
+</Tooltip.Provider>
+```
+
+Compose `Root`, `Trigger`, `Portal`, `Positioner`, and `Popup` when the layout needs more than `Hint`. Use `render` on `Trigger` to attach the hint to an existing control.
+
 # Menu
 
 Ship Menu defaults. Use Menu for a list of commands, and Popover when the popup holds controls. `Item` is a command row and closes every open level. `SubmenuRoot` nests a menu: its `SubmenuTrigger` row shows a chevron and opens the next `Portal` on hover, click, or the arrow key. `Separator` divides groups. Pass `sx` for instance chrome.
@@ -96,6 +112,8 @@ Ship Menu defaults. Use Menu for a list of commands, and Popover when the popup 
 
 A disabled `Item` or `SubmenuTrigger` stays in the menu.
 
+`CheckboxItem` toggles a setting; `onCheckedChange` receives the next boolean. Put a `CheckboxItemIndicator` before the label: it keeps its slot and shows a check when ticked. A `CheckboxItem` keeps the menu open unless `closeOnClick`.
+
 `RadioGroup` holds `RadioItem` rows and picks one value; `onValueChange` receives the next value. Put a `RadioItemIndicator` before each label: it keeps its slot and shows a check on the chosen row. A `RadioItem` keeps the menu open. `GroupLabel` is a muted heading inside a `Group` or a `RadioGroup`.
 
 # Menubar
@@ -115,7 +133,7 @@ A disabled `Item` or `SubmenuTrigger` stays in the menu.
 </Menubar.Root>
 ```
 
-The app's top menu is config: `src/components/top-menu/top-menu.ts` lists the menus and entries, and `src/components/top-menu/registry.ts` maps each name the config uses (`action`, `enabledWhen`, `visibleWhen`, `busy.when`, `binding`, `widget`) to code. Add a command by adding it to the registry, then naming it in the config. The type check rejects an unknown name, a `value` the action does not take, and a radio option the binding does not hold.
+The app's top menu is config: `src/components/top-menu/top-menu.ts` lists the menus and entries, and `src/components/top-menu/registry.ts` maps each name the config uses (`action`, `enabledWhen`, `visibleWhen`, `busy.when`, `binding`, `check`, `widget`) to code. Add a command by adding it to the registry, then naming it in the config. The type check rejects an unknown name, a `value` the action does not take, a radio option the binding does not hold, and a checkbox the check map does not hold.
 
 # Kbd
 
@@ -219,15 +237,29 @@ Ship Toast defaults. `Toast.Provider` wraps the tree that raises toasts. `Toast.
 Ship Widget defaults. Pass `sx` for instance chrome such as width, z-index, or overflow.
 
 ```tsx
-<Widget.Panel x={x} y={y} onMove={move} onResize={resize} resizable>
-  <Widget.Header label="Drag to move">Title</Widget.Header>
+<Widget.Panel
+  x={x}
+  y={y}
+  onMove={move}
+  onResize={resize}
+  resizable
+  minimized={minimized}
+>
+  <Widget.Header
+    label="Drag to move"
+    onClose={close}
+    onMinimize={toggle}
+    minimized={minimized}
+  >
+    Title
+  </Widget.Header>
   <Widget.Container>{children}</Widget.Container>
 </Widget.Panel>
 ```
 
-`x` and `y` are the panel origin in pixels. `onMove` receives the next origin from a pointer drag or an arrow-key nudge (8 pixels, 24 with Shift). `onDragStart` runs once the pointer passes the movement threshold. `onDragEnd` receives `moved`: false means the header was clicked. `placed` hides the panel until the stage has a size. `dragging` sets `data-dragging` on the panel and the header.
+`x` and `y` are the panel origin in pixels. `onMove` receives the next origin from a pointer drag or an arrow-key nudge (8 pixels, 24 with Shift). `onDragStart` runs once the pointer passes the movement threshold. `onDragEnd` receives `moved`: false means the header was clicked. `placed` hides the panel until the stage has a size. `dragging` sets `data-dragging` on the panel and the header. `minimized` collapses the panel to the header and hides resize.
 
-`Widget.Header` is the drag handle. `label` is its accessible name. Children are the title. Omit children for a grip bar. The title row and the grip bar show the same grip.
+`Widget.Header` is the drag handle. `label` is its accessible name. Children are the title. Omit children for a grip bar. The title row and the grip bar show the same grip. `onClose` and `onMinimize` place controls that do not start a drag. `minimized` swaps the minimize control to restore. Pass `closeLabel`, `minimizeLabel`, and `restoreLabel` for the spoken names.
 
 `Widget.Panel` stays at its layout size. Pass `width` and `height` to pin the border box in pixels. Pass `resizable` to resize from the right edge, the bottom edge, and the corner. `onResize` reports the border box, in pixels, after layout and during that resize. Its third argument is `"user"` while the user resizes and `"layout"` after layout. `minWidth` and `minHeight` default to 48. `resizeLabel` names the corner handle. Arrow keys on that handle resize; Shift uses the larger step.
 

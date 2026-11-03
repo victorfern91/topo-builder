@@ -6,6 +6,7 @@ import {
   Layout,
   Select,
   Table,
+  Tooltip,
   Widget,
   type TableFeatures,
 } from "@ui";
@@ -53,7 +54,7 @@ import { standsAlone } from "../state/point-marks.ts";
 import { setNumberText } from "../state/route-badge.ts";
 import { DEFAULT_NUMBER_TEXT } from "../state/route-number.ts";
 import { preferencesStore } from "../state/preferences.ts";
-import { useWidgetFrame } from "../state/use-viewport.ts";
+import { useWidgetChrome, useWidgetFrame } from "../state/use-viewport.ts";
 import { lineLayers } from "../styles/stage.ts";
 import { MarkGlyph } from "./mark-glyph.tsx";
 
@@ -153,15 +154,17 @@ const layerColumns = layerColumn.columns([
 
 export function LayersPanel() {
   const frame = useWidgetFrame("layers");
+  const chrome = useWidgetChrome("layers");
   const visible = useSelector(
     lineStore,
     (state) => state.layers.length > 0 || anchorCount(state) > 0,
   );
-  if (!visible) return null;
+  if (!chrome.open || !visible) return null;
 
   return (
     <Widget.Panel
       {...frame}
+      minimized={chrome.minimized}
       renderAs="section"
       resizable
       minWidth={400}
@@ -171,9 +174,23 @@ export function LayersPanel() {
       data-layers=""
       aria-label={t("layers")}
     >
-      <Widget.Header label={t("dragLayers")}>{t("layers")}</Widget.Header>
-      <LayerColors />
-      <LayerTable />
+      <Widget.Header
+        label={t("dragLayers")}
+        minimized={chrome.minimized}
+        onMinimize={chrome.onMinimize}
+        onClose={chrome.onClose}
+        closeLabel={t("closePanel")}
+        minimizeLabel={t("minimizePanel")}
+        restoreLabel={t("restorePanel")}
+      >
+        {t("layers")}
+      </Widget.Header>
+      {chrome.minimized ? null : (
+        <>
+          <LayerColors />
+          <LayerTable />
+        </>
+      )}
     </Widget.Panel>
   );
 }
@@ -355,18 +372,18 @@ function ColorSteps({
       {LINE_COLORS.map((value) => {
         const selected = layer.color === value;
         return (
-          <Button.Root
-            key={value}
-            sx={lineLayers.colorStep}
-            type="button"
-            disabled={layer.locked}
-            aria-label={t("lineColorValue", { color: value })}
-            aria-pressed={selected}
-            data-selected={selected ? "" : undefined}
-            title={value}
-            style={{ backgroundColor: value }}
-            onClick={() => setLineColor(layer.id, value)}
-          />
+          <Tooltip.Hint key={value} label={value}>
+            <Button.Root
+              sx={lineLayers.colorStep}
+              type="button"
+              disabled={layer.locked}
+              aria-label={t("lineColorValue", { color: value })}
+              aria-pressed={selected}
+              data-selected={selected ? "" : undefined}
+              style={{ backgroundColor: value }}
+              onClick={() => setLineColor(layer.id, value)}
+            />
+          </Tooltip.Hint>
         );
       })}
     </Layout.Stack>
@@ -503,53 +520,56 @@ function LayerOrder({
       shrink={false}
       onPointerDown={(event) => event.stopPropagation()}
     >
-      <Button.Root
-        type="button"
-        size="sm"
-        sx={lineLayers.action}
-        aria-label={upLabel}
-        title={upLabel}
-        disabled={index === 0}
-        onClick={() => {
-          selectLine(layer.id);
-          moveLine(layer.id, index - 1);
-        }}
-      >
-        <Button.Icon id="chevron-up" />
-      </Button.Root>
-      <Button.Root
-        type="button"
-        size="sm"
-        sx={lineLayers.orderHandle}
-        aria-label={reorderLabel}
-        title={reorderHint}
-        aria-keyshortcuts="ArrowUp ArrowDown"
-        onKeyDown={onReorderKeyDown}
-        onPointerDown={onReorderPointerDown}
-        onPointerMove={onReorderPointerMove}
-        onPointerUp={onReorderPointerUp}
-        onPointerCancel={() => finishDrag(false)}
-        onLostPointerCapture={() => {
-          if (!drag.current?.moved) return;
-          finishDrag(true);
-        }}
-      >
-        <Button.Text>{index + 1}</Button.Text>
-      </Button.Root>
-      <Button.Root
-        type="button"
-        size="sm"
-        sx={lineLayers.action}
-        aria-label={downLabel}
-        title={downLabel}
-        disabled={index >= count - 1}
-        onClick={() => {
-          selectLine(layer.id);
-          moveLine(layer.id, index + 1);
-        }}
-      >
-        <Button.Icon id="chevron-down" />
-      </Button.Root>
+      <Tooltip.Hint label={upLabel}>
+        <Button.Root
+          type="button"
+          size="sm"
+          sx={lineLayers.action}
+          aria-label={upLabel}
+          disabled={index === 0}
+          onClick={() => {
+            selectLine(layer.id);
+            moveLine(layer.id, index - 1);
+          }}
+        >
+          <Button.Icon id="chevron-up" />
+        </Button.Root>
+      </Tooltip.Hint>
+      <Tooltip.Hint label={reorderHint}>
+        <Button.Root
+          type="button"
+          size="sm"
+          sx={lineLayers.orderHandle}
+          aria-label={reorderLabel}
+          aria-keyshortcuts="ArrowUp ArrowDown"
+          onKeyDown={onReorderKeyDown}
+          onPointerDown={onReorderPointerDown}
+          onPointerMove={onReorderPointerMove}
+          onPointerUp={onReorderPointerUp}
+          onPointerCancel={() => finishDrag(false)}
+          onLostPointerCapture={() => {
+            if (!drag.current?.moved) return;
+            finishDrag(true);
+          }}
+        >
+          <Button.Text>{index + 1}</Button.Text>
+        </Button.Root>
+      </Tooltip.Hint>
+      <Tooltip.Hint label={downLabel}>
+        <Button.Root
+          type="button"
+          size="sm"
+          sx={lineLayers.action}
+          aria-label={downLabel}
+          disabled={index >= count - 1}
+          onClick={() => {
+            selectLine(layer.id);
+            moveLine(layer.id, index + 1);
+          }}
+        >
+          <Button.Icon id="chevron-down" />
+        </Button.Root>
+      </Tooltip.Hint>
     </Layout.Stack>
   );
 }
@@ -632,28 +652,30 @@ function AnchorActions({ point }: { point: MarkedPoint }) {
       shrink={false}
       onPointerDown={(event) => event.stopPropagation()}
     >
-      <Button.Root
-        type="button"
-        size="sm"
-        sx={lineLayers.action}
-        aria-pressed={point.locked}
-        aria-label={lockLabel}
-        title={lockLabel}
-        onClick={() => toggleMarkLock(point.id)}
-      >
-        <Button.Icon id={point.locked ? "unlock" : "lock"} />
-      </Button.Root>
-      <Button.Root
-        type="button"
-        size="sm"
-        sx={lineLayers.action}
-        aria-label={deleteLabel}
-        title={deleteLabel}
-        disabled={point.locked}
-        onClick={() => deleteMark(point.id)}
-      >
-        <Button.Icon id="trash" />
-      </Button.Root>
+      <Tooltip.Hint label={lockLabel}>
+        <Button.Root
+          type="button"
+          size="sm"
+          sx={lineLayers.action}
+          aria-pressed={point.locked}
+          aria-label={lockLabel}
+          onClick={() => toggleMarkLock(point.id)}
+        >
+          <Button.Icon id={point.locked ? "unlock" : "lock"} />
+        </Button.Root>
+      </Tooltip.Hint>
+      <Tooltip.Hint label={deleteLabel}>
+        <Button.Root
+          type="button"
+          size="sm"
+          sx={lineLayers.action}
+          aria-label={deleteLabel}
+          disabled={point.locked}
+          onClick={() => deleteMark(point.id)}
+        >
+          <Button.Icon id="trash" />
+        </Button.Root>
+      </Tooltip.Hint>
     </Layout.Stack>
   );
 }
@@ -704,37 +726,40 @@ function LayerActions({ layer }: { layer: LineLayer }) {
       shrink={false}
       onPointerDown={(event) => event.stopPropagation()}
     >
-      <Button.Root
-        type="button"
-        size="sm"
-        sx={lineLayers.action}
-        aria-pressed={layer.locked}
-        aria-label={lockLabel}
-        title={lockLabel}
-        onClick={() => toggleLineLock(layer.id)}
-      >
-        <Button.Icon id={layer.locked ? "unlock" : "lock"} />
-      </Button.Root>
-      <Button.Root
-        type="button"
-        size="sm"
-        sx={lineLayers.action}
-        aria-label={copyLabel}
-        title={copyLabel}
-        onClick={() => copyLine(layer.id)}
-      >
-        <Button.Icon id="copy" />
-      </Button.Root>
-      <Button.Root
-        type="button"
-        size="sm"
-        sx={lineLayers.action}
-        aria-label={deleteLabel}
-        title={deleteLabel}
-        onClick={() => deleteLine(layer.id)}
-      >
-        <Button.Icon id="trash" />
-      </Button.Root>
+      <Tooltip.Hint label={lockLabel}>
+        <Button.Root
+          type="button"
+          size="sm"
+          sx={lineLayers.action}
+          aria-pressed={layer.locked}
+          aria-label={lockLabel}
+          onClick={() => toggleLineLock(layer.id)}
+        >
+          <Button.Icon id={layer.locked ? "unlock" : "lock"} />
+        </Button.Root>
+      </Tooltip.Hint>
+      <Tooltip.Hint label={copyLabel}>
+        <Button.Root
+          type="button"
+          size="sm"
+          sx={lineLayers.action}
+          aria-label={copyLabel}
+          onClick={() => copyLine(layer.id)}
+        >
+          <Button.Icon id="copy" />
+        </Button.Root>
+      </Tooltip.Hint>
+      <Tooltip.Hint label={deleteLabel}>
+        <Button.Root
+          type="button"
+          size="sm"
+          sx={lineLayers.action}
+          aria-label={deleteLabel}
+          onClick={() => deleteLine(layer.id)}
+        >
+          <Button.Icon id="trash" />
+        </Button.Root>
+      </Tooltip.Hint>
     </Layout.Stack>
   );
 }

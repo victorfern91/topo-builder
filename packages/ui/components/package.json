@@ -19,6 +19,7 @@
     "./toast": "./src/toast/index.ts",
     "./toggle": "./src/toggle/index.ts",
     "./tokens": "./src/tokens.stylex.ts",
+    "./tooltip": "./src/tooltip/index.ts",
     "./widget": "./src/widget/index.ts"
   },
   "dependencies": {

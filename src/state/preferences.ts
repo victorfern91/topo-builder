@@ -10,7 +10,7 @@ const STORAGE_KEY = "topo.preferences";
 const WRITE_DELAY = 200;
 
 /** Bump when the stored shape changes. Snapshots that fail this schema reset to defaults. */
-export const PREFERENCES_SCHEMA_VERSION = 4;
+export const PREFERENCES_SCHEMA_VERSION = 5;
 
 const placementSchema = z.strictObject({
   x: z.number(),
@@ -19,6 +19,10 @@ const placementSchema = z.strictObject({
   /** Present after the user resizes the widget. Older snapshots omit both. */
   width: z.number().optional(),
   height: z.number().optional(),
+  /** False hides the widget until the View menu shows it again. */
+  open: z.boolean(),
+  /** True keeps the header and collapses the body. */
+  minimized: z.boolean(),
 });
 
 export const preferencesSchema = z.strictObject({
@@ -41,7 +45,25 @@ type LoadedPreferences = {
 };
 
 function dockedPlacement(): Placement {
-  return { x: 0, y: 0, custom: false };
+  return { x: 0, y: 0, custom: false, open: true, minimized: false };
+}
+
+function withChrome(value: unknown): Placement {
+  if (value == null || typeof value !== "object") return dockedPlacement();
+  const placement = value as Record<string, unknown>;
+  return {
+    x: typeof placement.x === "number" ? placement.x : 0,
+    y: typeof placement.y === "number" ? placement.y : 0,
+    custom: placement.custom === true,
+    ...(typeof placement.width === "number"
+      ? { width: placement.width }
+      : null),
+    ...(typeof placement.height === "number"
+      ? { height: placement.height }
+      : null),
+    open: placement.open !== false,
+    minimized: placement.minimized === true,
+  };
 }
 
 function defaultPreferences(): Preferences {
@@ -60,36 +82,34 @@ function defaultPreferences(): Preferences {
  * Version 1 stored tools and the navigator. Layers joined in version 2.
  * The grade system joined in version 3. A snapshot that omits it keeps the
  * other fields and stores French. The marks palette joined in version 4 and
- * starts docked.
+ * starts docked. Open and minimized joined in version 5; older snapshots stay
+ * open and expanded.
  * Width and height are optional on each placement; older snapshots omit them.
  */
 function migrate(json: unknown): unknown {
   if (json == null || typeof json !== "object") return json;
   const value = json as Record<string, unknown>;
+  if (value.schemaVersion === PREFERENCES_SCHEMA_VERSION) return json;
   if (value.schemaVersion === 1) {
     return {
       schemaVersion: PREFERENCES_SCHEMA_VERSION,
       locale: value.locale,
-      navigator: value.navigator,
-      tools: value.tools,
+      navigator: withChrome(value.navigator),
+      tools: withChrome(value.tools),
       layers: dockedPlacement(),
       marks: dockedPlacement(),
       gradeSystem: "french",
     };
   }
-  if (
-    value.schemaVersion === 2 ||
-    value.schemaVersion === 3 ||
-    value.gradeSystem == null
-  ) {
-    return {
-      ...value,
-      schemaVersion: PREFERENCES_SCHEMA_VERSION,
-      marks: value.marks ?? dockedPlacement(),
-      gradeSystem: value.gradeSystem === "yds" ? "yds" : "french",
-    };
-  }
-  return json;
+  return {
+    ...value,
+    schemaVersion: PREFERENCES_SCHEMA_VERSION,
+    navigator: withChrome(value.navigator),
+    tools: withChrome(value.tools),
+    layers: withChrome(value.layers ?? dockedPlacement()),
+    marks: withChrome(value.marks ?? dockedPlacement()),
+    gradeSystem: value.gradeSystem === "yds" ? "yds" : "french",
+  };
 }
 
 function readRaw(): string | null {
@@ -195,7 +215,9 @@ function savePlacement(key: WidgetPreferenceId, placement: Placement): void {
       current.y === placement.y &&
       current.custom === placement.custom &&
       current.width === placement.width &&
-      current.height === placement.height
+      current.height === placement.height &&
+      current.open === placement.open &&
+      current.minimized === placement.minimized
     ) {
       return state;
     }
@@ -208,6 +230,34 @@ export function saveWidgetPlacement(
   placement: Placement,
 ): void {
   savePlacement(id, placement);
+}
+
+export function setWidgetOpen(id: WidgetPreferenceId, open: boolean): void {
+  preferencesStore.setState((state) => {
+    const current = state[id];
+    if (current.open === open && (!open || !current.minimized)) return state;
+    return {
+      ...state,
+      [id]: {
+        ...current,
+        open,
+        minimized: open ? false : current.minimized,
+      },
+    };
+  });
+  flushPreferences();
+}
+
+export function setWidgetMinimized(
+  id: WidgetPreferenceId,
+  minimized: boolean,
+): void {
+  preferencesStore.setState((state) => {
+    const current = state[id];
+    if (!current.open || current.minimized === minimized) return state;
+    return { ...state, [id]: { ...current, minimized } };
+  });
+  flushPreferences();
 }
 
 export function setGradeSystem(system: Preferences["gradeSystem"]): void {

@@ -26,7 +26,8 @@ export type ButtonIconProps = {
   /**
    * Glyph name. Built-ins: `undo`, `redo`, `arrow-left`, `arrow-right`, `move`, `route`,
    * `boulder`, `edit`, `zoom-in`, `zoom-out`, `fit`, `lock`, `unlock`,
-   * `copy`, `trash`, `chevron-up`, `chevron-down`. Also written to `data-icon`.
+   * `copy`, `trash`, `chevron-up`, `chevron-down`, `close`, `minimize`, `restore`.
+   * Also written to `data-icon`.
    */
   id: string;
   /** Replaces the built-in glyph. */
