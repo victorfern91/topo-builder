@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { Button, Layout, Tokens, Tooltip, Widget } from "@ui";
 import { useSelector } from "@tanstack/react-store";
+import { shallow } from "@tanstack/store";
 import {
   useEffect,
   useRef,
@@ -16,7 +17,7 @@ import {
   endBadgeDrag,
   moveBadgeDrag,
 } from "../state/badge-drag.ts";
-import { gradeLabel, type GradeSystem } from "../state/grade.ts";
+import { gradeLabel, type GradeSystems } from "../state/grade.ts";
 import {
   findLayer,
   lineStore,
@@ -24,7 +25,7 @@ import {
   toggleAnchorMark,
 } from "../state/lines.ts";
 import { addRouteNumber, clearRouteNumbers } from "../state/route-badge.ts";
-import { preferencesStore } from "../state/preferences.ts";
+import { gradeSystems, preferencesStore } from "../state/preferences.ts";
 import {
   badgeLabel,
   badgeSpots,
@@ -278,9 +279,9 @@ const BADGE_HINT = {
 } as const satisfies Record<RouteBadge, MessageId>;
 
 /** Sample text on a palette badge, before it lands beside a route. */
-function sampleBadgeText(badge: RouteBadge, system: GradeSystem): string {
+function sampleBadgeText(badge: RouteBadge, systems: GradeSystems): string {
   if (badge === "number") return DEFAULT_NUMBER_TEXT;
-  return gradeLabel(SAMPLE_GRADE, system) ?? "";
+  return gradeLabel("route", SAMPLE_GRADE, systems) ?? "";
 }
 
 const SAMPLE_GRADE = 9;
@@ -294,7 +295,9 @@ function BadgeTile({
   stageRef: StageRef;
 }) {
   const { getState } = useViewport();
-  const system = useSelector(preferencesStore, (state) => state.gradeSystem);
+  const system = useSelector(preferencesStore, gradeSystems, {
+    compare: shallow,
+  });
   const pressed = useSelector(lineStore, (state) => {
     const layer = findLayer(state, state.activeId);
     return layer ? badgeSpots(layer, badge).length > 0 : false;
@@ -340,7 +343,9 @@ function BadgeTile({
 /** The badge under the pointer while it is dragged from the palette. */
 export function BadgeDragGhost() {
   const drag = useSelector(badgeDragStore, (state) => state);
-  const system = useSelector(preferencesStore, (state) => state.gradeSystem);
+  const system = useSelector(preferencesStore, gradeSystems, {
+    compare: shallow,
+  });
   const text = useSelector(lineStore, (state) => {
     if (!drag?.layerId) return null;
     const layer = findLayer(state, drag.layerId);

@@ -22,7 +22,7 @@ export type LineStroke = {
 export function lineStroke(layer: LineLayer): LineStroke {
   const scale = layer.scale;
   const width = STROKE * scale;
-  const graded = gradePaint(layer.grade);
+  const graded = gradePaint(layer.kind, layer.grade);
   return {
     dash:
       layer.kind === "boulder"

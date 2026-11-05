@@ -4,6 +4,7 @@ import {
   findLayer,
   HIT_PX,
   lineStore,
+  patch,
   publish,
   strokeDistance2,
   type LineState,
@@ -115,12 +116,18 @@ export function clearRouteNumbers(layerId: string, badge: RouteBadge): void {
   });
 }
 
+/**
+ * Replaces the layer through the draft, so the layers panel field re-renders.
+ * An in-place write only bumps the revision, which the canvas sees and the panel does not.
+ */
 export function setNumberText(id: string, text: string): void {
   edit(() => {
-    const layer = findLayer(lineStore.get(), id);
-    if (!layer || layer.locked || layer.numberText === text) return;
-    layer.numberText = text;
-    publish();
+    patch((draft) => {
+      const layer = draft.layers.find((item) => item.id === id);
+      if (!layer || layer.locked || layer.numberText === text) return;
+      layer.numberText = text;
+      draft.revision += 1;
+    });
   });
 }
 

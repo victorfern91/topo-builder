@@ -1,7 +1,7 @@
-import { gradeLabel, type GradeSystem } from "./grade.ts";
+import { gradeLabel, type GradeSystems } from "./grade.ts";
 import { curveSpan, frameAt, lineGeometry, projectSpan } from "./line-curve.ts";
 import type { LineHit, LineLayer, LineState } from "./lines.ts";
-import { preferencesStore } from "./preferences.ts";
+import { gradeSystems, preferencesStore } from "./preferences.ts";
 import { LINE_STROKE } from "./stroke.ts";
 
 export type RouteNumber = {
@@ -151,10 +151,10 @@ export function readRouteNumber(
   };
 }
 
-/** True when the layer has what the badge shows. Only graded routes take a grade. */
+/** True when the layer has what the badge shows. Only graded lines take a grade. */
 export function canHoldBadge(layer: LineLayer, badge: RouteBadge): boolean {
   if (layer.anchors.length < 2) return false;
-  return badge === "number" || (layer.kind === "route" && layer.grade !== null);
+  return badge === "number" || layer.grade !== null;
 }
 
 export function numberFromPointer(
@@ -220,14 +220,13 @@ export function routeNumberPlacement(
   };
 }
 
-/** The line's number text, or its grade. Null when the route has no grade. */
+/** The line's number text, or its grade. Null when the line has no grade. */
 export function badgeLabel(
   layer: LineLayer,
   badge: RouteBadge,
-  system: GradeSystem,
+  systems: GradeSystems,
 ): string | null {
-  if (badge === "grade")
-    return layer.kind === "route" ? gradeLabel(layer.grade, system) : null;
+  if (badge === "grade") return gradeLabel(layer.kind, layer.grade, systems);
   return layer.numberText.trim() || DEFAULT_NUMBER_TEXT;
 }
 
@@ -289,7 +288,7 @@ export function nearestNumber(
   zoom: number,
 ): { hit: LineHit; dist: number } | null {
   if (!(zoom > 0)) return null;
-  const system = preferencesStore.get().gradeSystem;
+  const system = gradeSystems(preferencesStore.get());
   let best: { hit: LineHit; dist: number } | null = null;
   for (
     let layerIndex = state.layers.length - 1;

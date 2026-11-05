@@ -23,11 +23,12 @@ import {
 import { t } from "../i18n/index.ts";
 import {
   GRADE_PAINT,
-  GRADE_STEPS,
+  gradeBand,
   gradeLabel,
+  gradeOptions,
   gradePaint,
   type GradeBand,
-  type GradeSystem,
+  type GradeSystems,
 } from "../state/grade.ts";
 import {
   LINE_COLORS,
@@ -53,7 +54,7 @@ import {
 import { standsAlone } from "../state/point-marks.ts";
 import { setNumberText } from "../state/route-badge.ts";
 import { DEFAULT_NUMBER_TEXT } from "../state/route-number.ts";
-import { preferencesStore } from "../state/preferences.ts";
+import { gradeSystems, preferencesStore } from "../state/preferences.ts";
 import { useWidgetChrome, useWidgetFrame } from "../state/use-viewport.ts";
 import { lineLayers } from "../styles/stage.ts";
 import { MarkGlyph } from "./mark-glyph.tsx";
@@ -272,7 +273,9 @@ function BoulderColors() {
     lineStore,
     (state) => {
       const active = state.layers.find((item) => item.id === state.activeId);
-      if (!active || active.kind !== "boulder") return null;
+      // A graded boulder takes its color from the grade, like a route.
+      if (!active || active.kind !== "boulder" || active.grade !== null)
+        return null;
       return { id: active.id, color: active.color, locked: active.locked };
     },
     { compare: shallow },
@@ -282,8 +285,10 @@ function BoulderColors() {
 }
 
 function LayerGrade({ layer }: { layer: LineLayer }) {
-  const system = useSelector(preferencesStore, (state) => state.gradeSystem);
-  if (layer.kind !== "route") return null;
+  const systems = useSelector(preferencesStore, gradeSystems, {
+    compare: shallow,
+  });
+  const options = gradeOptions(layer.kind, systems);
 
   return (
     <Select.Root
@@ -294,12 +299,16 @@ function LayerGrade({ layer }: { layer: LineLayer }) {
         setLineGrade(layer.id, grade);
       }}
     >
-      <Select.Trigger aria-label={t("routeGrade")} sx={lineLayers.gradeTrigger}>
+      <Select.Trigger
+        aria-label={t(layer.kind === "boulder" ? "boulderGrade" : "routeGrade")}
+        sx={lineLayers.gradeTrigger}
+      >
         <Select.Value placeholder={t("layerGrade")}>
           {(grade) => (
             <GradeValue
+              kind={layer.kind}
               grade={typeof grade === "number" ? grade : null}
-              system={system}
+              systems={systems}
             />
           )}
         </Select.Value>
@@ -309,15 +318,15 @@ function LayerGrade({ layer }: { layer: LineLayer }) {
         <Select.Positioner sideOffset={4}>
           <Select.Popup>
             <Select.List>
-              {GRADE_STEPS.map((step, index) => (
+              {options.map((option, index) => (
                 <Select.Item
-                  key={step.french}
+                  key={option.key}
                   value={index}
-                  label={step[system]}
+                  label={option.label}
                 >
                   <Select.ItemIndicator />
-                  <GradeSwatch band={step.band} />
-                  <Select.ItemText>{step[system]}</Select.ItemText>
+                  <GradeSwatch band={option.band} />
+                  <Select.ItemText>{option.label}</Select.ItemText>
                 </Select.Item>
               ))}
             </Select.List>
@@ -329,18 +338,20 @@ function LayerGrade({ layer }: { layer: LineLayer }) {
 }
 
 function GradeValue({
+  kind,
   grade,
-  system,
+  systems,
 }: {
+  kind: LineLayer["kind"];
   grade: number | null;
-  system: GradeSystem;
+  systems: GradeSystems;
 }) {
-  const label = gradeLabel(grade, system);
-  const step = grade == null ? null : GRADE_STEPS[grade];
-  if (!label || !step) return t("layerGrade");
+  const label = gradeLabel(kind, grade, systems);
+  const band = gradeBand(kind, grade);
+  if (!label || !band) return t("layerGrade");
   return (
     <>
-      <GradeSwatch band={step.band} />
+      <GradeSwatch band={band} />
       <span>{label}</span>
     </>
   );
@@ -589,7 +600,7 @@ function setDropRow(root: Element, index: number | null): void {
 }
 
 function LayerColor({ layer }: { layer: LineLayer }) {
-  const paint = gradePaint(layer.grade);
+  const paint = gradePaint(layer.kind, layer.grade);
   return (
     <Layout.Box
       renderAs="span"

@@ -1,7 +1,10 @@
 import { Tokens } from "@ui";
-import type { GradeSystem } from "../../../state/grade.ts";
+import type { GradeSystems } from "../../../state/grade.ts";
 import type { LineHit, LineLayer, LineState } from "../../../state/lines.ts";
-import { preferencesStore } from "../../../state/preferences.ts";
+import {
+  gradeSystems,
+  preferencesStore,
+} from "../../../state/preferences.ts";
 import { numberDragStore } from "../../../state/route-badge.ts";
 import {
   badgeFont,
@@ -33,7 +36,7 @@ export function paintLineNumbers(
 ): void {
   if (!(zoom > 0)) return;
   const dragged = numberDragStore.get();
-  const system = preferencesStore.get().gradeSystem;
+  const system = gradeSystems(preferencesStore.get());
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -117,7 +120,7 @@ function fillBadge(
 export function paintArtworkBadges(
   ctx: CanvasRenderingContext2D,
   doc: LineState,
-  system: GradeSystem,
+  system: GradeSystems,
   ink: number,
 ): void {
   ctx.textAlign = "center";
