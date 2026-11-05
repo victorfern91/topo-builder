@@ -97,7 +97,7 @@ export type LineLayer = {
   numberText: string;
   /** Null hides the grade badge. A value sits in the magnet band beside the route. */
   gradeBadge: RouteNumber | null;
-  /** Index into the grade scale. Null until a route grade is chosen. */
+  /** Index into the kind's grade scale (routes or boulders). Null until a grade is chosen. */
   grade: number | null;
 };
 
@@ -356,13 +356,14 @@ export function setLineColor(id: string, color: LineColor): void {
   });
 }
 
-/** Paints the route with that grade's fill and outline. Boulders ignore it. */
+/** Paints the line with that grade's fill and outline, on its kind's scale. */
 export function setLineGrade(id: string, grade: number): void {
   edit(() => {
-    const paint = gradePaint(grade);
     patch((draft) => {
       const layer = draft.layers.find((item) => item.id === id);
-      if (!layer || layer.locked || layer.kind !== "route" || !paint) return;
+      if (!layer || layer.locked) return;
+      const paint = gradePaint(layer.kind, grade);
+      if (!paint) return;
       if (layer.grade === grade && layer.color === paint.color) return;
       layer.grade = grade;
       layer.color = paint.color;

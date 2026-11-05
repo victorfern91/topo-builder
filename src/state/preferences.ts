@@ -1,5 +1,6 @@
 import { Store } from "@tanstack/store";
 import { z } from "zod";
+import { BOULDER_GRADE_SYSTEMS, GRADE_SYSTEMS, type GradeSystems } from "./grade.ts";
 import {
   appLocales,
   readNavigatorLanguages,
@@ -10,7 +11,7 @@ const STORAGE_KEY = "topo.preferences";
 const WRITE_DELAY = 200;
 
 /** Bump when the stored shape changes. Snapshots that fail this schema reset to defaults. */
-export const PREFERENCES_SCHEMA_VERSION = 5;
+export const PREFERENCES_SCHEMA_VERSION = 6;
 
 const placementSchema = z.strictObject({
   x: z.number(),
@@ -33,7 +34,9 @@ export const preferencesSchema = z.strictObject({
   layers: placementSchema,
   marks: placementSchema,
   /** Which grade names the route list shows. The step on the route stays put. */
-  gradeSystem: z.enum(["french", "yds"]),
+  gradeSystem: z.enum(GRADE_SYSTEMS),
+  /** Which grade names the boulder list shows. The step on the boulder stays put. */
+  boulderGradeSystem: z.enum(BOULDER_GRADE_SYSTEMS),
 });
 
 export type Preferences = z.infer<typeof preferencesSchema>;
@@ -75,6 +78,7 @@ function defaultPreferences(): Preferences {
     layers: dockedPlacement(),
     marks: dockedPlacement(),
     gradeSystem: "french",
+    boulderGradeSystem: "font",
   };
 }
 
@@ -83,7 +87,8 @@ function defaultPreferences(): Preferences {
  * The grade system joined in version 3. A snapshot that omits it keeps the
  * other fields and stores French. The marks palette joined in version 4 and
  * starts docked. Open and minimized joined in version 5; older snapshots stay
- * open and expanded.
+ * open and expanded. The boulder grade system joined in version 6; older
+ * snapshots keep the other fields and store Font.
  * Width and height are optional on each placement; older snapshots omit them.
  */
 function migrate(json: unknown): unknown {
@@ -99,6 +104,7 @@ function migrate(json: unknown): unknown {
       layers: dockedPlacement(),
       marks: dockedPlacement(),
       gradeSystem: "french",
+      boulderGradeSystem: "font",
     };
   }
   return {
@@ -109,6 +115,7 @@ function migrate(json: unknown): unknown {
     layers: withChrome(value.layers ?? dockedPlacement()),
     marks: withChrome(value.marks ?? dockedPlacement()),
     gradeSystem: value.gradeSystem === "yds" ? "yds" : "french",
+    boulderGradeSystem: value.boulderGradeSystem === "v" ? "v" : "font",
   };
 }
 
@@ -151,7 +158,8 @@ function loadPreferences(): LoadedPreferences {
   const stored = json as Record<string, unknown>;
   if (
     stored.schemaVersion !== parsed.data.schemaVersion ||
-    stored.gradeSystem !== parsed.data.gradeSystem
+    stored.gradeSystem !== parsed.data.gradeSystem ||
+    stored.boulderGradeSystem !== parsed.data.boulderGradeSystem
   ) {
     writePreferences(parsed.data);
   }
@@ -265,4 +273,20 @@ export function setGradeSystem(system: Preferences["gradeSystem"]): void {
     state.gradeSystem === system ? state : { ...state, gradeSystem: system },
   );
   flushPreferences();
+}
+
+export function setBoulderGradeSystem(
+  system: Preferences["boulderGradeSystem"],
+): void {
+  preferencesStore.setState((state) =>
+    state.boulderGradeSystem === system
+      ? state
+      : { ...state, boulderGradeSystem: system },
+  );
+  flushPreferences();
+}
+
+/** Route and boulder grade systems. Select with `{ compare: shallow }`. */
+export function gradeSystems(state: Preferences): GradeSystems {
+  return { route: state.gradeSystem, boulder: state.boulderGradeSystem };
 }

@@ -16,6 +16,7 @@ import {
   type PointMark,
 } from "./point-marks.ts";
 import { DEFAULT_NUMBER_TEXT, type RouteNumber } from "./route-number.ts";
+import { isGrade } from "./grade.ts";
 import { escapeXml } from "./svg.ts";
 import { CREATE_TOOLS, type CreateToolId } from "./tools.ts";
 
@@ -129,11 +130,12 @@ async function readTopoFile(
             pointId: null,
           };
     });
-    const grade = node.getAttribute("grade");
+    const kind = oneOf<CreateToolId>(node, "kind", CREATE_TOOLS);
+    const grade = readGrade(node, kind);
     return {
       id,
       name: node.getAttribute("name") ?? "",
-      kind: oneOf<CreateToolId>(node, "kind", CREATE_TOOLS),
+      kind,
       color: text(node, "color"),
       anchors,
       scale: clampDrawScale(number(node, "scale")),
@@ -142,7 +144,7 @@ async function readTopoFile(
       routeNumbers: readNumbers(node),
       numberText: node.getAttribute("number-text") ?? DEFAULT_NUMBER_TEXT,
       gradeBadge: readSpot(node, "grade"),
-      grade: grade === null ? null : integer(grade),
+      grade,
     };
   });
 
@@ -211,6 +213,15 @@ function number(node: Element, name: string): number {
   const value = Number(text(node, name));
   if (!Number.isFinite(value)) invalid();
   return value;
+}
+
+/** A step on the line's own scale. A step off that scale is refused. */
+function readGrade(node: Element, kind: CreateToolId): number | null {
+  const raw = node.getAttribute("grade");
+  if (raw === null) return null;
+  const grade = integer(raw);
+  if (!isGrade(kind, grade)) invalid();
+  return grade;
 }
 
 function integer(raw: string): number {

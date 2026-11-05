@@ -28,8 +28,8 @@ import {
   ROUTE_BADGES,
   routeNumberPlacement,
 } from "./route-number.ts";
-import { preferencesStore } from "./preferences.ts";
-import type { GradeSystem } from "./grade.ts";
+import { gradeSystems, preferencesStore } from "./preferences.ts";
+import type { GradeSystems } from "./grade.ts";
 import { escapeXml, svgIdFactory, svgNumber as n, svgPaint } from "./svg.ts";
 import { t } from "../i18n/index.ts";
 import { rgbaToTiffBlob } from "./tiff.ts";
@@ -84,7 +84,7 @@ export async function exportTopo(format: ExportFormat): Promise<void> {
   if (!target) return;
   const photo = await loadPhoto(image.objectUrl);
   const doc = lineStore.get();
-  const system = preferencesStore.get().gradeSystem;
+  const system = gradeSystems(preferencesStore.get());
   const blob =
     format === "svg" || format === "topo"
       ? await svgBlob(
@@ -112,7 +112,7 @@ export function exportName(fileName: string, format: ExportFormat): string {
 async function rasterBlob(
   photo: HTMLImageElement,
   doc: LineState,
-  system: GradeSystem,
+  system: GradeSystems,
   format: Exclude<ExportFormat, VectorFormat>,
 ): Promise<Blob> {
   const width = photo.naturalWidth;
@@ -156,7 +156,7 @@ async function svgBlob(
   objectUrl: string,
   fileName: string,
   doc: LineState,
-  system: GradeSystem,
+  system: GradeSystems,
   format: VectorFormat,
 ): Promise<Blob> {
   const width = photo.naturalWidth;

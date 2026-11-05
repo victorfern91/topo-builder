@@ -23,6 +23,7 @@ import {
 } from "../../state/mark-clipboard.ts";
 import {
   preferencesStore,
+  setBoulderGradeSystem,
   setGradeSystem,
   setWidgetOpen,
   type WidgetPreferenceId,
@@ -137,6 +138,11 @@ export const menuBindings = {
     preferencesStore,
     (state) => state.gradeSystem,
     setGradeSystem,
+  ),
+  boulderGradeSystem: binding(
+    preferencesStore,
+    (state) => state.boulderGradeSystem,
+    setBoulderGradeSystem,
   ),
 } satisfies Record<
   string,

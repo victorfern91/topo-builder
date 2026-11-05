@@ -209,6 +209,15 @@ export const topMenu: TopMenuConfig = {
             { value: "yds", label: "americanGrade" },
           ],
         },
+        {
+          type: "radio",
+          label: "boulderGradeSystem",
+          binding: "boulderGradeSystem",
+          options: [
+            { value: "font", label: "fontGrade" },
+            { value: "v", label: "vGrade" },
+          ],
+        },
       ],
     },
   ],

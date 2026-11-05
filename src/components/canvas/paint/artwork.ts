@@ -1,4 +1,4 @@
-import type { GradeSystem } from "../../../state/grade.ts";
+import type { GradeSystems } from "../../../state/grade.ts";
 import type { LineState } from "../../../state/lines.ts";
 import { paintArtworkBadges } from "./badges.ts";
 import { paintMarks } from "./marks.ts";
@@ -11,7 +11,7 @@ import { strokeLayer } from "./routes.ts";
 export function paintArtwork(
   ctx: CanvasRenderingContext2D,
   doc: LineState,
-  system: GradeSystem,
+  system: GradeSystems,
 ): void {
   const ink = exportInk(doc);
   ctx.save();
