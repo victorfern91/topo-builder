@@ -46,3 +46,9 @@ The workflows cannot turn Pages on by themselves. Once, in the repository on Git
 Until that source is the `gh-pages` branch, new commits and pull request previews are not what the site serves. The previous Actions deployment keeps serving the last build.
 
 If a job is refused because the token cannot write, set **Settings → Actions → General → Workflow permissions** to **Read and write permissions**, then rerun the workflow.
+
+## Commits
+
+`bun run commit` prompts for a [Conventional Commit](https://www.conventionalcommits.org/). A pull request title uses that same line. Set the repository squash merge commit to the pull request title, because that commit is what lands on `main`.
+
+`feat` publishes a minor version, `fix` and `perf` publish a patch, and `type!:` or a `BREAKING CHANGE` footer publishes a major. Any other type leaves the version. The release workflow tags that version, updates `package.json` and `CHANGELOG.md`, and opens a GitHub release. No version tag exists yet, so the first release that includes a `feat` commit is `1.0.0`.

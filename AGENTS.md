@@ -6,7 +6,7 @@ Ship Button defaults. Pass `variant`, `size`, `radius`, `rounded`, or `sx` only 
 
 Ship Layout defaults. `Layout.Box` keeps the element display. `Layout.Stack` is a column flex container and `Layout.Grid` is a grid container. Pass `renderAs`, `display`, `direction`, `wrap`, `gap`, `align`, `justify`, `grow`, `shrink`, `basis`, `p`, `px`, `py`, `m`, `mx`, `my`, `columns`, `rows`, or `sx` only for instance-specific layout. `p`/`m` set every side. `px`/`mx` set the inline axis and `py`/`my` set the block axis.
 
-`@base-ui/react` stays inside `packages/ui/components`. App code under `src/` does not import it.
+`@base-ui/react` stays inside `packages/ui/components`. App code under `src/` does not import it. The workspace package name is `@ui/components`. Imports stay `@ui`.
 
 A control that is not exported from `@ui` gets a wrapper in `packages/ui/components` first. Export it from that package, then use the export.
 
@@ -305,6 +305,14 @@ Render atomically. The component that paints a value subscribes to that slice wi
 Select one field. When one child paints several fields together, select them as one object with `{ compare: shallow }`. A handler that only needs the latest value reads `getState()` from `useViewport()` and stays unsubscribed.
 
 A parent subscribes to the slice that decides which children exist: a panel open flag, a list of row ids.
+
+# Commits
+
+The "Commits" section of `README.md` is the contract for commit messages and pull request titles. `bun run commit` prompts for that form. `commitlint.config.js` checks a commit, and `.github/workflows/pull-request.yml` checks the title. A squash merge on `main` versions from the title through `release.config.js`.
+
+# Pages
+
+The "GitHub Pages" section of `README.md` is the contract for `.github/workflows/pages.yml`, `.github/workflows/preview.yml`, and `.github/actions/build-site`. A change to those workflows, the `app` path filter, the shared `gh-pages` concurrency group, or `pr-preview/` keeps that section true. The Bun version named in `build-site` is the one those workflows install.
 
 # Format
 
