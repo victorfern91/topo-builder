@@ -1,0 +1,69 @@
+name: Preview pull request
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+# Shares a group with the production publish so a merge cannot publish
+# main while this workflow is still deleting the preview.
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        if: success() && github.event.action != 'closed'
+        uses: actions/checkout@v7
+
+      - name: Build site
+        if: success() && github.event.action != 'closed'
+        id: site
+        uses: ./.github/actions/build-site
+        with:
+          base-path: /topo-builder/pr-preview/pr-${{ github.event.number }}/
+
+      - name: Publish preview
+        if: success() && github.event.action != 'closed' && steps.site.outputs.built == 'true'
+        id: preview
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: dist
+          action: deploy
+          comment: false
+          qr-code: false
+
+      - name: Comment preview URL
+        if: success() && steps.preview.outputs.deployment-action == 'deploy'
+        uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          header: pr-preview
+          message: |
+            Preview: ${{ steps.preview.outputs.preview-url }}
+
+      - name: Remove preview
+        if: success() && github.event.action == 'closed'
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          action: remove
+          comment: false
+          qr-code: false
+
+      - name: Remove preview comment
+        if: success() && github.event.action == 'closed'
+        uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          header: pr-preview
+          delete: true
