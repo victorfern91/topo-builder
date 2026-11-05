@@ -1,0 +1,65 @@
+name: Preview pull request
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# Shares a group with the production publish so a merge cannot publish
+# main while this workflow is still deleting the preview.
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        if: success() && github.event.action != 'closed'
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        if: success() && github.event.action != 'closed'
+        uses: docker://oven/bun:1.4.0
+        with:
+          args: install --frozen-lockfile
+
+      - name: Build
+        if: success() && github.event.action != 'closed'
+        uses: docker://oven/bun:1.4.0
+        with:
+          args: run build
+        env:
+          VITE_BASE_PATH: /topo-builder/pr-preview/pr-${{ github.event.number }}/
+
+      - name: Publish or remove preview
+        id: preview
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: dist
+          comment: false
+          qr-code: false
+
+      - name: Comment preview URL
+        if: success() && steps.preview.outputs.deployment-action == 'deploy'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: pr-preview
+          message: |
+            Preview: ${{ steps.preview.outputs.preview-url }}
+
+      - name: Remove preview comment
+        if: success() && steps.preview.outputs.deployment-action == 'remove'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: pr-preview
+          delete: true

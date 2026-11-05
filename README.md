@@ -33,11 +33,16 @@ Use **File → Open…** or the **Open** button, or press Ctrl+O (Command+O on m
 
 ## GitHub Pages
 
-`.github/workflows/pages.yml` builds the app and deploys `dist/` when commits land on `main`. The site is published at `https://victorfern91.github.io/topo-builder/`.
+`.github/workflows/pages.yml` builds the app and publishes `dist/` to the `gh-pages` branch when commits land on `main`. The site is at `https://victorfern91.github.io/topo-builder/`.
 
-The workflow cannot turn Pages on by itself. Once, in the repository on GitHub:
+`.github/workflows/preview.yml` publishes an open pull request to `https://victorfern91.github.io/topo-builder/pr-preview/pr-<number>/` and comments that URL on the pull request. Merging or closing the pull request deletes the preview and the comment. A pull request opened from a fork does not get a preview.
+
+The workflows cannot turn Pages on by themselves. Once, in the repository on GitHub:
 
 1. Open **Settings → Pages**.
-2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+2. Under **Build and deployment**, set **Source** to **Deploy from a branch**.
+3. Set the branch to **gh-pages** and the folder to **/ (root)**. The `gh-pages` branch appears after the first successful run on `main`.
 
-If the deploy job is refused because the token cannot write, set **Settings → Actions → General → Workflow permissions** to **Read and write permissions**, then rerun the workflow.
+Until that source is the `gh-pages` branch, new commits and pull request previews are not what the site serves. The previous Actions deployment keeps serving the last build.
+
+If a job is refused because the token cannot write, set **Settings → Actions → General → Workflow permissions** to **Read and write permissions**, then rerun the workflow.
