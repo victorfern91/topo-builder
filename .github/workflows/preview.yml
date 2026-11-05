@@ -9,6 +9,7 @@ on:
       - closed
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -25,41 +26,44 @@ jobs:
     steps:
       - name: Checkout
         if: success() && github.event.action != 'closed'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Install dependencies
+      - name: Build site
         if: success() && github.event.action != 'closed'
-        uses: docker://oven/bun:1.4.0
+        id: site
+        uses: ./.github/actions/build-site
         with:
-          args: install --frozen-lockfile
+          base-path: /topo-builder/pr-preview/pr-${{ github.event.number }}/
 
-      - name: Build
-        if: success() && github.event.action != 'closed'
-        uses: docker://oven/bun:1.4.0
-        with:
-          args: run build
-        env:
-          VITE_BASE_PATH: /topo-builder/pr-preview/pr-${{ github.event.number }}/
-
-      - name: Publish or remove preview
+      - name: Publish preview
+        if: success() && github.event.action != 'closed' && steps.site.outputs.built == 'true'
         id: preview
         uses: rossjrw/pr-preview-action@v1
         with:
           source-dir: dist
+          action: deploy
           comment: false
           qr-code: false
 
       - name: Comment preview URL
         if: success() && steps.preview.outputs.deployment-action == 'deploy'
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: pr-preview
           message: |
             Preview: ${{ steps.preview.outputs.preview-url }}
 
+      - name: Remove preview
+        if: success() && github.event.action == 'closed'
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          action: remove
+          comment: false
+          qr-code: false
+
       - name: Remove preview comment
-        if: success() && steps.preview.outputs.deployment-action == 'remove'
-        uses: marocchino/sticky-pull-request-comment@v2
+        if: success() && github.event.action == 'closed'
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: pr-preview
           delete: true

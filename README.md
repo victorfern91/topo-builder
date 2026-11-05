@@ -33,9 +33,9 @@ Use **File → Open…** or the **Open** button, or press Ctrl+O (Command+O on m
 
 ## GitHub Pages
 
-`.github/workflows/pages.yml` builds the app and publishes `dist/` to the `gh-pages` branch when commits land on `main`. The site is at `https://victorfern91.github.io/topo-builder/`.
+`.github/workflows/pages.yml` builds the app and publishes `dist/` to the `gh-pages` branch when a commit on `main` changes the app. The site is at `https://victorfern91.github.io/topo-builder/`. A manual run builds even when the app is unchanged.
 
-`.github/workflows/preview.yml` publishes an open pull request to `https://victorfern91.github.io/topo-builder/pr-preview/pr-<number>/` and comments that URL on the pull request. Merging or closing the pull request deletes the preview and the comment. A pull request opened from a fork does not get a preview.
+`.github/workflows/preview.yml` publishes a pull request that changes the app to `https://victorfern91.github.io/topo-builder/pr-preview/pr-<number>/` and comments that URL on the pull request. A later commit that leaves the app alone keeps the existing preview. Merging or closing the pull request deletes the preview and the comment. A pull request opened from a fork does not get a preview.
 
 The workflows cannot turn Pages on by themselves. Once, in the repository on GitHub:
 

@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
 
 # Shares a group with the pull request preview workflow so the two
@@ -20,23 +21,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Install dependencies
-        uses: docker://oven/bun:1.4.0
+      - name: Build site
+        id: site
+        uses: ./.github/actions/build-site
         with:
-          args: install --frozen-lockfile
-
-      - name: Build
-        uses: docker://oven/bun:1.4.0
-        with:
-          args: run build
-        env:
-          # Project site for victorfern91/topo-builder. A user site or a
-          # renamed repository needs a different base path.
-          VITE_BASE_PATH: /topo-builder/
+          base-path: /topo-builder/
+          force: ${{ github.event_name == 'workflow_dispatch' }}
 
       - name: Deploy to GitHub Pages
+        if: success() && steps.site.outputs.built == 'true'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: dist
