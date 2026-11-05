@@ -52,3 +52,5 @@ If a job is refused because the token cannot write, set **Settings â†’ Actions â
 `bun run commit` prompts for a [Conventional Commit](https://www.conventionalcommits.org/). A pull request title uses that same line. Set the repository squash merge commit to the pull request title, because that commit is what lands on `main`.
 
 `feat` publishes a minor version, `fix` and `perf` publish a patch, and `type!:` or a `BREAKING CHANGE` footer publishes a major. Any other type leaves the version. The release workflow tags that version, updates `package.json` and `CHANGELOG.md`, and opens a GitHub release. No version tag exists yet, so the first release that includes a `feat` commit is `1.0.0`.
+
+`main` requires a pull request. The workflow pushes the version commit with the `semantic-release` deploy key, stored as the `RELEASE_DEPLOY_KEY` Actions secret. That key is allowed through the branch rules. The workflow token still opens the GitHub release.
