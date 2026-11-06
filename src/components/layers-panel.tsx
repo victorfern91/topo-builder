@@ -4,6 +4,7 @@ import {
   Button,
   Input,
   Layout,
+  Popover,
   Select,
   Table,
   Tooltip,
@@ -20,6 +21,16 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import {
+  deleteCallout,
+  selectCallout,
+  setExitColor,
+  setLabelColor,
+  setLabelText,
+  setNoteText,
+  toggleExitLock,
+  toggleLabelLock,
+} from "../state/callouts.ts";
 import { t } from "../i18n/index.ts";
 import {
   GRADE_PAINT,
@@ -47,6 +58,7 @@ import {
   setLineGrade,
   toggleLineLock,
   toggleMarkLock,
+  type LineColor,
   type LineLayer,
   type LineState,
   type MarkedPoint,
@@ -59,11 +71,59 @@ import { useWidgetChrome, useWidgetFrame } from "../state/use-viewport.ts";
 import { lineLayers } from "../styles/stage.ts";
 import { MarkGlyph } from "./mark-glyph.tsx";
 
-/** Anchors lead the list, then the lines in store order. */
-type LayerRow = LineLayer | MarkedPoint;
+type NoteRow = {
+  row: "note";
+  id: string;
+  layerId: string;
+  text: string;
+  color: string;
+  locked: boolean;
+};
+
+type LabelRow = {
+  row: "label";
+  id: string;
+  text: string;
+  color: string;
+  locked: boolean;
+};
+
+type ExitRow = {
+  row: "exit";
+  id: string;
+  color: string;
+  locked: boolean;
+};
+
+/** Anchors lead the list, then the lines, then notes, text, and exit arrows. */
+type LayerRow = LineLayer | MarkedPoint | NoteRow | LabelRow | ExitRow;
 
 function isAnchorRow(row: LayerRow): row is MarkedPoint {
   return "mark" in row;
+}
+
+function isLineRow(row: LayerRow): row is LineLayer {
+  return !("mark" in row) && !("row" in row);
+}
+
+function isNoteRow(row: LayerRow): row is NoteRow {
+  return "row" in row && row.row === "note";
+}
+
+function isLabelRow(row: LayerRow): row is LabelRow {
+  return "row" in row && row.row === "label";
+}
+
+function isExitRow(row: LayerRow): row is ExitRow {
+  return "row" in row && row.row === "exit";
+}
+
+function kindLabel(row: LayerRow): string {
+  if (isAnchorRow(row)) return t("anchorKind");
+  if (isNoteRow(row)) return t("observation");
+  if (isLabelRow(row)) return t("textLabel");
+  if (isExitRow(row)) return t("exitKind");
+  return t(row.kind === "route" ? "routeKind" : "boulderKind");
 }
 
 function anchorCount(state: LineState): number {
@@ -80,76 +140,49 @@ const layerColumns = layerColumn.columns([
     id: "order",
     header: () => t("layerOrder"),
     meta: { width: 80, align: "end" },
-    cell: ({ row, table }) =>
-      isAnchorRow(row.original) ? null : (
-        <LayerOrder
-          layer={row.original}
-          row={row.index}
-          rows={table.options.data.length}
-        />
-      ),
+    cell: ({ row }) =>
+      isLineRow(row.original) ? (
+        <LayerOrder layer={row.original} row={row.index} />
+      ) : null,
   }),
   layerColumn.display({
     id: "color",
     header: () => t("layerColor"),
-    meta: { width: 28, align: "center", headerHidden: true },
-    cell: ({ row }) =>
-      isAnchorRow(row.original) ? (
-        <AnchorGlyph point={row.original} />
-      ) : (
-        <LayerColor layer={row.original} />
-      ),
+    meta: { width: 36, align: "center", headerHidden: true },
+    cell: ({ row }) => <LayerSwatch row={row.original} />,
   }),
   layerColumn.display({
     id: "name",
     header: () => t("layerName"),
-    cell: ({ row }) =>
-      isAnchorRow(row.original) ? (
-        <AnchorName point={row.original} />
-      ) : (
-        <LayerName layer={row.original} />
-      ),
+    cell: ({ row }) => <LayerLabel row={row.original} />,
   }),
   layerColumn.display({
     id: "number",
     header: () => t("layerNumber"),
     meta: { width: 64 },
     cell: ({ row }) =>
-      isAnchorRow(row.original) ? null : <LayerNumber layer={row.original} />,
+      isLineRow(row.original) ? <LayerNumber layer={row.original} /> : null,
   }),
   layerColumn.display({
     id: "grade",
     header: () => t("layerGrade"),
     meta: { width: 108 },
     cell: ({ row }) =>
-      isAnchorRow(row.original) ? null : <LayerGrade layer={row.original} />,
+      isLineRow(row.original) ? <LayerGrade layer={row.original} /> : null,
   }),
   layerColumn.display({
     id: "kind",
     header: () => t("layerKind"),
-    meta: { width: 72, align: "end" },
+    meta: { width: 108, align: "end" },
     cell: ({ row }) => (
-      <span {...stylex.props(lineLayers.kind)}>
-        {t(
-          isAnchorRow(row.original)
-            ? "anchorKind"
-            : row.original.kind === "route"
-              ? "routeKind"
-              : "boulderKind",
-        )}
-      </span>
+      <span {...stylex.props(lineLayers.kind)}>{kindLabel(row.original)}</span>
     ),
   }),
   layerColumn.display({
     id: "actions",
     header: () => t("layerActions"),
     meta: { width: 88, align: "end", headerHidden: true },
-    cell: ({ row }) =>
-      isAnchorRow(row.original) ? (
-        <AnchorActions point={row.original} />
-      ) : (
-        <LayerActions layer={row.original} />
-      ),
+    cell: ({ row }) => <LayerRowActions row={row.original} />,
   }),
 ]);
 
@@ -158,7 +191,11 @@ export function LayersPanel() {
   const chrome = useWidgetChrome("layers");
   const visible = useSelector(
     lineStore,
-    (state) => state.layers.length > 0 || anchorCount(state) > 0,
+    (state) =>
+      state.layers.length > 0 ||
+      anchorCount(state) > 0 ||
+      state.labels.length > 0 ||
+      state.exits.length > 0,
   );
   if (!chrome.open || !visible) return null;
 
@@ -186,12 +223,7 @@ export function LayersPanel() {
       >
         {t("layers")}
       </Widget.Header>
-      {chrome.minimized ? null : (
-        <>
-          <LayerColors />
-          <LayerTable />
-        </>
-      )}
+      {chrome.minimized ? null : <LayerTable />}
     </Widget.Panel>
   );
 }
@@ -199,15 +231,48 @@ export function LayersPanel() {
 function LayerTable() {
   const anchors = useSelector(lineStore, anchorPoints, { compare: shallow });
   const layers = useSelector(lineStore, (state) => state.layers);
-  const rows = useMemo<LayerRow[]>(
-    () => [...anchors, ...layers],
-    [anchors, layers],
-  );
+  const labels = useSelector(lineStore, (state) => state.labels);
+  const exits = useSelector(lineStore, (state) => state.exits);
+  const rows = useMemo<LayerRow[]>(() => {
+    const notes: NoteRow[] = [];
+    for (const layer of layers) {
+      const color = gradePaint(layer.kind, layer.grade)?.color ?? layer.color;
+      for (const note of layer.notes) {
+        notes.push({
+          row: "note",
+          id: note.id,
+          layerId: layer.id,
+          text: note.text,
+          color,
+          locked: layer.locked,
+        });
+      }
+    }
+    return [
+      ...anchors,
+      ...layers,
+      ...notes,
+      ...labels.map((label): LabelRow => ({
+        row: "label",
+        id: label.id,
+        text: label.text,
+        color: label.color,
+        locked: label.locked,
+      })),
+      ...exits.map((exit): ExitRow => ({
+        row: "exit",
+        id: exit.id,
+        color: exit.color,
+        locked: exit.locked,
+      })),
+    ];
+  }, [anchors, layers, labels, exits]);
   const activeId = useSelector(lineStore, (state) => state.activeId);
+  const calloutId = useSelector(lineStore, (state) => state.calloutId);
   const pointId = useSelector(lineStore, selectedPointId);
   const scrollId = useSelector(
     lineStore,
-    (state) => state.markId ?? state.activeId,
+    (state) => state.calloutId ?? state.markId ?? state.activeId,
   );
   const focusId = useSelector(lineStore, (state) => {
     const active = state.layers.find((item) => item.id === state.activeId);
@@ -239,49 +304,24 @@ function LayerTable() {
       data={rows}
       columns={layerColumns}
       getRowId={layerRowId}
-      getRowProps={(row) =>
-        isAnchorRow(row)
-          ? {
-              selected: row.id === pointId,
-              locked: row.locked,
-              onPointerDown: () => selectMark(row.id),
-            }
-          : {
-              selected: row.id === activeId,
-              locked: row.locked,
-              onPointerDown: () => selectLine(row.id),
-            }
-      }
+      getRowProps={(row) => ({
+        selected: isAnchorRow(row)
+          ? row.id === pointId
+          : isLineRow(row)
+            ? row.id === activeId && calloutId === null
+            : row.id === calloutId,
+        locked: row.locked,
+        onPointerDown: () => {
+          if (isAnchorRow(row)) selectMark(row.id);
+          else if (isLineRow(row)) selectLine(row.id);
+          else selectCallout(row.id);
+        },
+      })}
       estimateSize={28}
       scrollToId={scrollId}
       aria-label={t("layers")}
     />
   );
-}
-
-function LayerColors() {
-  const kind = useSelector(lineStore, (state) => {
-    const active = state.layers.find((item) => item.id === state.activeId);
-    return active?.kind ?? null;
-  });
-  if (kind === "boulder") return <BoulderColors />;
-  return null;
-}
-
-function BoulderColors() {
-  const layer = useSelector(
-    lineStore,
-    (state) => {
-      const active = state.layers.find((item) => item.id === state.activeId);
-      // A graded boulder takes its color from the grade, like a route.
-      if (!active || active.kind !== "boulder" || active.grade !== null)
-        return null;
-      return { id: active.id, color: active.color, locked: active.locked };
-    },
-    { compare: shallow },
-  );
-  if (!layer) return null;
-  return <ColorSteps layer={layer} />;
 }
 
 function LayerGrade({ layer }: { layer: LineLayer }) {
@@ -363,9 +403,13 @@ function GradeSwatch({ band }: { band: GradeBand }) {
 }
 
 function ColorSteps({
-  layer,
+  color,
+  disabled,
+  onColor,
 }: {
-  layer: { id: string; color: string; locked: boolean };
+  color: string;
+  disabled: boolean;
+  onColor: (color: LineColor) => void;
 }) {
   return (
     <Layout.Stack
@@ -374,30 +418,57 @@ function ColorSteps({
       grow={false}
       shrink={false}
       gap="sm"
-      py="md"
-      px="lg"
       role="group"
       aria-label={t("lineColors")}
-      sx={lineLayers.colors}
     >
       {LINE_COLORS.map((value) => {
-        const selected = layer.color === value;
+        const selected = color === value;
         return (
           <Tooltip.Hint key={value} label={value}>
             <Button.Root
               sx={lineLayers.colorStep}
               type="button"
-              disabled={layer.locked}
+              disabled={disabled}
               aria-label={t("lineColorValue", { color: value })}
               aria-pressed={selected}
               data-selected={selected ? "" : undefined}
               style={{ backgroundColor: value }}
-              onClick={() => setLineColor(layer.id, value)}
+              onClick={() => onColor(value)}
             />
           </Tooltip.Hint>
         );
       })}
     </Layout.Stack>
+  );
+}
+
+function ColorPopover({
+  color,
+  disabled,
+  onColor,
+}: {
+  color: string;
+  disabled: boolean;
+  onColor: (color: LineColor) => void;
+}) {
+  return (
+    <Popover.Root>
+      <Tooltip.Hint label={t("layerColor")}>
+        <Popover.Trigger
+          disabled={disabled}
+          aria-label={t("layerColor")}
+          sx={lineLayers.swatchButton}
+          style={{ backgroundColor: color }}
+        />
+      </Tooltip.Hint>
+      <Popover.Portal>
+        <Popover.Positioner sideOffset={6} align="start">
+          <Popover.Popup sx={lineLayers.colorPopup}>
+            <ColorSteps color={color} disabled={disabled} onColor={onColor} />
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }
 
@@ -415,18 +486,10 @@ type OrderDrag = {
 };
 
 /** `row` and `rows` count table rows. Anchor rows above the lines are skipped. */
-function LayerOrder({
-  layer,
-  row,
-  rows,
-}: {
-  layer: LineLayer;
-  row: number;
-  rows: number;
-}) {
+function LayerOrder({ layer, row }: { layer: LineLayer; row: number }) {
   const lead = useSelector(lineStore, anchorCount);
+  const count = useSelector(lineStore, (state) => state.layers.length);
   const index = row - lead;
-  const count = rows - lead;
   const drag = useRef<OrderDrag | null>(null);
   const upLabel = t("moveLayerUp");
   const downLabel = t("moveLayerDown");
@@ -599,22 +662,157 @@ function setDropRow(root: Element, index: number | null): void {
   }
 }
 
-function LayerColor({ layer }: { layer: LineLayer }) {
-  const paint = gradePaint(layer.kind, layer.grade);
+function LayerSwatch({ row }: { row: LayerRow }) {
+  if (isAnchorRow(row)) return <AnchorGlyph point={row} />;
+  if (isNoteRow(row)) return <Swatch color={row.color} />;
+  if (isLabelRow(row)) {
+    return (
+      <ColorPopover
+        color={row.color}
+        disabled={row.locked}
+        onColor={(color) => setLabelColor(row.id, color)}
+      />
+    );
+  }
+  if (isExitRow(row)) {
+    return (
+      <ColorPopover
+        color={row.color}
+        disabled={row.locked}
+        onColor={(color) => setExitColor(row.id, color)}
+      />
+    );
+  }
+  const paint = gradePaint(row.kind, row.grade);
+  if (paint) {
+    return <Swatch color={paint.color} edge={paint.stroke} />;
+  }
+  return (
+    <ColorPopover
+      color={row.color}
+      disabled={row.locked}
+      onColor={(color) => setLineColor(row.id, color)}
+    />
+  );
+}
+
+function Swatch({ color, edge }: { color: string; edge?: string }) {
   return (
     <Layout.Box
       renderAs="span"
       display="inline-block"
       sx={lineLayers.swatch}
-      style={
-        paint
-          ? {
-              backgroundColor: paint.color,
-              boxShadow: `inset 0 0 0 1px ${paint.stroke}`,
-            }
-          : { backgroundColor: layer.color }
+      style={{
+        backgroundColor: color,
+        boxShadow: `inset 0 0 0 1px ${edge ?? "rgba(0, 0, 0, 0.45)"}`,
+      }}
+    />
+  );
+}
+
+function LayerLabel({ row }: { row: LayerRow }) {
+  if (isAnchorRow(row)) return <AnchorName point={row} />;
+  if (isNoteRow(row)) {
+    return (
+      <Input.Root
+        sx={lineLayers.name}
+        id={layerNameId(row.id)}
+        aria-label={t("observation")}
+        value={row.text}
+        disabled={row.locked}
+        spellCheck={false}
+        autoComplete="off"
+        onValueChange={(value) => setNoteText(row.id, value)}
+        onFocus={() => selectCallout(row.id)}
+      />
+    );
+  }
+  if (isLabelRow(row)) {
+    return (
+      <Input.Root
+        sx={lineLayers.name}
+        id={layerNameId(row.id)}
+        aria-label={t("textLabel")}
+        value={row.text}
+        disabled={row.locked}
+        spellCheck={false}
+        autoComplete="off"
+        onValueChange={(value) => setLabelText(row.id, value)}
+        onFocus={() => selectCallout(row.id)}
+      />
+    );
+  }
+  if (isExitRow(row)) {
+    return <span {...stylex.props(lineLayers.kind)}>{t("exitArrow")}</span>;
+  }
+  return <LayerName layer={row} />;
+}
+
+function LayerRowActions({ row }: { row: LayerRow }) {
+  if (isAnchorRow(row)) return <AnchorActions point={row} />;
+  if (isLineRow(row)) return <LayerActions layer={row} />;
+  if (isNoteRow(row)) {
+    return <CalloutActions id={row.id} locked={row.locked} onLock={null} />;
+  }
+  return (
+    <CalloutActions
+      id={row.id}
+      locked={row.locked}
+      onLock={() =>
+        isLabelRow(row) ? toggleLabelLock(row.id) : toggleExitLock(row.id)
       }
     />
+  );
+}
+
+function CalloutActions({
+  id,
+  locked,
+  onLock,
+}: {
+  id: string;
+  locked: boolean;
+  onLock: (() => void) | null;
+}) {
+  const deleteLabel = t("deleteLayer");
+  const lockLabel = t(locked ? "unlockLayer" : "lockLayer");
+  return (
+    <Layout.Stack
+      direction="row"
+      gap="xs"
+      justify="end"
+      align="center"
+      grow={false}
+      shrink={false}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      {onLock ? (
+        <Tooltip.Hint label={lockLabel}>
+          <Button.Root
+            type="button"
+            size="sm"
+            sx={lineLayers.action}
+            aria-pressed={locked}
+            aria-label={lockLabel}
+            onClick={onLock}
+          >
+            <Button.Icon id={locked ? "unlock" : "lock"} />
+          </Button.Root>
+        </Tooltip.Hint>
+      ) : null}
+      <Tooltip.Hint label={deleteLabel}>
+        <Button.Root
+          type="button"
+          size="sm"
+          sx={lineLayers.action}
+          aria-label={deleteLabel}
+          disabled={locked}
+          onClick={() => deleteCallout(id)}
+        >
+          <Button.Icon id="trash" />
+        </Button.Root>
+      </Tooltip.Hint>
+    </Layout.Stack>
   );
 }
 

@@ -119,6 +119,19 @@ const enUS = {
   routeKind: "Route",
   boulderKind: "Boulder",
   anchorKind: "Anchor",
+  annotations: "Notes",
+  observation: "Observation",
+  textLabel: "Text",
+  exitArrow: "Exit arrow",
+  exitKind: "Exit",
+  defaultObservation: "Note",
+  defaultText: "Text",
+  dropObservationHint:
+    "Drag beside a route, or click to add it to the selected line",
+  dropTextHint:
+    "Drag anywhere on the photo, or click to place it in the center",
+  dropExitHint:
+    "Drag anywhere on the photo, or click to place it in the center. Drag the tip to aim it",
   moveView: "Move",
   spaceKey: "Space",
   navigatorHelp:
@@ -255,6 +268,19 @@ const ptPT = {
   routeKind: "Via",
   boulderKind: "Bloco",
   anchorKind: "Reunião",
+  annotations: "Anotações",
+  observation: "Observação",
+  textLabel: "Texto",
+  exitArrow: "Seta de saída",
+  exitKind: "Saída",
+  defaultObservation: "Nota",
+  defaultText: "Texto",
+  dropObservationHint:
+    "Arraste para junto de uma via, ou clique para a adicionar à linha selecionada",
+  dropTextHint:
+    "Arraste para qualquer sítio da foto, ou clique para a colocar no centro",
+  dropExitHint:
+    "Arraste para qualquer sítio da foto, ou clique para a colocar no centro. Arraste a ponta para a apontar",
   moveView: "Mover",
   spaceKey: "Espaço",
   navigatorHelp:

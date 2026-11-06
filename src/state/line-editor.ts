@@ -5,6 +5,14 @@ import {
   MARK_KIND,
   markRadius,
 } from "./point-marks.ts";
+import {
+  moveExit,
+  moveLabel,
+  moveNote,
+  resizeTextWidth,
+  selectCallout,
+  textFrame,
+} from "./callouts.ts";
 import { moveRouteNumber, setNumberDrag } from "./route-badge.ts";
 import { badgeSpot, type RouteBadge } from "./route-number.ts";
 import type { CreateToolId } from "./tools.ts";
@@ -83,7 +91,55 @@ type ResizeGesture = {
   pad: number;
 };
 
-type Gesture = AnchorGesture | NumberGesture | MarkGesture | ResizeGesture;
+type NoteGesture = {
+  kind: "note";
+  layerId: string;
+  noteId: string;
+};
+
+type LabelGesture = {
+  kind: "label";
+  labelId: string;
+  originX: number;
+  originY: number;
+  startX: number;
+  startY: number;
+};
+
+/** Changes the wrap width from a side. The center and the letter size stay put. */
+type TextResizeGesture = {
+  kind: "textResize";
+  id: string;
+  kindName: "note" | "label";
+  centerX: number;
+  signX: number;
+  offsetX: number;
+  base: number;
+  pad: number;
+};
+
+type ExitGesture = {
+  kind: "exit";
+  exitId: string;
+  originX: number;
+  originY: number;
+  startX: number;
+  startY: number;
+  startTipX: number;
+  startTipY: number;
+  /** Which end follows the pointer. The body moves both. */
+  part: "body" | "tip" | "tail";
+};
+
+type Gesture =
+  | AnchorGesture
+  | NumberGesture
+  | MarkGesture
+  | ResizeGesture
+  | NoteGesture
+  | LabelGesture
+  | TextResizeGesture
+  | ExitGesture;
 
 let gesture: Gesture | null = null;
 
@@ -152,8 +208,51 @@ export function pointerMoveLine(x: number, y: number, zoom: number): void {
     moveRouteNumber(gesture.layerId, gesture.badge, gesture.index, x, y);
     return;
   }
+  if (gesture.kind === "note") {
+    moveNote(gesture.layerId, gesture.noteId, x, y);
+    return;
+  }
+  if (gesture.kind === "label") {
+    moveLabel(
+      gesture.labelId,
+      gesture.startX + (x - gesture.originX),
+      gesture.startY + (y - gesture.originY),
+    );
+    return;
+  }
+  if (gesture.kind === "exit") {
+    const dx = x - gesture.originX;
+    const dy = y - gesture.originY;
+    if (gesture.part === "tip") {
+      moveExit(gesture.exitId, {
+        x: gesture.startX,
+        y: gesture.startY,
+        tipX: x,
+        tipY: y,
+      });
+    } else if (gesture.part === "tail") {
+      moveExit(gesture.exitId, {
+        x,
+        y,
+        tipX: gesture.startTipX,
+        tipY: gesture.startTipY,
+      });
+    } else {
+      moveExit(gesture.exitId, {
+        x: gesture.startX + dx,
+        y: gesture.startY + dy,
+        tipX: gesture.startTipX + dx,
+        tipY: gesture.startTipY + dy,
+      });
+    }
+    return;
+  }
   if (gesture.kind === "resize") {
     resizeFromCorner(gesture, x, y);
+    return;
+  }
+  if (gesture.kind === "textResize") {
+    resizeTextFromEdge(gesture, x);
     return;
   }
   const nextX = gesture.startX + (x - gesture.originX);
@@ -250,9 +349,88 @@ function resizeFromCorner(current: ResizeGesture, x: number, y: number): void {
   );
 }
 
+function resizeTextFromEdge(current: TextResizeGesture, x: number): void {
+  if (!(current.base > 0)) return;
+  const span =
+    (x - current.offsetX - current.centerX) * current.signX - current.pad;
+  resizeTextWidth(current.id, (span * 2) / current.base, current.kindName);
+}
+
 function beginEdit(x: number, y: number, zoom: number): boolean {
   const state = lineStore.get();
   const hit = hitTest(state, x, y, zoom);
+  if (hit?.type === "labelEdge" || hit?.type === "noteEdge") {
+    const frame = textFrame(state, zoom);
+    if (!frame) return false;
+    const sign = hit.edge === "e" ? 1 : -1;
+    selectCallout(frame.id);
+    gesture = {
+      kind: "textResize",
+      id: frame.id,
+      kindName: frame.kind,
+      centerX: frame.x,
+      signX: sign,
+      offsetX: x - (frame.x + sign * frame.halfW),
+      base: frame.base,
+      pad: framePad(zoom),
+    };
+    setLineHover(hit);
+    return true;
+  }
+  if (hit?.type === "note") {
+    selectCallout(hit.noteId);
+    const layer = findLayer(lineStore.get(), hit.layerId);
+    if (!layer || layer.locked) return true;
+    gesture = { kind: "note", layerId: hit.layerId, noteId: hit.noteId };
+    setLineHover(hit);
+    return true;
+  }
+  if (hit?.type === "label") {
+    const label = lineStore
+      .get()
+      .labels.find((item) => item.id === hit.labelId);
+    if (!label) return false;
+    selectCallout(label.id);
+    if (label.locked) return true;
+    gesture = {
+      kind: "label",
+      labelId: label.id,
+      originX: x,
+      originY: y,
+      startX: label.x,
+      startY: label.y,
+    };
+    setLineHover(hit);
+    return true;
+  }
+  if (
+    hit?.type === "exit" ||
+    hit?.type === "exitTip" ||
+    hit?.type === "exitTail"
+  ) {
+    const exit = lineStore.get().exits.find((item) => item.id === hit.exitId);
+    if (!exit) return false;
+    selectCallout(exit.id);
+    if (exit.locked) return true;
+    gesture = {
+      kind: "exit",
+      exitId: exit.id,
+      originX: x,
+      originY: y,
+      startX: exit.x,
+      startY: exit.y,
+      startTipX: exit.tipX,
+      startTipY: exit.tipY,
+      part:
+        hit.type === "exitTip"
+          ? "tip"
+          : hit.type === "exitTail"
+            ? "tail"
+            : "body",
+    };
+    setLineHover(hit);
+    return true;
+  }
   if (hit?.type === "markCorner") {
     const frame = markFrame(state, zoom);
     const point = state.points.find((item) => item.id === hit.pointId);

@@ -8,7 +8,14 @@ import {
   BADGE_TEXT,
 } from "../components/canvas/paint/badges.ts";
 import { exportInk, paintArtwork } from "../components/canvas/paint/artwork.ts";
+import { arrowFigure } from "../components/canvas/paint/callouts.ts";
 import { lineStroke } from "../components/canvas/paint/routes.ts";
+import {
+  CALLOUT_LEADING,
+  calloutFont,
+  calloutFontSize,
+  calloutLayout,
+} from "./callouts.ts";
 import { lineStore, type LineState } from "./lines.ts";
 import {
   MARK_LABEL,
@@ -25,11 +32,13 @@ import {
   badgeSpots,
   loadBadgeFonts,
   numberBadge,
+  placementAt,
   ROUTE_BADGES,
   routeNumberPlacement,
 } from "./route-number.ts";
 import { gradeSystems, preferencesStore } from "./preferences.ts";
 import type { GradeSystems } from "./grade.ts";
+import { ARROW_STROKE } from "./stroke.ts";
 import { escapeXml, svgIdFactory, svgNumber as n, svgPaint } from "./svg.ts";
 import { t } from "../i18n/index.ts";
 import { rgbaToTiffBlob } from "./tiff.ts";
@@ -181,6 +190,9 @@ async function svgBlob(
     `</g>`,
   ];
 
+  const noteFont = calloutFont("note");
+  const labelFont = calloutFont("label");
+
   for (let index = 0; index < doc.layers.length; index += 1) {
     const layer = doc.layers[index];
     if (!layer || layer.anchors.length < 2) continue;
@@ -236,7 +248,41 @@ async function svgBlob(
         );
       }
     }
+
+    for (const note of layer.notes) {
+      const place = placementAt(layer, note.place);
+      const shown = note.text.trim();
+      if (!place || !shown || !(layer.scale > 0)) continue;
+      parts.push(
+        `<g id="${id(`${routeId}-${note.id}`, "note")}" inkscape:label="${escapeXml(t("observation"))}" transform="translate(${n(place.x)} ${n(place.y)}) scale(${n(layer.scale)})">`,
+        calloutSvgText(note.text, "note", noteFont, stroke.color, note.width),
+        `</g>`,
+      );
+    }
     parts.push(`</g>`);
+  }
+
+  for (const label of doc.labels) {
+    const shown = label.text.trim();
+    if (!shown || !(doc.scale > 0)) continue;
+    const name = label.text.trim() || t("textLabel");
+    parts.push(
+      `<g ${layerAttrs(id(name, "text"), name)} transform="translate(${n(label.x)} ${n(label.y)}) scale(${n(doc.scale)})">`,
+      calloutSvgText(label.text, "label", labelFont, label.color, label.width),
+      `</g>`,
+    );
+  }
+  for (const exit of doc.exits) {
+    const scale = doc.scale > 0 ? doc.scale : 1;
+    const figure = arrowFigure(exit, scale);
+    if (!figure) continue;
+    const width = ARROW_STROKE * scale;
+    parts.push(
+      `<g ${layerAttrs(id(t("exitArrow"), "exit"), t("exitArrow"))} fill="none" stroke-linecap="round" stroke-linejoin="round">`,
+      `<line x1="${n(figure.x1)}" y1="${n(figure.y1)}" x2="${n(figure.x2)}" y2="${n(figure.y2)}" ${svgPaint("stroke", exit.color)} stroke-width="${n(width)}"/>`,
+      `<polyline points="${n(figure.leftX)},${n(figure.leftY)} ${n(figure.tipX)},${n(figure.tipY)} ${n(figure.rightX)},${n(figure.rightY)}" ${svgPaint("stroke", exit.color)} stroke-width="${n(width)}"/>`,
+      `</g>`,
+    );
   }
 
   if (doc.points.length > 0 && doc.scale > 0) {
@@ -350,6 +396,24 @@ async function resolveSaveTarget(
     if (isAbortError(error)) return null;
     return "download";
   }
+}
+
+function calloutSvgText(
+  text: string,
+  kind: "note" | "label",
+  family: string,
+  fill: string,
+  width: number | null,
+): string {
+  const layout = calloutLayout(text, kind, width);
+  const size = calloutFontSize(kind);
+  const leading = size * CALLOUT_LEADING;
+  const start = -((layout.lines.length - 1) * leading) / 2;
+  const spans = layout.lines.map((line, index) => {
+    const y = start + index * leading;
+    return `<tspan x="0" y="${n(y)}">${escapeXml(line)}</tspan>`;
+  });
+  return `<text text-anchor="middle" dominant-baseline="middle" font-family="${escapeXml(family)}" font-size="${size}" font-weight="700" paint-order="stroke" stroke-linejoin="round" stroke-width="3" ${svgPaint("stroke", "#141414")} ${svgPaint("fill", fill)}>${spans.join("")}</text>`;
 }
 
 async function saveBlob(

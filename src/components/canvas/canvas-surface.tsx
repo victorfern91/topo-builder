@@ -1,5 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
+import { loadCalloutFonts } from "../../state/callouts.ts";
+import { calloutDragStore } from "../../state/callout-drag.ts";
 import { dropLineGeometry } from "../../state/line-curve.ts";
 import {
   lineHoverStore,
@@ -78,6 +80,7 @@ export function CanvasSurface({ children }: CanvasSurfaceProps) {
     const view = viewportStore.subscribe(schedule);
     const preferences = preferencesStore.subscribe(schedule);
     const art = markArtStore.subscribe(schedule);
+    const calloutDrag = calloutDragStore.subscribe(schedule);
     let dragKey = markDragKey();
     const markDrag = markDragStore.subscribe(() => {
       const next = markDragKey();
@@ -87,7 +90,7 @@ export function CanvasSurface({ children }: CanvasSurfaceProps) {
     });
     schedule();
     let live = true;
-    void loadBadgeFonts().then(() => {
+    void Promise.all([loadBadgeFonts(), loadCalloutFonts()]).then(() => {
       if (live) schedule();
     });
     return () => {
@@ -101,6 +104,7 @@ export function CanvasSurface({ children }: CanvasSurfaceProps) {
       view.unsubscribe();
       preferences.unsubscribe();
       art.unsubscribe();
+      calloutDrag.unsubscribe();
       if (frame !== 0) cancelAnimationFrame(frame);
     };
   }, []);
@@ -126,7 +130,11 @@ function paintSurface(
   const doc = lineStore.get();
   const visible =
     doc.points.length > 0 ||
-    doc.layers.some((layer) => layer.anchors.length > 0);
+    doc.labels.length > 0 ||
+    doc.exits.length > 0 ||
+    doc.layers.some(
+      (layer) => layer.anchors.length > 0 || layer.notes.length > 0,
+    );
   if (!visible && !paintedRef.current) return;
   if (view.viewWidth < 1 || view.viewHeight < 1) return;
 

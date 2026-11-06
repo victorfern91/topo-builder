@@ -1,6 +1,10 @@
 import { Store } from "@tanstack/store";
 import { z } from "zod";
-import { BOULDER_GRADE_SYSTEMS, GRADE_SYSTEMS, type GradeSystems } from "./grade.ts";
+import {
+  BOULDER_GRADE_SYSTEMS,
+  GRADE_SYSTEMS,
+  type GradeSystems,
+} from "./grade.ts";
 import {
   appLocales,
   readNavigatorLanguages,

@@ -33,6 +33,13 @@ import {
   type RouteBadge,
   type RouteNumber,
 } from "./route-number.ts";
+import {
+  adoptCalloutSequences,
+  calloutHandleAt,
+  nearestCallout,
+  nextNoteId,
+  textEdgeAt,
+} from "./callouts.ts";
 import { LINE_STROKE } from "./stroke.ts";
 import type { CreateToolId } from "./tools.ts";
 import { MAX_ZOOM, MIN_ZOOM } from "./viewport.ts";
@@ -99,6 +106,43 @@ export type LineLayer = {
   gradeBadge: RouteNumber | null;
   /** Index into the kind's grade scale (routes or boulders). Null until a grade is chosen. */
   grade: number | null;
+  /** Text kept beside this route. Each one moves along the magnet band. */
+  notes: RouteNote[];
+};
+
+/** Text glued to one route. `place` is the same band a number badge uses. */
+export type RouteNote = {
+  id: string;
+  text: string;
+  place: RouteNumber;
+  /** Wrap width at scale 1, in image pixels. Null hugs one line. */
+  width: number | null;
+};
+
+/** Text sitting anywhere on the photo. */
+export type TextLabel = {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  color: string;
+  locked: boolean;
+  /** Wrap width at scale 1, in image pixels. Null hugs one line. */
+  width: number | null;
+};
+
+/** Left or right edge of a text box. Dragging it changes the wrap width. */
+export type TextEdge = "w" | "e";
+
+/** Arrow from the tail `(x, y)` to the tip. The tip aims the exit. */
+export type ExitArrow = {
+  id: string;
+  x: number;
+  y: number;
+  tipX: number;
+  tipY: number;
+  color: string;
+  locked: boolean;
 };
 
 export type LineHit =
@@ -106,7 +150,14 @@ export type LineHit =
   | { type: "stroke"; layerId: string }
   | { type: "number"; layerId: string; badge: RouteBadge; index: number }
   | { type: "mark"; pointId: string }
-  | { type: "markCorner"; pointId: string; corner: MarkCorner };
+  | { type: "markCorner"; pointId: string; corner: MarkCorner }
+  | { type: "note"; layerId: string; noteId: string }
+  | { type: "noteEdge"; layerId: string; noteId: string; edge: TextEdge }
+  | { type: "label"; labelId: string }
+  | { type: "labelEdge"; labelId: string; edge: TextEdge }
+  | { type: "exit"; exitId: string }
+  | { type: "exitTip"; exitId: string }
+  | { type: "exitTail"; exitId: string };
 
 /** Where a mark lands. Image pixels. */
 export type MarkLanding =
@@ -126,6 +177,12 @@ export type LineState = {
   scale: number;
   /** Annotations routes can share. Anchors reference these by id; free marks stand alone. */
   points: MarkedPoint[];
+  /** Free text on the photo, not tied to a route. */
+  labels: TextLabel[];
+  /** Exit arrows. The tip is aimed on the photo. */
+  exits: ExitArrow[];
+  /** Selected note, text label, or exit arrow. */
+  calloutId: string | null;
   revision: number;
 };
 
@@ -161,6 +218,9 @@ export const lineStore = new Store<LineState>({
   markId: null,
   scale: DEFAULT_DRAW_SCALE,
   points: [],
+  labels: [],
+  exits: [],
+  calloutId: null,
   revision: 0,
 });
 
@@ -199,6 +259,7 @@ export function beginLine(kind: LineKind): string {
       draft.activeId = layer.id;
       draft.anchorIndex = null;
       draft.markId = null;
+      draft.calloutId = null;
       draft.revision += 1;
     });
     return layer.id;
@@ -219,12 +280,14 @@ export function finishLine(): void {
       if (
         draft.activeId === null &&
         draft.anchorIndex === null &&
-        draft.markId === null
+        draft.markId === null &&
+        draft.calloutId === null
       )
         return;
       draft.activeId = null;
       draft.anchorIndex = null;
       draft.markId = null;
+      draft.calloutId = null;
     });
     setLineHover(null);
   });
@@ -236,12 +299,14 @@ export function selectLine(id: string): void {
     if (
       draft.activeId === id &&
       draft.anchorIndex === null &&
-      draft.markId === null
+      draft.markId === null &&
+      draft.calloutId === null
     )
       return;
     draft.activeId = id;
     draft.anchorIndex = null;
     draft.markId = null;
+    draft.calloutId = null;
   });
 }
 
@@ -252,12 +317,14 @@ export function selectAnchor(layerId: string, index: number): void {
     if (
       draft.activeId === layerId &&
       draft.anchorIndex === index &&
-      draft.markId === null
+      draft.markId === null &&
+      draft.calloutId === null
     )
       return;
     draft.activeId = layerId;
     draft.anchorIndex = index;
     draft.markId = null;
+    draft.calloutId = null;
   });
 }
 
@@ -265,10 +332,16 @@ export function selectAnchor(layerId: string, index: number): void {
 export function selectMark(id: string): void {
   patch((draft) => {
     if (!draft.points.some((point) => point.id === id)) return;
-    if (draft.markId === id && draft.activeId === null) return;
+    if (
+      draft.markId === id &&
+      draft.activeId === null &&
+      draft.calloutId === null
+    )
+      return;
     draft.activeId = null;
     draft.anchorIndex = null;
     draft.markId = id;
+    draft.calloutId = null;
   });
 }
 
@@ -286,6 +359,7 @@ export function addFreeMark(
       draft.activeId = null;
       draft.anchorIndex = null;
       draft.markId = point.id;
+      draft.calloutId = null;
       draft.revision += 1;
     });
   });
@@ -436,6 +510,8 @@ function deleteLineNow(id: string): void {
         draft.activeId = next?.id ?? null;
         draft.anchorIndex = null;
       }
+      if (layer.notes.some((note) => note.id === draft.calloutId))
+        draft.calloutId = null;
       draft.revision += 1;
     });
     const hover = lineHoverStore.get();
@@ -481,12 +557,19 @@ function copyLineNow(id: string): string | null {
     numberText: source.numberText,
     gradeBadge: source.gradeBadge ? cloneSpot(source.gradeBadge) : null,
     grade: source.grade ?? null,
+    notes: source.notes.map((note) => ({
+      id: nextNoteId(),
+      text: note.text,
+      place: cloneSpot(note.place),
+      width: note.width,
+    })),
   };
   patch((draft) => {
     draft.layers.splice(index + 1, 0, copy);
     for (const point of clones.values()) draft.points.push(point);
     draft.activeId = copyId;
     draft.anchorIndex = null;
+    draft.calloutId = null;
     draft.revision += 1;
   });
   return copyId;
@@ -541,16 +624,22 @@ export function clearLines(): void {
       if (
         draft.layers.length === 0 &&
         draft.points.length === 0 &&
+        draft.labels.length === 0 &&
+        draft.exits.length === 0 &&
         draft.activeId === null &&
         draft.anchorIndex === null &&
-        draft.markId === null
+        draft.markId === null &&
+        draft.calloutId === null
       )
         return;
       draft.layers = [];
       draft.points = [];
+      draft.labels = [];
+      draft.exits = [];
       draft.activeId = null;
       draft.anchorIndex = null;
       draft.markId = null;
+      draft.calloutId = null;
       draft.revision += 1;
     });
     setLineHover(null);
@@ -559,7 +648,10 @@ export function clearLines(): void {
 
 /** Replaces the drawing with a saved one and starts a blank history. */
 export function loadDrawing(
-  drawing: Pick<LineCheckpoint, "layers" | "points" | "scale">,
+  drawing: Pick<
+    LineCheckpoint,
+    "layers" | "points" | "labels" | "exits" | "scale"
+  >,
 ): void {
   resetHistory();
   applyCheckpoint({ ...drawing, activeId: null, anchorIndex: null });
@@ -996,11 +1088,16 @@ export function hitTest(
   if (zoom <= 0) return null;
   const corner = markCornerAt(state, x, y, zoom);
   if (corner) return corner;
+  const textEdge = textEdgeAt(state, x, y, zoom);
+  if (textEdge) return textEdge;
+  const handle = calloutHandleAt(state, x, y, zoom);
+  if (handle) return handle;
   let best: { hit: LineHit; dist: number } | null = null;
   for (const near of [
     nearestNumber(state, x, y, zoom),
     nearestPoint(state, x, y, zoom),
     nearestFreeMark(state, x, y, zoom),
+    nearestCallout(state, x, y, zoom),
   ]) {
     if (near && (!best || near.dist < best.dist)) best = near;
   }
@@ -1084,6 +1181,7 @@ function createLayer(kind: LineKind, layers: readonly LineLayer[]): LineLayer {
     numberText: DEFAULT_NUMBER_TEXT,
     gradeBadge: null,
     grade: null,
+    notes: [],
   };
 }
 
@@ -1305,13 +1403,35 @@ function sameHit(a: LineHit | null, b: LineHit | null): boolean {
   if (a.type === "mark" && b.type === "mark") return a.pointId === b.pointId;
   if (a.type === "markCorner" && b.type === "markCorner")
     return a.pointId === b.pointId && a.corner === b.corner;
+  if (a.type === "note" && b.type === "note") return a.noteId === b.noteId;
+  if (a.type === "noteEdge" && b.type === "noteEdge")
+    return a.noteId === b.noteId && a.edge === b.edge;
+  if (a.type === "label" && b.type === "label") return a.labelId === b.labelId;
+  if (a.type === "labelEdge" && b.type === "labelEdge")
+    return a.labelId === b.labelId && a.edge === b.edge;
+  if (a.type === "exit" && b.type === "exit") return a.exitId === b.exitId;
+  if (a.type === "exitTip" && b.type === "exitTip")
+    return a.exitId === b.exitId;
+  if (a.type === "exitTail" && b.type === "exitTail")
+    return a.exitId === b.exitId;
   return true;
 }
 
-/** Line under the hit. Null for a free mark. */
+/** Line under the hit. Null for a free mark, a text label, or an exit arrow. */
 export function hitLayerId(hit: LineHit | null): string | null {
-  if (!hit || hit.type === "mark" || hit.type === "markCorner") return null;
-  return hit.layerId;
+  if (!hit) return null;
+  switch (hit.type) {
+    case "mark":
+    case "markCorner":
+    case "label":
+    case "labelEdge":
+    case "exit":
+    case "exitTip":
+    case "exitTail":
+      return null;
+    default:
+      return hit.layerId;
+  }
 }
 
 function takeCheckpoint(): LineCheckpoint {
@@ -1319,6 +1439,8 @@ function takeCheckpoint(): LineCheckpoint {
   return {
     layers: state.layers.map(cloneLayer),
     points: state.points.map(clonePoint),
+    labels: state.labels.map(cloneLabel),
+    exits: state.exits.map(cloneExit),
     scale: state.scale,
     activeId: state.activeId,
     anchorIndex: state.anchorIndex,
@@ -1331,14 +1453,19 @@ function applyCheckpoint(checkpoint: LineCheckpoint): void {
   clearRouteNumberCache();
   const layers = checkpoint.layers.map(cloneLayer);
   const points = checkpoint.points.map(clonePoint);
+  const labels = checkpoint.labels.map(cloneLabel);
+  const exits = checkpoint.exits.map(cloneExit);
   batch(() => {
     lineStore.setState((state) => ({
       layers,
       points,
+      labels,
+      exits,
       scale: checkpoint.scale,
       activeId: checkpoint.activeId,
       anchorIndex: checkpoint.anchorIndex,
       markId: null,
+      calloutId: null,
       revision: state.revision + 1,
     }));
     setLineHover(null);
@@ -1349,6 +1476,8 @@ function sameCheckpoint(checkpoint: LineCheckpoint): boolean {
   const state = lineStore.get();
   if (checkpoint.scale !== state.scale) return false;
   if (!samePoints(checkpoint.points, state.points)) return false;
+  if (!sameLabels(checkpoint.labels, state.labels)) return false;
+  if (!sameExits(checkpoint.exits, state.exits)) return false;
   if (checkpoint.layers.length !== state.layers.length) return false;
   for (let index = 0; index < checkpoint.layers.length; index += 1) {
     const saved = checkpoint.layers[index];
@@ -1372,6 +1501,40 @@ function cloneLayer(layer: LineLayer): LineLayer {
     numberText: layer.numberText,
     gradeBadge: layer.gradeBadge ? cloneSpot(layer.gradeBadge) : null,
     grade: layer.grade ?? null,
+    notes: layer.notes.map(cloneNote),
+  };
+}
+
+function cloneNote(note: RouteNote): RouteNote {
+  return {
+    id: note.id,
+    text: note.text,
+    place: cloneSpot(note.place),
+    width: note.width,
+  };
+}
+
+function cloneLabel(label: TextLabel): TextLabel {
+  return {
+    id: label.id,
+    text: label.text,
+    x: label.x,
+    y: label.y,
+    color: label.color,
+    locked: label.locked,
+    width: label.width,
+  };
+}
+
+function cloneExit(exit: ExitArrow): ExitArrow {
+  return {
+    id: exit.id,
+    x: exit.x,
+    y: exit.y,
+    tipX: exit.tipX,
+    tipY: exit.tipY,
+    color: exit.color,
+    locked: exit.locked,
   };
 }
 
@@ -1410,6 +1573,10 @@ function sameLayer(saved: LineLayer, live: LineLayer): boolean {
     ) ||
     saved.numberText !== live.numberText ||
     !sameRouteNumber(saved.gradeBadge, live.gradeBadge) ||
+    saved.notes.length !== live.notes.length ||
+    saved.notes.some(
+      (note, index) => !sameNote(note, live.notes[index] ?? null),
+    ) ||
     saved.anchors.length !== live.anchors.length
   ) {
     return false;
@@ -1455,6 +1622,66 @@ function samePoints(
   return true;
 }
 
+function sameNote(saved: RouteNote, live: RouteNote | null): boolean {
+  return (
+    live !== null &&
+    saved.id === live.id &&
+    saved.text === live.text &&
+    saved.width === live.width &&
+    sameRouteNumber(saved.place, live.place)
+  );
+}
+
+function sameLabels(
+  saved: readonly TextLabel[],
+  live: readonly TextLabel[],
+): boolean {
+  if (saved.length !== live.length) return false;
+  for (let index = 0; index < saved.length; index += 1) {
+    const left = saved[index];
+    const right = live[index];
+    if (
+      !left ||
+      !right ||
+      left.id !== right.id ||
+      left.text !== right.text ||
+      left.x !== right.x ||
+      left.y !== right.y ||
+      left.color !== right.color ||
+      left.locked !== right.locked ||
+      left.width !== right.width
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function sameExits(
+  saved: readonly ExitArrow[],
+  live: readonly ExitArrow[],
+): boolean {
+  if (saved.length !== live.length) return false;
+  for (let index = 0; index < saved.length; index += 1) {
+    const left = saved[index];
+    const right = live[index];
+    if (
+      !left ||
+      !right ||
+      left.id !== right.id ||
+      left.x !== right.x ||
+      left.y !== right.y ||
+      left.tipX !== right.tipX ||
+      left.tipY !== right.tipY ||
+      left.color !== right.color ||
+      left.locked !== right.locked
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function adoptSequences(checkpoint: LineCheckpoint): void {
   for (const layer of checkpoint.layers) {
     const lineId = trailingId(layer.id);
@@ -1469,6 +1696,7 @@ function adoptSequences(checkpoint: LineCheckpoint): void {
     const pointId = trailingId(point.id);
     if (pointId > pointSequence) pointSequence = pointId;
   }
+  adoptCalloutSequences(checkpoint);
 }
 
 function trailingId(id: string): number {

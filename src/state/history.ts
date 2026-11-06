@@ -1,11 +1,13 @@
 import { Store } from "@tanstack/store";
-import type { LineLayer, MarkedPoint } from "./lines.ts";
+import type { ExitArrow, LineLayer, MarkedPoint, TextLabel } from "./lines.ts";
 import { primaryModifier } from "./viewport.ts";
 
 /** Drawing document at one undo step. Selection is restored with it. */
 export type LineCheckpoint = {
   layers: LineLayer[];
   points: MarkedPoint[];
+  labels: TextLabel[];
+  exits: ExitArrow[];
   scale: number;
   activeId: string | null;
   anchorIndex: number | null;

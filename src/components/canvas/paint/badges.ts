@@ -1,10 +1,7 @@
 import { Tokens } from "@ui";
 import type { GradeSystems } from "../../../state/grade.ts";
 import type { LineHit, LineLayer, LineState } from "../../../state/lines.ts";
-import {
-  gradeSystems,
-  preferencesStore,
-} from "../../../state/preferences.ts";
+import { gradeSystems, preferencesStore } from "../../../state/preferences.ts";
 import { numberDragStore } from "../../../state/route-badge.ts";
 import {
   badgeFont,

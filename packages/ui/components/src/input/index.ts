@@ -1,10 +1,11 @@
-import { InputRoot } from "./input.tsx";
+import { InputArea, InputRoot } from "./input.tsx";
 
-/** Text field. */
+/** Text field. `Area` wraps onto the next line. */
 export const Input = {
   Root: InputRoot,
+  Area: InputArea,
 };
 
 export default Input;
 
-export type { InputRootProps } from "./types.ts";
+export type { InputAreaProps, InputRootProps } from "./types.ts";

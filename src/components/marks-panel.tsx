@@ -8,6 +8,14 @@ import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from "react";
+import { addExit, addLabel, addNote } from "../state/callouts.ts";
+import {
+  calloutDragStore,
+  dropCalloutDrag,
+  endCalloutDrag,
+  moveCalloutDrag,
+  type CalloutTool,
+} from "../state/callout-drag.ts";
 import { t } from "../i18n/index.ts";
 import type { MessageId } from "../i18n/messages.ts";
 import {
@@ -51,6 +59,8 @@ import {
   type MarkKind,
   type PointMark,
 } from "../state/point-marks.ts";
+import { viewToContent } from "../state/line-editor.ts";
+import { selectGroup } from "../state/tools.ts";
 import {
   useViewport,
   useViewportSelector,
@@ -70,6 +80,7 @@ export function MarksPanel({ stageRef }: { stageRef: StageRef }) {
   const chrome = useWidgetChrome("marks");
   useEffect(() => endMarkDrag, []);
   useEffect(() => endBadgeDrag, []);
+  useEffect(() => endCalloutDrag, []);
   if (!chrome.open) return null;
   return (
     <Widget.Panel
@@ -121,6 +132,16 @@ export function MarksPanel({ stageRef }: { stageRef: StageRef }) {
               </Layout.Stack>
             </Layout.Stack>
           ))}
+          <Layout.Stack gap="xxs" role="group" aria-label={t("annotations")}>
+            <Layout.Box renderAs="span" sx={styles.kind}>
+              {t("annotations")}
+            </Layout.Box>
+            <Layout.Stack direction="row" wrap gap="xs">
+              <CalloutTile kind="note" stageRef={stageRef} />
+              <CalloutTile kind="label" stageRef={stageRef} />
+              <CalloutTile kind="exit" stageRef={stageRef} />
+            </Layout.Stack>
+          </Layout.Stack>
         </Widget.Container>
       )}
     </Widget.Panel>
@@ -371,6 +392,114 @@ export function BadgeDragGhost() {
   );
 }
 
+const CALLOUT_LABEL = {
+  note: "observation",
+  label: "textLabel",
+  exit: "exitArrow",
+} as const satisfies Record<CalloutTool, MessageId>;
+
+const CALLOUT_HINT = {
+  note: "dropObservationHint",
+  label: "dropTextHint",
+  exit: "dropExitHint",
+} as const satisfies Record<CalloutTool, MessageId>;
+
+function CalloutTile({
+  kind,
+  stageRef,
+}: {
+  kind: CalloutTool;
+  stageRef: StageRef;
+}) {
+  const { getState } = useViewport();
+  const dragging = useSelector(calloutDragStore, (drag) => drag?.kind === kind);
+  const label = t(CALLOUT_LABEL[kind]);
+  const handlers = usePaletteDrag({
+    dragging,
+    move: (clientX, clientY) =>
+      moveCalloutDrag(kind, clientX, clientY, stageRef.current, getState()),
+    drop: dropCalloutDrag,
+    cancel: endCalloutDrag,
+    click: () => {
+      if (kind === "note") {
+        const state = lineStore.get();
+        const layer = findLayer(state, state.activeId);
+        const start = layer?.anchors[0];
+        if (!layer || !start || layer.anchors.length < 2) return;
+        addNote(layer.id, start.x, start.y);
+        selectGroup("edit");
+        return;
+      }
+      const node = stageRef.current;
+      if (!node) return;
+      const view = getState();
+      const rect = node.getBoundingClientRect();
+      const point = viewToContent(
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2,
+        rect,
+        view.panX,
+        view.panY,
+        view.zoom,
+      );
+      if (kind === "label") addLabel(point.x, point.y);
+      else addExit(point.x, point.y);
+      selectGroup("edit");
+    },
+  });
+
+  return (
+    <Tooltip.Hint label={`${label}. ${t(CALLOUT_HINT[kind])}`}>
+      <Button.Root
+        sx={styles.tile}
+        type="button"
+        aria-label={label}
+        {...handlers}
+      >
+        <CalloutGlyph kind={kind} />
+      </Button.Root>
+    </Tooltip.Hint>
+  );
+}
+
+function CalloutGlyph({ kind }: { kind: CalloutTool }) {
+  if (kind === "exit") {
+    return (
+      <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
+        <path
+          d="M5 17 L16 6 M16 6 H10 M16 6 V12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+  return (
+    <span {...stylex.props(styles.glyph)}>{kind === "note" ? "Obs" : "T"}</span>
+  );
+}
+
+/** The callout under the pointer while it is dragged from the palette. */
+export function CalloutDragGhost() {
+  const drag = useSelector(calloutDragStore, (state) => state);
+  if (!drag) return null;
+  return (
+    <div
+      {...stylex.props(styles.ghost)}
+      data-over={drag.over ? "" : undefined}
+      style={{
+        transform: `translate3d(${drag.x}px, ${drag.y}px, 0) translate(-50%, -50%)`,
+      }}
+      aria-hidden="true"
+    >
+      <CalloutGlyph kind={drag.kind} />
+    </div>
+  );
+}
+
 /** The mark under the pointer while it is dragged from the palette. */
 export function MarkDragGhost() {
   const drag = useSelector(markDragStore, (state) => state);
@@ -398,6 +527,12 @@ const styles = stylex.create({
   kind: {
     fontSize: 11,
     color: Tokens.color.neutral[400],
+  },
+  glyph: {
+    display: "block",
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1,
   },
   tile: {
     width: Tokens.size.lg,

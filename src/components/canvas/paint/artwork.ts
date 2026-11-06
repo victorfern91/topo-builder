@@ -1,6 +1,7 @@
 import type { GradeSystems } from "../../../state/grade.ts";
 import type { LineState } from "../../../state/lines.ts";
 import { paintArtworkBadges } from "./badges.ts";
+import { paintCallouts } from "./callouts.ts";
 import { paintMarks } from "./marks.ts";
 import { strokeLayer } from "./routes.ts";
 
@@ -21,6 +22,7 @@ export function paintArtwork(
   paintMarks(ctx, doc, null, null, 1 / ink, null, false);
   ctx.setLineDash([]);
   paintArtworkBadges(ctx, doc, system, ink);
+  paintCallouts(ctx, doc, null, 1, false);
   paintMarks(ctx, doc, null, null, 1 / ink, null, true);
   ctx.restore();
 }

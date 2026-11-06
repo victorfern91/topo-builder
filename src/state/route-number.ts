@@ -142,12 +142,23 @@ export function readRouteNumber(
 ): RouteNumber | null {
   const spot = badgeSpot(layer, badge, index);
   if (layer.anchors.length < 2 || !spot) return null;
-  const t = clamp01(spot.t);
-  const along = Number.isFinite(spot.along) ? spot.along : 0;
+  return placedSpot(spot);
+}
+
+/** Image position of a spot beside the route. Notes use the same placement as badges. */
+export function placementAt(
+  layer: LineLayer,
+  spot: RouteNumber | null,
+): NumberPlacement | null {
+  if (!spot || layer.anchors.length < 2) return null;
+  const placed = placedSpot(spot);
+  const frame = frameAt(spanFor(layer), placed.t);
+  if (!frame) return null;
   return {
-    t,
-    side: Number.isFinite(spot.side) ? spot.side : numberMagnet().clear,
-    along: t <= 0 ? Math.min(0, along) : t >= 1 ? Math.max(0, along) : 0,
+    x: frame.x + frame.nx * placed.side + frame.tx * placed.along,
+    y: frame.y + frame.ny * placed.side + frame.ty * placed.along,
+    onX: frame.x,
+    onY: frame.y,
   };
 }
 
@@ -208,15 +219,17 @@ export function routeNumberPlacement(
   badge: RouteBadge,
   index: number,
 ): NumberPlacement | null {
-  const placed = readRouteNumber(layer, badge, index);
-  if (!placed) return null;
-  const frame = frameAt(spanFor(layer), placed.t);
-  if (!frame) return null;
+  return placementAt(layer, badgeSpot(layer, badge, index));
+}
+
+/** Keeps a spot in the magnet band, including past either end of the route. */
+function placedSpot(spot: RouteNumber): RouteNumber {
+  const t = clamp01(spot.t);
+  const along = Number.isFinite(spot.along) ? spot.along : 0;
   return {
-    x: frame.x + frame.nx * placed.side + frame.tx * placed.along,
-    y: frame.y + frame.ny * placed.side + frame.ty * placed.along,
-    onX: frame.x,
-    onY: frame.y,
+    t,
+    side: Number.isFinite(spot.side) ? spot.side : numberMagnet().clear,
+    along: t <= 0 ? Math.min(0, along) : t >= 1 ? Math.max(0, along) : 0,
   };
 }
 
