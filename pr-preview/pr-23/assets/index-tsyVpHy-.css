@@ -1,0 +1,1938 @@
+@layer base{:root{--lightningcss-light: ;--lightningcss-dark:initial;color-scheme:dark;color:#f2f2f2;background:#1e1e1e;font-family:Segoe UI,Helvetica Neue,system-ui,sans-serif;font-size:14px;line-height:1.45}*,:before,:after{box-sizing:border-box}html,body,#root{height:100%;margin:0}button,input{font:inherit}}
+
+@layer base, priority1;
+
+@layer priority2 {
+  .x10a8y8t {
+    inset: 0;
+  }
+
+  .xkdpibf {
+    margin: -1px;
+  }
+
+  .x18l6ah2, .x1ghz6dp {
+    margin: 0;
+  }
+
+  .x1l3e7tw {
+    margin: 10px;
+  }
+
+  .xb9ncqk {
+    margin: var(--x-margin);
+  }
+
+  .x1717udv, .x90mq5l {
+    padding: 0;
+  }
+
+  .x1ngvblu {
+    padding: 12px;
+  }
+
+  .xu9d4eg {
+    padding: 24px;
+  }
+
+  .x9ms5i6 {
+    padding: 3px;
+  }
+
+  .x1ghdhy9 {
+    padding: 4px;
+  }
+
+  .xzv379g {
+    padding: 6px;
+  }
+
+  .x1fozly0 {
+    padding: var(--x-padding);
+  }
+}
+
+@layer priority3 {
+  .xhfucd3 {
+    background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+  }
+
+  .x1wlk0ns {
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  }
+
+  .x1xsqp64 {
+    background-position: center;
+  }
+
+  .x18ovid6 {
+    border-color: #111;
+  }
+
+  .x4pgkg4 {
+    border-color: #1473e6;
+  }
+
+  .x1jdfqgq {
+    border-color: #ffffff1f;
+  }
+
+  .x9r1u3d {
+    border-color: #0000;
+  }
+
+  .x1eitplf {
+    border-radius: 16px;
+  }
+
+  .x1cum3z5 {
+    border-radius: 2px;
+  }
+
+  .x12oqio5 {
+    border-radius: 4px;
+  }
+
+  .x1kogg8i {
+    border-radius: 6px;
+  }
+
+  .xur7f20 {
+    border-radius: 8px;
+  }
+
+  .x1e6avla {
+    border-radius: 999px;
+  }
+
+  .x7yrpt8 {
+    border-radius: var(--x-borderRadius);
+  }
+
+  .x1y0btm7 {
+    border-style: solid;
+  }
+
+  .xc342km {
+    border-width: 0;
+  }
+
+  .xmkeg23 {
+    border-width: 1px;
+  }
+
+  .xdh2fpr {
+    border-width: 2px;
+  }
+
+  .x1bb5a73 {
+    gap: 12px;
+  }
+
+  .x1y4qvu7 {
+    gap: 2px;
+  }
+
+  .xouqrdy {
+    gap: 24px;
+  }
+
+  .xt9gs2o {
+    gap: 4px;
+  }
+
+  .xakvoiy {
+    gap: 6px;
+  }
+
+  .x12mu663 {
+    gap: 8px;
+  }
+
+  .x1pidvrl {
+    gap: var(--x-gap);
+  }
+
+  .xpwgn17 {
+    margin-block: 4px;
+  }
+
+  .x1oqu0vw {
+    margin-block: var(--x-marginBlock);
+  }
+
+  .xwl67vi {
+    margin-inline: 0;
+  }
+
+  .xvlecxo {
+    margin-inline: var(--x-marginInline);
+  }
+
+  .xysyzu8 {
+    overflow: auto;
+  }
+
+  .xb3r6kr {
+    overflow: hidden;
+  }
+
+  .xish69e {
+    overscroll-behavior: contain;
+  }
+
+  .x8du1vd {
+    overscroll-behavior: none;
+  }
+
+  .xn4soie {
+    padding-block: 0;
+  }
+
+  .x1e9difb {
+    padding-block: 28px;
+  }
+
+  .xxtzvbg {
+    padding-block: 36px;
+  }
+
+  .x13jna8k {
+    padding-block: 4px;
+  }
+
+  .xlzjs4t {
+    padding-block: 6px;
+  }
+
+  .x1giekp1 {
+    padding-block: var(--x-paddingBlock);
+  }
+
+  .x90ajmy {
+    padding-inline: 0;
+  }
+
+  .xzs4msw {
+    padding-inline: 10px;
+  }
+
+  .x17nbty6 {
+    padding-inline: 14px;
+  }
+
+  .x17qtykl {
+    padding-inline: 20px;
+  }
+
+  .xj7an9n {
+    padding-inline: 32px;
+  }
+
+  .x3y1lgt {
+    padding-inline: 3px;
+  }
+
+  .xyetp8u {
+    padding-inline: 4px;
+  }
+
+  .xgxhb9v {
+    padding-inline: 6px;
+  }
+
+  .x1rmezwb {
+    padding-inline: 8px;
+  }
+
+  .x30g6up {
+    padding-inline: var(--x-paddingInline);
+  }
+
+  .x1qdv6h3 {
+    place-items: var(--x-placeItems);
+  }
+
+  .x1mcipaw:focus-visible {
+    border-color: #7fb6ff;
+  }
+}
+
+@layer priority4 {
+  .xrttalv {
+    align-content: var(--x-alignContent);
+  }
+
+  .x6s0dn4 {
+    align-items: center;
+  }
+
+  .xo0oibl {
+    align-items: var(--x-alignItems);
+  }
+
+  .x7fd4wk {
+    align-self: end;
+  }
+
+  .x1m9vv7p {
+    animation-duration: 1.2s;
+  }
+
+  .xa4qsjk {
+    animation-iteration-count: infinite;
+  }
+
+  .xbn1fzm {
+    animation-name: x1i4k03n-B;
+  }
+
+  .x4hg4is {
+    animation-timing-function: ease-in-out;
+  }
+
+  .xjyslct {
+    appearance: none;
+  }
+
+  .xpivpjv {
+    backdrop-filter: blur(4px);
+  }
+
+  .xuys6mu {
+    background-color: #111;
+  }
+
+  .x16jagip {
+    background-color: #141414;
+  }
+
+  .x8ux1gc {
+    background-color: #1473e6;
+  }
+
+  .x1ktai6f {
+    background-color: #1a1a1a;
+  }
+
+  .x12zj9rw {
+    background-color: #1e1e1e;
+  }
+
+  .xnx2t7c {
+    background-color: #2a2a2a;
+  }
+
+  .xe804w1 {
+    background-color: #323232;
+  }
+
+  .xd0laiy {
+    background-color: #b45309;
+  }
+
+  .xqj6i36 {
+    background-color: #bdbdbd;
+  }
+
+  .xme3yl4 {
+    background-color: #e4e4e4;
+  }
+
+  .xizb23s {
+    background-color: #fff;
+  }
+
+  .xtwfq29 {
+    background-color: currentColor;
+  }
+
+  .x6sauri {
+    background-color: #0006;
+  }
+
+  .x4oghh5 {
+    background-color: #0000008c;
+  }
+
+  .x1x9cxef {
+    background-color: #1473e638;
+  }
+
+  .xwqckbj {
+    background-color: #ffffff0d;
+  }
+
+  .x1e0n0vx {
+    background-color: #ffffff0f;
+  }
+
+  .x14it9x9 {
+    background-color: #ffffff1f;
+  }
+
+  .xjbqb8w {
+    background-color: #0000;
+  }
+
+  .x18eal4f {
+    background-image: linear-gradient(#fff, #fff);
+  }
+
+  .xmmbhaa {
+    background-image: linear-gradient(45deg, #e4e4e4 25%, #0000 25%), linear-gradient(-45deg, #e4e4e4 25%, #0000 25%), linear-gradient(45deg, #0000 75%, #e4e4e4 75%), linear-gradient(-45deg, #0000 75%, #e4e4e4 75%);
+  }
+
+  .x1b3hgp6 {
+    background-image: linear-gradient(90deg, #e6e6e6 0%, #f5f5f5 50%, #e6e6e6 100%);
+  }
+
+  .xen9te5 {
+    background-image: radial-gradient(currentColor 1px, #0000 1.4px);
+  }
+
+  .x1la2ge0 {
+    background-image: radial-gradient(#ffffff0d 1px, #0000 1px);
+  }
+
+  .xiy17q3 {
+    background-repeat: no-repeat;
+  }
+
+  .x41u7mt {
+    background-size: 10px 8px;
+  }
+
+  .x1ht9rhz {
+    background-size: 16px 16px;
+  }
+
+  .xakli9p {
+    background-size: 200% 100%;
+  }
+
+  .x5szi4u {
+    background-size: 22px 22px;
+  }
+
+  .xtzv0rk {
+    background-size: 4px 4px;
+  }
+
+  .xu00q2a {
+    background-size: 8px 8px;
+  }
+
+  .x1mwwwfo {
+    border-collapse: collapse;
+  }
+
+  .x1y8bjty {
+    box-shadow: 0 0 0 1px #0b0b0b;
+  }
+
+  .x1plrja3 {
+    box-shadow: 0 0 0 1px #1473e6, 0 0 0 2px #000000b3;
+  }
+
+  .xzsgy0x {
+    box-shadow: 0 0 0 1px #00000059;
+  }
+
+  .xio9ft0 {
+    box-shadow: 0 0 0 1px #00000073, 0 16px 40px #00000059;
+  }
+
+  .xpfln99 {
+    box-shadow: 0 12px 28px #0006;
+  }
+
+  .xkyitod {
+    box-shadow: 0 12px 28px #00000073;
+  }
+
+  .xb2jsdg {
+    box-shadow: 0 1px 2px #00000073;
+  }
+
+  .x1pub7d2 {
+    box-shadow: 0 8px 24px #00000073;
+  }
+
+  .x1le06q7 {
+    box-shadow: inset 0 0 0 1px #00000073;
+  }
+
+  .xtazemp {
+    box-shadow: inset 0 0 0 1px #ffffff14;
+  }
+
+  .x9f619 {
+    box-sizing: border-box;
+  }
+
+  .x1hyvwdk {
+    clip-path: inset(50%);
+  }
+
+  .xinh0ix {
+    clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  }
+
+  .x1r1p1vv {
+    color: #2c2c2c;
+  }
+
+  .x1p1xqnd {
+    color: #5c5c5c;
+  }
+
+  .xc1psib {
+    color: #b40000;
+  }
+
+  .x1g2jj4w {
+    color: #bdbdbd;
+  }
+
+  .x1jkc3nh {
+    color: #e4e4e4;
+  }
+
+  .xwzmh2i {
+    color: #e8e8e8;
+  }
+
+  .x1ehl0qq {
+    color: #f2f2f2;
+  }
+
+  .x176u5xh {
+    color: #fff;
+  }
+
+  .x1heor9g {
+    color: inherit;
+  }
+
+  .xt0e3qv {
+    cursor: default;
+  }
+
+  .x7eptgl {
+    cursor: ew-resize;
+  }
+
+  .x1jm3nie {
+    cursor: grab;
+  }
+
+  .x1e5i8e3 {
+    cursor: ns-resize;
+  }
+
+  .x16djdpl {
+    cursor: nwse-resize;
+  }
+
+  .x1ypdohk {
+    cursor: pointer;
+  }
+
+  .x1ed109x {
+    cursor: text;
+  }
+
+  .x1lliihq {
+    display: block;
+  }
+
+  .xjp7ctv {
+    display: contents;
+  }
+
+  .x78zum5 {
+    display: flex;
+  }
+
+  .xrvj5dj {
+    display: grid;
+  }
+
+  .x1rg5ohu {
+    display: inline-block;
+  }
+
+  .x3nfvp2 {
+    display: inline-flex;
+  }
+
+  .xwz0xwf {
+    display: inline-grid;
+  }
+
+  .xt0psk2 {
+    display: inline;
+  }
+
+  .x1s85apg {
+    display: none;
+  }
+
+  .xbh8q5q {
+    fill: none;
+  }
+
+  .x12ti7tg {
+    filter: drop-shadow(0 2px 4px #00000073);
+  }
+
+  .xdl72j9 {
+    flex-basis: auto;
+  }
+
+  .x1mz2wy7 {
+    flex-basis: var(--x-flexBasis);
+  }
+
+  .x3ieub6 {
+    flex-direction: column-reverse;
+  }
+
+  .xdt5ytf {
+    flex-direction: column;
+  }
+
+  .x15zctf7 {
+    flex-direction: row-reverse;
+  }
+
+  .x1q0g3np {
+    flex-direction: row;
+  }
+
+  .x1c4vz4f {
+    flex-grow: 0;
+  }
+
+  .x1iyjqo2 {
+    flex-grow: 1;
+  }
+
+  .xw36f2b {
+    flex-grow: var(--x-flexGrow);
+  }
+
+  .x2lah0s {
+    flex-shrink: 0;
+  }
+
+  .xs83m0k {
+    flex-shrink: 1;
+  }
+
+  .xn95wi4 {
+    flex-shrink: var(--x-flexShrink);
+  }
+
+  .xozqiw3 {
+    flex-wrap: nowrap;
+  }
+
+  .x8hhl5t {
+    flex-wrap: wrap-reverse;
+  }
+
+  .x1a02dak {
+    flex-wrap: wrap;
+  }
+
+  .xcjbh1g {
+    font-family: PT Sans, sans-serif;
+  }
+
+  .xjb2p0i {
+    font-family: inherit;
+  }
+
+  .x1j6dyjg {
+    font-size: 11px;
+  }
+
+  .xfifm61 {
+    font-size: 12px;
+  }
+
+  .x4z9k3i {
+    font-size: 13px;
+  }
+
+  .xif65rj {
+    font-size: 14px;
+  }
+
+  .x1j61zf2 {
+    font-size: 16px;
+  }
+
+  .x1i1m3gp {
+    font-size: 22px;
+  }
+
+  .xdzlmae {
+    font-size: 8px;
+  }
+
+  .x1qlqyl8 {
+    font-size: inherit;
+  }
+
+  .xss6m8b {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .xo1l8bm {
+    font-weight: 400;
+  }
+
+  .xk50ysn {
+    font-weight: 500;
+  }
+
+  .x19s9jnd {
+    font-weight: 650;
+  }
+
+  .x1xlr1w8 {
+    font-weight: 700;
+  }
+
+  .x1pd3egz {
+    font-weight: inherit;
+  }
+
+  .xqketvx {
+    grid-template-columns: var(--x-gridTemplateColumns);
+  }
+
+  .x1xxtoay {
+    grid-template-rows: var(--x-gridTemplateRows);
+  }
+
+  .xkvytcv {
+    image-rendering: auto;
+  }
+
+  .xl56j7k {
+    justify-content: center;
+  }
+
+  .x1nhvcw1 {
+    justify-content: flex-start;
+  }
+
+  .x1qughib {
+    justify-content: space-between;
+  }
+
+  .xbp6zib {
+    justify-content: var(--x-justifyContent);
+  }
+
+  .xkfbwyo {
+    justify-items: var(--x-justifyItems);
+  }
+
+  .x72az59 {
+    letter-spacing: -.02em;
+  }
+
+  .x1b4dsll {
+    letter-spacing: -.03em;
+  }
+
+  .x1yf5rgg {
+    letter-spacing: .01em;
+  }
+
+  .x4gjf66 {
+    letter-spacing: inherit;
+  }
+
+  .x14ju556 {
+    line-height: 0;
+  }
+
+  .x1u7k74 {
+    line-height: 1.2;
+  }
+
+  .xwn7fz2 {
+    line-height: 1.3;
+  }
+
+  .x37zpob {
+    line-height: 1.4;
+  }
+
+  .xo5v014 {
+    line-height: 1;
+  }
+
+  .x15bjb6t {
+    line-height: inherit;
+  }
+
+  .xvc5jky {
+    margin-inline-start: auto;
+  }
+
+  .xz74otr {
+    object-fit: fill;
+  }
+
+  .x197sbye {
+    opacity: .6;
+  }
+
+  .x1ks1olk {
+    opacity: .7;
+  }
+
+  .x1hc1fzr {
+    opacity: 1;
+  }
+
+  .x1g77sc7 {
+    order: 0;
+  }
+
+  .x1uczgqu {
+    outline-color: #0000;
+  }
+
+  .x1y3gkto {
+    outline-offset: 1px;
+  }
+
+  .x1hl8ikr {
+    outline-offset: 2px;
+  }
+
+  .x1t137rt {
+    outline-style: none;
+  }
+
+  .x1k57tk5 {
+    outline-width: 0;
+  }
+
+  .xj0a0fe {
+    overflow-wrap: anywhere;
+  }
+
+  .x5rfu2g {
+    padding-inline-end: 6px;
+  }
+
+  .xdewsy7 {
+    padding-inline-start: 6px;
+  }
+
+  .x67bb7w {
+    pointer-events: auto;
+  }
+
+  .x47corl {
+    pointer-events: none;
+  }
+
+  .x10l6tqk {
+    position: absolute;
+  }
+
+  .xixxii4 {
+    position: fixed;
+  }
+
+  .x1n2onr6 {
+    position: relative;
+  }
+
+  .x7wzq59 {
+    position: sticky;
+  }
+
+  .xtt52l0 {
+    resize: none;
+  }
+
+  .x73je2i {
+    stroke: currentColor;
+  }
+
+  .x1owpc8m {
+    stroke-linecap: round;
+  }
+
+  .x1f6yumg {
+    stroke-linejoin: round;
+  }
+
+  .xhr4kjn {
+    stroke-width: 1.5px;
+  }
+
+  .x140o2bo {
+    table-layout: fixed;
+  }
+
+  .x2b8uid {
+    text-align: center;
+  }
+
+  .xp4054r {
+    text-align: end;
+  }
+
+  .x1yc453h {
+    text-align: start;
+  }
+
+  .xlyipyv {
+    text-overflow: ellipsis;
+  }
+
+  .x2lcwoz {
+    touch-action: auto;
+  }
+
+  .x5ve5x3 {
+    touch-action: none;
+  }
+
+  .x7p49u4 {
+    transform: rotate(0);
+  }
+
+  .x11lhmoz {
+    transform: translate(-50%, -50%);
+  }
+
+  .xuuh30 {
+    transform: translateX(-50%);
+  }
+
+  .xnn1q72 {
+    transform: translateY(0);
+  }
+
+  .x1hj3fc7 {
+    transform-origin: 0 0;
+  }
+
+  .xctpfpq {
+    transform-origin: var(--transform-origin);
+  }
+
+  .xgdialr {
+    transition-duration: .12s;
+  }
+
+  .x9dyr19 {
+    transition-duration: .18s;
+  }
+
+  .x6o7n8i {
+    transition-property: opacity, transform;
+  }
+
+  .x19991ni {
+    transition-property: opacity;
+  }
+
+  .x11xpdln {
+    transition-property: transform;
+  }
+
+  .xwji4o3 {
+    transition-timing-function: ease;
+  }
+
+  .x1kxipp6 {
+    -webkit-user-select: auto;
+    user-select: auto;
+  }
+
+  .x87ps6o {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .xxymvpz {
+    vertical-align: middle;
+  }
+
+  .xuxw1ft {
+    white-space: nowrap;
+  }
+
+  .x126k92a {
+    white-space: pre-wrap;
+  }
+
+  .x1vjfegm {
+    z-index: 1;
+  }
+
+  .xhtitgo {
+    z-index: 2;
+  }
+
+  .xzkaem6 {
+    z-index: 3;
+  }
+
+  .x68pp3s {
+    z-index: 30;
+  }
+
+  .xoegz02 {
+    z-index: 4;
+  }
+
+  .xf5e64p {
+    z-index: 40;
+  }
+
+  .xvyhd0g {
+    z-index: 45;
+  }
+
+  .x1u8a7rm {
+    z-index: 5;
+  }
+
+  .xa9119d {
+    z-index: 50;
+  }
+
+  .xfa8aoj {
+    z-index: 51;
+  }
+
+  .x5pzany.x5pzany:where(.x-default-marker:focus-visible *), .x1wmh1cq.x1wmh1cq:where(.x-default-marker:hover *) {
+    color: inherit;
+  }
+
+  .x42ex48:focus-visible {
+    background-color: #1473e6;
+  }
+
+  .x1x3h7s7:focus-visible {
+    background-color: #1a1a1a;
+  }
+
+  .x8jlmqv:focus-visible {
+    color: #fff;
+  }
+
+  .x8aaq79:focus-visible {
+    outline-color: #0b4fa8;
+  }
+
+  .x1v7b9eb:focus-visible {
+    outline-color: #7fb6ff;
+  }
+
+  .x9v5kkp:focus-visible {
+    outline-style: solid;
+  }
+
+  .x784prv:focus-visible {
+    outline-width: 2px;
+  }
+
+  .x1hxt5vn:has(:focus-visible) {
+    outline-color: #7fb6ff;
+  }
+
+  .xnnj0qo:has(:focus-visible) {
+    outline-style: solid;
+  }
+
+  .x1odlxkb:has(:focus-visible) {
+    outline-width: 2px;
+  }
+
+  .x1oqui1x:disabled {
+    background-color: #0000;
+  }
+
+  .x1qtud98:disabled {
+    color: #5c5c5c;
+  }
+
+  .xtgyt42:disabled {
+    cursor: default;
+  }
+
+  .x1t5pwa4:disabled {
+    opacity: .45;
+  }
+
+  .x14dwi5b:hover {
+    background-color: #0d66d0;
+  }
+
+  .x1m1iki:hover {
+    background-color: #1473e6;
+  }
+
+  .x8j78sb:hover {
+    background-color: #9a3412;
+  }
+
+  .x1fh5svf:hover {
+    background-color: #ffffff0a;
+  }
+
+  .x1alapbr:hover {
+    background-color: #ffffff14;
+  }
+
+  .x6sfsby:hover {
+    background-color: #ffffff1f;
+  }
+
+  .xx07f9f:hover {
+    box-shadow: inset 0 0 0 1px #00000073, 0 0 0 2px #ffffff73;
+  }
+
+  .x171fh22:hover {
+    color: #fff;
+  }
+
+  .xch2mbi:active {
+    cursor: grabbing;
+  }
+}
+
+@layer priority5 {
+  .x1itk4nu {
+    border-bottom-color: #1a1a1a;
+  }
+
+  .x1q0q8m5 {
+    border-bottom-style: solid;
+  }
+
+  .xso031l {
+    border-bottom-width: 1px;
+  }
+
+  .x1rpuh8l {
+    bottom: 0;
+  }
+
+  .xmbx2d0 {
+    bottom: 14px;
+  }
+
+  .x10phs6i {
+    bottom: 16px;
+  }
+
+  .x19ip775 {
+    bottom: 1px;
+  }
+
+  .xy1j3rs {
+    bottom: 3px;
+  }
+
+  .x5yr21d {
+    height: 100%;
+  }
+
+  .x170jfvy {
+    height: 10px;
+  }
+
+  .x1nbnut7 {
+    height: 128px;
+  }
+
+  .x1kpxq89 {
+    height: 12px;
+  }
+
+  .x1v9usgg {
+    height: 14px;
+  }
+
+  .x19u3dp9, .xlup9mm {
+    height: 16px;
+  }
+
+  .x1b51vyi {
+    height: 180px;
+  }
+
+  .xmix8c7 {
+    height: 18px;
+  }
+
+  .xjm9jq1 {
+    height: 1px;
+  }
+
+  .x1qx5ct2 {
+    height: 20px;
+  }
+
+  .x17rw0jw {
+    height: 22px;
+  }
+
+  .xlspv50 {
+    height: 24px;
+  }
+
+  .xvlfa07 {
+    height: 28px;
+  }
+
+  .xw0cs1b {
+    height: 32px;
+  }
+
+  .x7eldde {
+    height: 36px;
+  }
+
+  .x5kalc8 {
+    height: 42px;
+  }
+
+  .xols6we {
+    height: 6px;
+  }
+
+  .x1hagigm {
+    height: 7px;
+  }
+
+  .x1phoz2h, .x1uo49zr {
+    height: 8px;
+  }
+
+  .xt7dq6l {
+    height: auto;
+  }
+
+  .xdmi676 {
+    height: max-content;
+  }
+
+  .x1l86nkd {
+    left: 0;
+  }
+
+  .xl8wat7 {
+    left: 100%;
+  }
+
+  .x1nrll8i {
+    left: 50%;
+  }
+
+  .x4wgp6k {
+    margin-bottom: 2px;
+  }
+
+  .x1x5eh58 {
+    margin-bottom: 4px;
+  }
+
+  .xzvcave {
+    margin-bottom: 8px;
+  }
+
+  .x18wv8x9 {
+    margin-left: -10px;
+  }
+
+  .x1poa0pq {
+    margin-left: 0;
+  }
+
+  .x1rzq302 {
+    margin-left: 4px;
+  }
+
+  .x19pydja {
+    margin-right: 0;
+  }
+
+  .x169o85x {
+    margin-right: 2px;
+  }
+
+  .x1cipd19 {
+    margin-top: 0;
+  }
+
+  .xvijh9v {
+    margin-top: 1px;
+  }
+
+  .x12ajvvl {
+    max-height: calc(100vh - 32px);
+  }
+
+  .xog48mo {
+    max-height: min(280px,var(--available-height));
+  }
+
+  .x1uvn3bq {
+    max-height: min(360px, 46%);
+  }
+
+  .x193iq5w {
+    max-width: 100%;
+  }
+
+  .x1dq269h {
+    max-width: 42ch;
+  }
+
+  .x1k332be {
+    max-width: min(46vw, 420px);
+  }
+
+  .x7k7lee {
+    max-width: var(--available-width);
+  }
+
+  .x2lwn1j {
+    min-height: 0;
+  }
+
+  .xvyn5wl {
+    min-height: 28px;
+  }
+
+  .x1bq8ba2 {
+    min-height: 280px;
+  }
+
+  .xeuugli {
+    min-width: 0;
+  }
+
+  .x1tb27t6 {
+    min-width: 16px;
+  }
+
+  .x5w4yej {
+    min-width: 160px;
+  }
+
+  .x1fvg1xb {
+    min-width: 196px;
+  }
+
+  .x12rczxh {
+    min-width: 220px;
+  }
+
+  .xvx64lm {
+    min-width: 24px;
+  }
+
+  .x1u2d2a2 {
+    min-width: 280px;
+  }
+
+  .x12uzs4e {
+    min-width: 32px;
+  }
+
+  .x80t9vs {
+    min-width: var(--anchor-width);
+  }
+
+  .x12yu1fe {
+    padding-bottom: 0;
+  }
+
+  .x1ymq0du {
+    padding-bottom: 10px;
+  }
+
+  .xzt42fz {
+    padding-bottom: 2px;
+  }
+
+  .xwm2get {
+    padding-bottom: 4px;
+  }
+
+  .x1h06gxz {
+    padding-bottom: 6px;
+  }
+
+  .x1dc0t6 {
+    padding-left: 10px;
+  }
+
+  .x1tvs38t {
+    padding-left: 4px;
+  }
+
+  .xl8o56g {
+    padding-right: 4px;
+  }
+
+  .xxpjhs0 {
+    padding-right: 8px;
+  }
+
+  .x1hdb9bq {
+    padding-top: 0;
+  }
+
+  .xhvndxv {
+    padding-top: 2px;
+  }
+
+  .x1sd7m2u {
+    padding-top: 6px;
+  }
+
+  .x95pkje {
+    right: 0;
+  }
+
+  .x44moml {
+    right: 14px;
+  }
+
+  .x1t0h6ot {
+    right: 16px;
+  }
+
+  .x1hp3iq1 {
+    right: 1px;
+  }
+
+  .xmnqija {
+    right: 3px;
+  }
+
+  .x13vifvy, .xx01l5j {
+    top: 0;
+  }
+
+  .xnk1id7 {
+    top: 28px;
+  }
+
+  .xwa60dl {
+    top: 50%;
+  }
+
+  .xh8yej3 {
+    width: 100%;
+  }
+
+  .x1fsd2vl {
+    width: 10px;
+  }
+
+  .xygnafs {
+    width: 120px;
+  }
+
+  .xsmyaan {
+    width: 12px;
+  }
+
+  .x6jxa94 {
+    width: 14px;
+  }
+
+  .xj4p9dj, .x1kky2od {
+    width: 16px;
+  }
+
+  .x1xp8n7a {
+    width: 18px;
+  }
+
+  .x2i0jwv {
+    width: 196px;
+  }
+
+  .x1i1rx1s {
+    width: 1px;
+  }
+
+  .xw4jnvo {
+    width: 20px;
+  }
+
+  .x2qqsnf {
+    width: 216px;
+  }
+
+  .x17z2i9w {
+    width: 22px;
+  }
+
+  .x1becmtc {
+    width: 24px;
+  }
+
+  .x14pgy0v {
+    width: 28px;
+  }
+
+  .x1qpuye1 {
+    width: 32px;
+  }
+
+  .xdigxul {
+    width: 36px;
+  }
+
+  .x1fnd73c {
+    width: 42%;
+  }
+
+  .x10h3iyq {
+    width: 42px;
+  }
+
+  .x1useyqa {
+    width: 48px;
+  }
+
+  .x1u78mur {
+    width: 58px;
+  }
+
+  .x1v4s8kt {
+    width: 6px;
+  }
+
+  .xci0xqf {
+    width: 7px;
+  }
+
+  .x1lq8fwt {
+    width: 8px;
+  }
+
+  .x14atkfc {
+    width: auto;
+  }
+
+  .xezivpi {
+    width: max-content;
+  }
+
+  .x1ove4c {
+    width: min(360px, 100vw - 32px);
+  }
+
+  .x8xl5fk {
+    width: min(420px, 100vw - 32px);
+  }
+
+  .xjjedtd {
+    width: min(540px, 100% - 24px);
+  }
+
+  .xvzn5ge {
+    width: min(560px, 100%);
+  }
+
+  .xpn72k7 {
+    width: min(560px, 100vw - 32px);
+  }
+}
+
+@layer priority6 {
+  .xg4tesi[data-type="warning"] {
+    border-color: #d4a84a;
+  }
+
+  @media (width <= 720px) {
+    .x12tl428.x12tl428 {
+      padding-block: 12px;
+    }
+
+    .x1ne5am4.x1ne5am4 {
+      padding-block: 24px;
+    }
+
+    .x1hixdy5.x1hixdy5 {
+      padding-block: 6px;
+    }
+
+    .x7rwwmc.x7rwwmc {
+      padding-inline: 12px;
+    }
+
+    .x9v5anb.x9v5anb {
+      padding-inline: 16px;
+    }
+
+    .x10idj2m.x10idj2m {
+      padding-inline: 4px;
+    }
+  }
+}
+
+@layer priority7 {
+  @media (prefers-reduced-motion: reduce) {
+    .x1na13mt.x1na13mt {
+      animation-name: none;
+    }
+  }
+
+  .x1dvpy2e[data-highlighted], .x1f1096i[data-popup-open], .x34dbie[data-selected] {
+    background-color: #1473e6;
+  }
+
+  .xan4kr8[data-type="warning"]:hover {
+    background-color: #d4a84a;
+  }
+
+  .x80kjtf[data-type="warning"] {
+    background-color: #e7c56a;
+  }
+
+  .xxbvp6p[data-type="warning"] {
+    background-color: #544c38;
+  }
+
+  .xgd53ny[data-highlighted], .xi3ry7j[data-selected] {
+    background-color: #1473e647;
+  }
+
+  .x16wda04[data-checked], .x1v2vyzl[data-pressed], .x1x11rwn[data-drop], .xp5vdfx[aria-pressed="true"] {
+    background-color: #1473e659;
+  }
+
+  .x13wyxbu[data-selected] {
+    background-color: #ffffff0f;
+  }
+
+  .xwf0prb[data-popup-open] {
+    background-color: #ffffff14;
+  }
+
+  .xynnxzo[data-disabled] {
+    background-color: #0000;
+  }
+
+  .x13ltile[data-dragging] {
+    box-shadow: 0 18px 40px #0000008c;
+  }
+
+  .x1y9kjle[data-selected] {
+    box-shadow: inset 0 0 0 1px #00000073, 0 0 0 2px #f2f2f2;
+  }
+
+  .xq7y4yq[data-type="warning"] {
+    color: #0b0b0b;
+  }
+
+  .x194qiob[data-disabled] {
+    color: #5c5c5c;
+  }
+
+  .x15j37pr[data-placeholder], .x1qxlpa8[data-locked] {
+    color: #bdbdbd;
+  }
+
+  .x3w4utc[data-type="warning"] {
+    color: #e7c56a;
+  }
+
+  .xh4bxeh[data-type="warning"] {
+    color: #f8e7b0;
+  }
+
+  .x132xiy6[data-popup-open], .xvh9bwf[data-highlighted] {
+    color: #fff;
+  }
+
+  .x1f6o5j1[data-cursor="crosshair"] {
+    cursor: crosshair;
+  }
+
+  .xmh7c9n[data-disabled] {
+    cursor: default;
+  }
+
+  .x15cmd6b[data-cursor="ew-resize"] {
+    cursor: ew-resize;
+  }
+
+  .x1s32wav[data-cursor="grab"] {
+    cursor: grab;
+  }
+
+  .xdctgko[data-dragging], .xiq7t5j[data-grabbing] {
+    cursor: grabbing;
+  }
+
+  .x1be5kew[data-cursor="move"] {
+    cursor: move;
+  }
+
+  .x7b317i[data-cursor="nesw-resize"] {
+    cursor: nesw-resize;
+  }
+
+  .xivms1a[data-cursor="nwse-resize"] {
+    cursor: nwse-resize;
+  }
+
+  .x1hgdzmg[data-cursor="pointer"] {
+    cursor: pointer;
+  }
+
+  .x1wqbloj[data-cursor="zoom-in"] {
+    cursor: zoom-in;
+  }
+
+  .xf2db32[data-cursor="zoom-out"] {
+    cursor: zoom-out;
+  }
+
+  @media (width <= 720px) {
+    .x136pg3w.x136pg3w {
+      display: none;
+    }
+
+    .xab2gcy.xab2gcy {
+      flex-basis: 100%;
+    }
+  }
+
+  .x1pt9lax[data-orientation="vertical"] {
+    flex-direction: column;
+  }
+
+  @media (width <= 720px) {
+    .x1lhslwj.x1lhslwj {
+      flex-grow: 1;
+    }
+
+    .xron3dv.xron3dv {
+      flex-wrap: wrap;
+    }
+  }
+
+  .x7ckawk[data-crisp] {
+    image-rendering: pixelated;
+  }
+
+  .x11xjgb3[data-disabled] {
+    opacity: .45;
+  }
+
+  .x1hw7zpd[data-starting-style], .xiyypsa[data-ending-style] {
+    opacity: 0;
+  }
+
+  .xl08cnf[data-over] {
+    opacity: 1;
+  }
+
+  @media (width <= 720px) {
+    .xv69q9e.xv69q9e {
+      order: 5;
+    }
+
+    .x1p6bxqv.x1p6bxqv {
+      pointer-events: auto;
+    }
+
+    .x1lot2hh.x1lot2hh {
+      position: static;
+    }
+
+    .x80at7z.x80at7z {
+      row-gap: 2px;
+    }
+
+    .x1mzi66a.x1mzi66a {
+      text-align: left;
+    }
+
+    .x1panim6.x1panim6 {
+      transform: none;
+    }
+  }
+
+  .x1rc4jnv[data-popup-open] {
+    transform: rotate(180deg);
+  }
+
+  .x13nd89q[data-ending-style], .x2conkj[data-starting-style] {
+    transform: translate(-50%, calc(8px - 50%));
+  }
+
+  .x1346s7r[data-ending-style], .xqd1da1[data-starting-style] {
+    transform: translateY(8px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .x1o6kdc1.x1o6kdc1 {
+      transition-duration: 0s;
+    }
+  }
+
+  .x13db296[data-cursor="pointer"], .x1aq6vwf[data-cursor="grab"], .x1dfav8a[data-cursor="zoom-in"], .x1ow5v97[data-cursor="nesw-resize"], .x1q19rob[data-cursor="ew-resize"], .x1q903xc[data-cursor="move"], .x1qclfi9[data-cursor="crosshair"], .x1w05pdx[data-grabbing], .x1x6042r[data-cursor="nwse-resize"], .xs1hlzl[data-cursor="zoom-out"] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+@layer priority8 {
+  @media (width <= 720px) {
+    .x5yxf4q.x5yxf4q {
+      height: auto;
+    }
+
+    .x1rg3gp6.x1rg3gp6 {
+      left: auto;
+    }
+
+    .xzznogm.xzznogm {
+      max-width: 100%;
+    }
+
+    .x65t35m.x65t35m {
+      min-height: 220px;
+    }
+
+    .x6pfi7o.x6pfi7o {
+      min-height: 42px;
+    }
+
+    .x1wv05on.x1wv05on {
+      padding-bottom: 4px;
+    }
+
+    .x1m0k93c.x1m0k93c {
+      padding-top: 2px;
+    }
+  }
+}
+
+@property --x-alignContent {
+  syntax: "*";
+  inherits: false
+}
+
+@property --x-alignItems {
+  syntax: "*";
+  inherits: false
+}
+
+@property --x-borderRadius {
+  syntax: "*";
+  inherits: false
+}
+
+@property --x-flexBasis {
+  syntax: "*";
+  inherits: false
+}
+
+@property --x-flexGrow {
+  syntax: "*";
+  inherits: false
+}
+
+@property --x-flexShrink {
+  syntax: "*";
+  inherits: false
+}
+
+@property --x-gap {
+  syntax: "*";
+  inherits: false
+}
+
+@property --x-gridTemplateColumns {
+  syntax: "*";
+  inherits: false
+}
+
+@property --x-gridTemplateRows {
+  syntax: "*";
+  inherits: false
+}
+
+@property --x-justifyContent {
+  syntax: "*";
+  inherits: false
+}
+
+@property --x-justifyItems {
+  syntax: "*";
+  inherits: false
+}
+
+@property --x-margin {
+  syntax: "*";
+  inherits: false
+}
+
+@property --x-marginBlock {
+  syntax: "*";
+  inherits: false
+}
+
+@property --x-marginInline {
+  syntax: "*";
+  inherits: false
+}
+
+@property --x-padding {
+  syntax: "*";
+  inherits: false
+}
+
+@property --x-paddingBlock {
+  syntax: "*";
+  inherits: false
+}
+
+@property --x-paddingInline {
+  syntax: "*";
+  inherits: false
+}
+
+@property --x-placeItems {
+  syntax: "*";
+  inherits: false
+}
+
+@keyframes x1i4k03n-B {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: -100% 0;
+  }
+}
