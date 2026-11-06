@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/victorfern91/topo-builder/compare/v1.0.0...v1.1.0) (2026-11-06)
+
+
+### Features
+
+* Add notes, free text, and exit arrows on the photo ([#23](https://github.com/victorfern91/topo-builder/issues/23)) ([97a2e7c](https://github.com/victorfern91/topo-builder/commit/97a2e7c4cdec79f283fdfc89c04e24a651e04b44))
+
 # 1.0.0 (2026-11-05)
 
 
