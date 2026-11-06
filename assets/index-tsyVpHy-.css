@@ -11,7 +11,7 @@
     margin: -1px;
   }
 
-  .x18l6ah2 {
+  .x18l6ah2, .x1ghz6dp {
     margin: 0;
   }
 
@@ -35,8 +35,16 @@
     padding: 24px;
   }
 
+  .x9ms5i6 {
+    padding: 3px;
+  }
+
   .x1ghdhy9 {
     padding: 4px;
+  }
+
+  .xzv379g {
+    padding: 6px;
   }
 
   .x1fozly0 {
@@ -819,6 +827,10 @@
     outline-width: 0;
   }
 
+  .xj0a0fe {
+    overflow-wrap: anywhere;
+  }
+
   .x5rfu2g {
     padding-inline-end: 6px;
   }
@@ -849,6 +861,10 @@
 
   .x7wzq59 {
     position: sticky;
+  }
+
+  .xtt52l0 {
+    resize: none;
   }
 
   .x73je2i {
@@ -959,6 +975,10 @@
 
   .xuxw1ft {
     white-space: nowrap;
+  }
+
+  .x126k92a {
+    white-space: pre-wrap;
   }
 
   .x1vjfegm {
@@ -1659,6 +1679,10 @@
     cursor: default;
   }
 
+  .x15cmd6b[data-cursor="ew-resize"] {
+    cursor: ew-resize;
+  }
+
   .x1s32wav[data-cursor="grab"] {
     cursor: grab;
   }
@@ -1775,7 +1799,7 @@
     }
   }
 
-  .x13db296[data-cursor="pointer"], .x1aq6vwf[data-cursor="grab"], .x1dfav8a[data-cursor="zoom-in"], .x1ow5v97[data-cursor="nesw-resize"], .x1q903xc[data-cursor="move"], .x1qclfi9[data-cursor="crosshair"], .x1w05pdx[data-grabbing], .x1x6042r[data-cursor="nwse-resize"], .xs1hlzl[data-cursor="zoom-out"] {
+  .x13db296[data-cursor="pointer"], .x1aq6vwf[data-cursor="grab"], .x1dfav8a[data-cursor="zoom-in"], .x1ow5v97[data-cursor="nesw-resize"], .x1q19rob[data-cursor="ew-resize"], .x1q903xc[data-cursor="move"], .x1qclfi9[data-cursor="crosshair"], .x1w05pdx[data-grabbing], .x1x6042r[data-cursor="nwse-resize"], .xs1hlzl[data-cursor="zoom-out"] {
     -webkit-user-select: none;
     user-select: none;
   }
