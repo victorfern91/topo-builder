@@ -37,6 +37,8 @@ import {
   type LineHit,
   type LineLayer,
 } from "../state/lines.ts";
+import { deleteCallout, selectCallout } from "../state/callouts.ts";
+import { calloutDragActive } from "../state/callout-drag.ts";
 import { clearRouteNumber } from "../state/route-badge.ts";
 import { badgeSpot } from "../state/route-number.ts";
 import {
@@ -68,12 +70,19 @@ import { markDragActive } from "../state/mark-drag.ts";
 import { stage } from "../styles/stage.ts";
 import { LayersPanel } from "./layers-panel.tsx";
 import { LineCanvas } from "./canvas/line-canvas.tsx";
-import { BadgeDragGhost, MarkDragGhost, MarksPanel } from "./marks-panel.tsx";
+import {
+  BadgeDragGhost,
+  CalloutDragGhost,
+  MarkDragGhost,
+  MarksPanel,
+} from "./marks-panel.tsx";
 import { NavigatorPanel } from "./navigator-panel.tsx";
 import { pointMenuOpen, setPointMenu } from "../state/point-menu.ts";
 import { PointMenuHost } from "./point-menu.tsx";
 import { NumberEditor } from "./number-editor.tsx";
+import { TextEditor } from "./text-editor.tsx";
 import { setNumberEdit } from "../state/number-edit.ts";
+import { setTextEdit } from "../state/text-edit.ts";
 import { ToolSidebar } from "./tool-sidebar.tsx";
 
 const DRAG_SLOP = 3;
@@ -272,7 +281,8 @@ export function ArtboardStage({
     const node = stageRef.current;
     if (!node) return;
     const onMove = (event: PointerEvent) => {
-      if (lineGestureActive() || markDragActive()) return;
+      if (lineGestureActive() || markDragActive() || calloutDragActive())
+        return;
       if (
         !toolEditsLine(activeTool(toolStore.get())) ||
         isChromeTarget(event.target)
@@ -292,7 +302,7 @@ export function ArtboardStage({
       hoverLine(point.x, point.y, view.zoom);
     };
     const onLeave = () => {
-      if (!markDragActive()) clearLineHover();
+      if (!markDragActive() && !calloutDragActive()) clearLineHover();
     };
     const onKeyDown = (event: KeyboardEvent) => {
       const clipboard = clipboardCommand(event);
@@ -323,6 +333,11 @@ export function ArtboardStage({
         event.preventDefault();
         clearRouteNumber(badge.layerId, badge.badge, badge.index);
         clearLineHover();
+        return;
+      }
+      if (state.calloutId !== null) {
+        event.preventDefault();
+        deleteCallout(state.calloutId);
         return;
       }
       if (state.markId !== null) {
@@ -568,6 +583,23 @@ export function ArtboardStage({
       view.zoom,
     );
     const hit = hitTest(lineStore.get(), point.x, point.y, view.zoom);
+    if (hit?.type === "label") {
+      const label = lineStore
+        .get()
+        .labels.find((item) => item.id === hit.labelId);
+      if (!label || label.locked) return;
+      event.preventDefault();
+      selectCallout(label.id);
+      setTextEdit(label.id);
+      return;
+    }
+    if (hit?.type === "note") {
+      if (findLayer(lineStore.get(), hit.layerId)?.locked) return;
+      event.preventDefault();
+      selectCallout(hit.noteId);
+      setTextEdit(hit.noteId);
+      return;
+    }
     if (hit?.type !== "number" || hit.badge !== "number") return;
     if (findLayer(lineStore.get(), hit.layerId)?.locked) return;
     event.preventDefault();
@@ -603,8 +635,10 @@ export function ArtboardStage({
       {navigator ? <NavigatorPanel /> : null}
       <PointMenuHost />
       <NumberEditor />
+      <TextEditor />
       <MarkDragGhost />
       <BadgeDragGhost />
+      <CalloutDragGhost />
     </Layout.Box>
   );
 }
@@ -658,6 +692,8 @@ function stageCursor(
 ): string {
   if (panning) return "grab";
   if (!toolEditsLine(tool)) return toolCursor(tool);
+  if (hover?.type === "labelEdge" || hover?.type === "noteEdge")
+    return "ew-resize";
   if (hover?.type === "markCorner")
     return hover.corner === "nw" || hover.corner === "se"
       ? "nwse-resize"

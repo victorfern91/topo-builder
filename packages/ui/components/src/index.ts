@@ -31,7 +31,7 @@ export type {
   ButtonTextProps,
   ButtonVariant,
 } from "./button/index.ts";
-export type { InputRootProps } from "./input/index.ts";
+export type { InputAreaProps, InputRootProps } from "./input/index.ts";
 export type {
   KbdChord,
   KbdChordText,

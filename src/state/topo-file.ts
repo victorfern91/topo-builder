@@ -1,13 +1,17 @@
 import { t } from "../i18n/index.ts";
+import { clampTextWidth } from "./callouts.ts";
 import { TopoError } from "./errors.ts";
 import { failImageFile, openImageFile } from "./image-document.ts";
 import {
   clampDrawScale,
   loadDrawing,
   type Anchor,
+  type ExitArrow,
   type LineLayer,
   type LineState,
   type MarkedPoint,
+  type RouteNote,
+  type TextLabel,
 } from "./lines.ts";
 import {
   clampMarkSize,
@@ -53,12 +57,26 @@ export function topoMetadata(doc: LineState, source: string): string {
         : "";
       return `<topo:anchor x="${String(anchor.x)}" y="${String(anchor.y)}"${point}/>`;
     });
+    const notes = layer.notes.map((note) => {
+      const width = note.width === null ? "" : ` width="${String(note.width)}"`;
+      return `<topo:note id="${escapeXml(note.id)}" text="${escapeXml(note.text)}"${width}${spotAttributes("", note.place)}/>`;
+    });
     return [
       `<topo:line id="${escapeXml(layer.id)}" kind="${layer.kind}" name="${escapeXml(layer.name)}" color="${escapeXml(layer.color)}" scale="${String(layer.scale)}" locked="${layer.locked}"${grade}${numberText}${gradeBadge}>`,
       ...anchors,
       ...numbers,
+      ...notes,
       `</topo:line>`,
     ].join("\n");
+  });
+  const labels = doc.labels.map((label) => {
+    const locked = label.locked ? ` locked="true"` : "";
+    const width = label.width === null ? "" : ` width="${String(label.width)}"`;
+    return `<topo:label id="${escapeXml(label.id)}" x="${String(label.x)}" y="${String(label.y)}" color="${escapeXml(label.color)}" text="${escapeXml(label.text)}"${width}${locked}/>`;
+  });
+  const exits = doc.exits.map((exit) => {
+    const locked = exit.locked ? ` locked="true"` : "";
+    return `<topo:exit id="${escapeXml(exit.id)}" x="${String(exit.x)}" y="${String(exit.y)}" tip-x="${String(exit.tipX)}" tip-y="${String(exit.tipY)}" color="${escapeXml(exit.color)}"${locked}/>`;
   });
   const points = doc.points.map((point) => {
     const size = point.size === 1 ? "" : ` size="${String(point.size)}"`;
@@ -70,6 +88,8 @@ export function topoMetadata(doc: LineState, source: string): string {
     `<topo:document version="${TOPO_VERSION}" source="${escapeXml(source)}" scale="${String(doc.scale)}">`,
     ...lines,
     ...points,
+    ...labels,
+    ...exits,
     `</topo:document>`,
     `</metadata>`,
   ].join("\n");
@@ -85,7 +105,10 @@ export async function openTopoFile(file: File): Promise<void> {
   }
 }
 
-type TopoDrawing = Pick<LineState, "layers" | "points" | "scale">;
+type TopoDrawing = Pick<
+  LineState,
+  "layers" | "points" | "labels" | "exits" | "scale"
+>;
 
 async function readTopoFile(
   file: File,
@@ -145,6 +168,7 @@ async function readTopoFile(
       numberText: node.getAttribute("number-text") ?? DEFAULT_NUMBER_TEXT,
       gradeBadge: readSpot(node, "grade"),
       grade,
+      notes: readNotes(node, ids),
     };
   });
 
@@ -153,6 +177,8 @@ async function readTopoFile(
     drawing: {
       layers,
       points: [...points.values()],
+      labels: readLabels(root, ids),
+      exits: readExits(root, ids),
       scale: clampDrawScale(number(root, "scale")),
     },
   };
@@ -195,6 +221,60 @@ function readNumbers(node: Element): RouteNumber[] {
     ...(legacy ? [legacy] : []),
     ...spots.filter((spot) => spot !== null),
   ];
+}
+
+function readNotes(node: Element, ids: Set<string>): RouteNote[] {
+  return children(node, "note").map((child) => {
+    const id = text(child, "id");
+    if (ids.has(id)) invalid();
+    ids.add(id);
+    const place = readSpot(child, "");
+    if (!place) invalid();
+    return {
+      id,
+      text: child.getAttribute("text") ?? "",
+      place,
+      width: child.hasAttribute("width")
+        ? clampTextWidth(number(child, "width"), "note")
+        : null,
+    };
+  });
+}
+
+function readLabels(root: Element, ids: Set<string>): TextLabel[] {
+  return children(root, "label").map((node) => {
+    const id = text(node, "id");
+    if (ids.has(id)) invalid();
+    ids.add(id);
+    return {
+      id,
+      x: number(node, "x"),
+      y: number(node, "y"),
+      color: text(node, "color"),
+      text: node.getAttribute("text") ?? "",
+      locked: node.getAttribute("locked") === "true",
+      width: node.hasAttribute("width")
+        ? clampTextWidth(number(node, "width"), "label")
+        : null,
+    };
+  });
+}
+
+function readExits(root: Element, ids: Set<string>): ExitArrow[] {
+  return children(root, "exit").map((node) => {
+    const id = text(node, "id");
+    if (ids.has(id)) invalid();
+    ids.add(id);
+    return {
+      id,
+      x: number(node, "x"),
+      y: number(node, "y"),
+      tipX: number(node, "tip-x"),
+      tipY: number(node, "tip-y"),
+      color: text(node, "color"),
+      locked: node.getAttribute("locked") === "true",
+    };
+  });
 }
 
 function children(parent: Element, name: string): Element[] {

@@ -1,3 +1,4 @@
+import { calloutDragStore } from "../../../state/callout-drag.ts";
 import { findLayer } from "../../../state/lines.ts";
 import { MARK_KIND } from "../../../state/point-marks.ts";
 import { paintMaterialBand, paintNumberBand } from "../paint/bands.ts";
@@ -8,8 +9,13 @@ export function MagnetBands() {
   usePaintLayer((frame) => {
     withImageSpace(frame);
     const { ctx, doc, hover, numberDrag, drag, materialGrab } = frame;
+    const aim = calloutDragStore.get();
     const magnetId =
-      numberDrag?.layerId ?? (hover?.type === "number" ? hover.layerId : null);
+      numberDrag?.layerId ??
+      (aim?.kind === "note" ? aim.layerId : null) ??
+      (hover?.type === "number" || hover?.type === "note"
+        ? hover.layerId
+        : null);
     if (magnetId) {
       const band = findLayer(doc, magnetId);
       if (band) paintNumberBand(ctx, band);

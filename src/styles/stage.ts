@@ -22,6 +22,7 @@ export const stage = stylex.create({
       '[data-cursor="pointer"]': "pointer",
       '[data-cursor="nwse-resize"]': "nwse-resize",
       '[data-cursor="nesw-resize"]': "nesw-resize",
+      '[data-cursor="ew-resize"]': "ew-resize",
       "[data-grabbing]": "grabbing",
     },
     userSelect: {
@@ -34,6 +35,7 @@ export const stage = stylex.create({
       '[data-cursor="pointer"]': "none",
       '[data-cursor="nwse-resize"]': "none",
       '[data-cursor="nesw-resize"]': "none",
+      '[data-cursor="ew-resize"]': "none",
       "[data-grabbing]": "none",
     },
   },
@@ -73,12 +75,6 @@ export const lineLayers = stylex.create({
     userSelect: "auto",
     touchAction: "auto",
   },
-  colors: {
-    minWidth: 0,
-    borderBottomWidth: 1,
-    borderBottomStyle: "solid",
-    borderBottomColor: Tokens.color.neutral[850],
-  },
   colorStep: {
     width: 18,
     height: 18,
@@ -111,6 +107,21 @@ export const lineLayers = stylex.create({
     borderRadius: 2,
     boxShadow: `inset 0 0 0 1px ${Tokens.color.black[45]}`,
     verticalAlign: "middle",
+  },
+  swatchButton: {
+    display: "inline-block",
+    width: 16,
+    height: 16,
+    paddingBlock: Tokens.spacing.none,
+    paddingInline: Tokens.spacing.none,
+    borderRadius: 2,
+    boxShadow: `inset 0 0 0 1px ${Tokens.color.black[45]}`,
+    verticalAlign: "middle",
+  },
+  colorPopup: {
+    minWidth: 0,
+    width: 120,
+    padding: Tokens.spacing.sm,
   },
   gradeTrigger: {
     height: 22,

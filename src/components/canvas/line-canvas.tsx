@@ -1,5 +1,6 @@
 import { CanvasSurface } from "./canvas-surface.tsx";
 import { Badges } from "./layers/badges.tsx";
+import { Callouts } from "./layers/callouts.tsx";
 import { Controls } from "./layers/controls.tsx";
 import { DropSpots } from "./layers/drop-spots.tsx";
 import { MagnetBands } from "./layers/magnet-bands.tsx";
@@ -18,6 +19,7 @@ export function LineCanvas() {
       <Controls />
       <MarkFrame />
       <Badges />
+      <Callouts />
       <Marks pass="anchor" />
     </CanvasSurface>
   );
